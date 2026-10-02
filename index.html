@@ -10283,6 +10283,16 @@
             if (langToggle) navActions.insertBefore(dashBtn, langToggle.nextSibling);
             else navActions.prepend(dashBtn);
           }
+          if (!$('#headerMsgBtn')) {
+            const msgBtn = document.createElement('button');
+            msgBtn.id = 'headerMsgBtn';
+            msgBtn.className = 'btn btn-ghost desktop-only';
+            msgBtn.dataset.route = 'messages';
+            msgBtn.innerHTML = '&#9993; Messages';
+            msgBtn.style.fontSize = '12px';
+            msgBtn.onclick = () => route('messages');
+            navActions.insertBefore(msgBtn, $('#headerEditProfileBtn') || $('#logoutBtn') || null);
+          }
           if (!$('#headerEditProfileBtn')) {
             const epBtn = document.createElement('button');
             epBtn.id = 'headerEditProfileBtn';
@@ -10305,6 +10315,7 @@
           if ($('#signupBtn')) $('#signupBtn').style.display = '';
           if ($('#mobileLogin')) $('#mobileLogin').style.display = '';
           $('#headerDashBtn')?.remove();
+          $('#headerMsgBtn')?.remove();
           $('#headerEditProfileBtn')?.remove();
           $('#logoutBtn')?.remove();
         }
