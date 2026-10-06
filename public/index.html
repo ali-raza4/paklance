@@ -1,0 +1,1086 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Paklance</title>
+<!--SEO-->
+<meta name="theme-color" content="#0B3B2D">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="/assets/js/anim.js"></script>
+<link rel="stylesheet" href="/assets/css/site.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></symbol>
+<symbol id="i-contract" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 15a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 12.5h5"/></symbol>
+<symbol id="i-wallet" viewBox="0 0 24 24"><path d="M18 7V5.5A1.5 1.5 0 0 0 16.5 4H5a2 2 0 0 0-2 2"/><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M21 11h-4a2 2 0 0 0 0 4h4"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5 10 17.5 19 7"/></symbol>
+<symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 3 8.3 7 10 4-1.7 7-5.4 7-10V6z"/><path d="m9 12 2 2 4-4.5"/></symbol>
+<symbol id="i-user-check" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2.5 21c0-3.6 2.9-6.5 6.5-6.5 1.4 0 2.6.4 3.7 1.1"/><path d="m15 18.5 2 2 4.5-4.5"/></symbol>
+<symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
+<symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 4v17M8 21h8M5 7h14"/><path d="m5 7-3 6.5a3 3 0 0 0 6 0z"/><path d="m19 7-3 6.5a3 3 0 0 0 6 0z"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4v5h5"/></symbol>
+<symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.5 13.9 9 19.5 11l-5.6 2L12 18.5 10.1 13 4.5 11l5.6-2z"/></symbol>
+<symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 13.8c2 .9 3.5 3 3.5 6.2"/></symbol>
+<symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M3 10v4a1 1 0 0 0 1 1h3l6 4V5L7 9H4a1 1 0 0 0-1 1z"/><path d="M17 8.5a5 5 0 0 1 0 7"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+<symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="pk-logo" viewBox="0 0 64 64"><rect width="64" height="64" rx="14.5" fill="#0B3B2D"/><g transform="translate(11.52 11.52) scale(0.64)"><path d="M31 52 H10 A21 21 0 0 1 31 31 Z" fill="#FFFFFF"/><path d="M33 52 V31 A21 21 0 0 1 54 52 Z" fill="#12A56F"/><circle cx="19" cy="19" r="7.5" fill="#FFFFFF"/><circle cx="45" cy="19" r="7.5" fill="#12A56F"/></g></symbol>
+</defs></svg>
+<a class="skip" href="#app">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="logo" href="#home" aria-label="Paklance home"><svg class="logo-mark" aria-hidden="true" focusable="false"><use href="#pk-logo"/></svg>Paklance</a>
+    <nav class="main-nav" aria-label="Main">
+      <a href="#jobs" data-nav="jobs">Browse Jobs</a>
+      <a href="#talent" data-nav="talent">Hire Talent</a>
+      <a href="#how" data-nav="how">How It Works</a>
+      <a href="#global" data-nav="global">Global Hiring</a>
+      <a href="#blog" data-nav="blog">Blog</a>
+    </nav>
+    <div class="header-actions">
+      <button class="lang" type="button" id="langBtn">EN/اردو</button>
+      <button class="icon-btn" type="button" data-open="messages" data-when="in" aria-label="Messages" title="Messages">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </button>
+      <button class="icon-btn" type="button" data-open="notif" aria-label="Notifications">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="badge-dot" id="notifDot"></span>
+      </button>
+      <a class="link-match" href="#match" data-nav="match">Paklance Match™</a>
+      <button class="link-login" type="button" data-open="auth" data-when="out">Log in</button>
+      <button class="btn btn-primary btn-sm hdr-start" type="button" data-open="auth" data-signup data-when="out">Get Started</button>
+      <a class="user-pill" href="#dashboard" data-nav="dashboard" data-when="in"><span class="avatar sm" id="hdrAv">A</span><span id="hdrName">Account</span></a>
+      <button class="icon-btn burger" type="button" id="burger" aria-expanded="false" aria-controls="mobileMenu" aria-label="Menu"><svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg></button>
+    </div>
+  </div>
+  <div class="mobile-menu" id="mobileMenu" hidden>
+    <nav class="wrap" aria-label="Mobile">
+      <a href="#jobs">Browse Jobs</a>
+      <a href="#talent">Hire Talent</a>
+      <a href="#how">How It Works</a>
+      <a href="#global">Global Hiring</a>
+      <a href="#blog">Blog</a>
+      <a href="#match">Paklance Match™</a>
+      <button type="button" data-open="auth" data-when="out">Log in</button>
+      <button type="button" data-open="auth" data-signup data-when="out">Get Started</button>
+      <a href="#dashboard" data-when="in">Dashboard</a>
+      <button type="button" data-logout data-when="in">Log out</button>
+    </nav>
+  </div>
+</header>
+
+<main id="app">
+
+<!-- ===================== HOME ===================== -->
+<section class="view" data-view="home">
+  <div class="hero">
+    <div class="wrap hero-grid hero-solo">
+      <div>
+        <span class="pill">Pakistan-first. Globally hireable.</span>
+        <h1><span class="sr-only">Hire Pakistani talent. Pay with confidence.</span><span class="ht-vis" aria-hidden="true"><span class="ht-line"><span class="ht-lead">Hire Pakistani</span><span class="ht-slot"><span class="ht-word is-on">talent.</span><span class="ht-word">developers.</span><span class="ht-word">designers.</span><span class="ht-word">marketers.</span><span class="ht-word">writers.</span></span></span><span class="ht-pay">Pay with confidence.</span></span></h1>
+        <p class="hero-sub">Verified Pakistani specialists for local businesses and teams worldwide — with clear contracts, transparent pricing and protected milestone workflows.</p>
+        <form class="search" data-form="hero" role="search">
+          <label for="heroQ" class="skip">Search jobs</label>
+          <input id="heroQ" placeholder="Try “logo design”, “Shopify” or “React”" autocomplete="off">
+          <button class="btn btn-primary" type="submit"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-search"/></svg>Search</button>
+        </form>
+        <div class="hero-ctas">
+          <button class="btn btn-outline" type="button" data-open="auth" data-signup>Post a Job</button>
+          <a class="btn btn-outline" href="#jobs">Find work →</a>
+        </div>
+        <div class="trust-row">
+          <span><svg class="ic" aria-hidden="true"><use href="#i-user-check"/></svg>Verified identity</span>
+          <span><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Protected milestones</span>
+          <span><svg class="ic" aria-hidden="true"><use href="#i-contract"/></svg>Clear contracts</span>
+        </div>
+        <p class="hero-match">Need a curated shortlist? <a href="#match">Try Paklance Match™ →</a></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap removed-wrap">
+  </div>
+
+  <section class="section how-section">
+    <div class="wrap">
+      <div class="how-head rv">
+        <span class="eyebrow">How Paklance works</span>
+        <h2>Three steps. No guesswork.</h2>
+        <p>Hire, protect the milestone, and release payment when the work is approved.</p>
+      </div>
+      <ol class="timeline" id="howTimeline">
+        <li class="tl-step" data-step="post">
+          <span class="tl-fill" aria-hidden="true"><i class="tl-coin"></i></span>
+          <span class="tl-dot"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg><b>1</b></span>
+          <div class="tl-body">
+            <h3>Post</h3>
+            <p>Describe the work and <span class="tl-key">set a clear PKR budget</span>.</p>
+            <span class="tl-pill"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-wallet"/></svg><span>Budget · PKR <span class="tl-num" data-to="65000">65,000</span></span></span>
+          </div>
+        </li>
+        <li class="tl-step" data-step="protect">
+          <span class="tl-fill" aria-hidden="true"><i class="tl-coin"></i></span>
+          <span class="tl-dot"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><b>2</b></span>
+          <div class="tl-body">
+            <h3>Protect</h3>
+            <p><span class="tl-key">Fund the agreed milestone</span> with Paklance SafePay™.</p>
+            <span class="tl-pill safe"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-shield"/></svg><span>PKR <span class="tl-num" data-to="25000">25,000</span> held in SafePay™</span></span>
+          </div>
+        </li>
+        <li class="tl-step" data-step="approve">
+          <span class="tl-dot"><svg class="ic" aria-hidden="true"><use href="#i-check-circle"/></svg><b>3</b></span>
+          <div class="tl-body">
+            <h3>Approve</h3>
+            <p>Review the work, then <span class="tl-key">release the protected payment</span>.</p>
+            <span class="tl-pill done"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg><span class="tl-status">Released to the specialist</span></span>
+          </div>
+        </li>
+      </ol>
+      <div class="how-cta">
+        <button class="btn btn-primary" type="button" data-open="auth" data-signup>Post a Job</button>
+        <a class="btn btn-outline" href="#pricing">See pricing</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section skills-section">
+    <div class="wrap">
+      <div class="skills-panel">
+      <div class="section-head rv">
+        <div>
+          <span class="eyebrow">Browse by skill</span>
+          <h2>Find the right expertise.</h2>
+        </div>
+        <a class="btn-text" href="#talent">View all specialists →</a>
+      </div>
+      <div class="skills rv-list">
+        <button class="skill" type="button" data-cat="Development"><span class="skill-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="8 7 3 12 8 17"/><polyline points="16 7 21 12 16 17"/><line x1="14" y1="4" x2="10" y2="20"/></svg></span><span class="skill-txt"><strong>Development</strong><span>Websites, apps &amp; commerce</span></span></button>
+        <button class="skill" type="button" data-cat="Design"><span class="skill-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 6.5 12 12 3l5.5 9z"/><circle cx="12" cy="12" r="1.6"/><path d="M12 13.6V21"/></svg></span><span class="skill-txt"><strong>Design &amp; Creative</strong><span>Brand, product &amp; visual design</span></span></button>
+        <button class="skill" type="button" data-cat="Marketing"><span class="skill-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18"/><path d="M6 17v-5M10 17V9M14 17v-4"/><path d="m13 8 3-3 2 2 3-3"/></svg></span><span class="skill-txt"><strong>Digital Marketing</strong><span>Growth, media &amp; conversion</span></span></button>
+        <button class="skill" type="button" data-cat="Writing"><span class="skill-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg></span><span class="skill-txt"><strong>Writing &amp; Content</strong><span>Copy, content &amp; research</span></span></button>
+        <button class="skill" type="button" data-cat="Video"><span class="skill-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg></span><span class="skill-txt"><strong>Video &amp; Animation</strong><span>Editing, motion &amp; production</span></span></button>
+        <button class="skill" type="button" data-cat="AI &amp; Data"><span class="skill-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><circle cx="12" cy="12" r="2"/><path d="m6.6 7.3 3.8 3.4M17.4 7.3l-3.8 3.4M6.6 16.7l3.8-3.4M17.4 16.7l-3.8-3.4"/></svg></span><span class="skill-txt"><strong>AI &amp; Data</strong><span>Automation, analytics &amp; AI</span></span></button>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Payment methods strip (moved below "Browse by skill") -->
+  <section class="section rails-section" aria-label="Payment methods">
+    <div class="wrap">
+      <div class="spot rv-label" id="railSpot" data-fix="3">
+        <span class="spot-label">Designed for local payment rails</span>
+        <div class="spot-pills" role="group" aria-label="Payment methods">
+          <button type="button" class="spot-pill on" data-spot="0" aria-pressed="true">Raast</button>
+          <button type="button" class="spot-pill" data-spot="1" aria-pressed="false">NayaPay</button>
+          <button type="button" class="spot-pill" data-spot="2" aria-pressed="false">SadaPay</button>
+          <button type="button" class="spot-pill" data-spot="3" aria-pressed="false">Bank Transfer</button>
+          <button type="button" class="spot-pill soon" data-spot="4" aria-pressed="false">JazzCash</button>
+          <button type="button" class="spot-pill soon" data-spot="5" aria-pressed="false">Easypaisa</button>
+        </div>
+        <p class="spot-cap" id="spotCap" aria-live="off"><span class="spot-dot"></span><span><strong>Raast</strong> · Pakistan’s instant payment system, run by the State Bank of Pakistan</span></p>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap removed-wrap">
+  </div>
+
+  <div class="wrap removed-wrap">
+  </div>
+
+  <div class="wrap removed-wrap">
+  </div>
+
+  <!-- ===== PAKLANCE BLOG: HOMEPAGE SECTION START (latest 3 articles, filled by PaklanceBlog.renderHome) ===== -->
+  <section class="section home-blog" aria-labelledby="homeBlogTitle">
+    <div class="wrap">
+      <div class="section-head rv">
+        <div>
+          <span class="eyebrow">From the blog</span>
+          <h2 id="homeBlogTitle">Insights for better work.</h2>
+          <p>Practical advice for freelancers, businesses and global teams.</p>
+        </div>
+        <a class="btn-text" href="#blog">View all articles →</a>
+      </div>
+      <div class="home-blog-grid rv-list" id="homeBlogList"></div>
+      <div class="home-blog-dots" id="homeBlogDots" aria-hidden="true"></div>
+    </div>
+  </section>
+  <!-- ===== PAKLANCE BLOG: HOMEPAGE SECTION END ===== -->
+
+  <section class="cta">
+    <div class="wrap">
+      <div class="cta-box rv">
+        <div>
+          <span class="eyebrow">Ready when you are</span>
+          <h2>One project. One clear contract. Protected payment.</h2>
+          <p>Hire verified Pakistani talent for local projects or global remote work.</p>
+        </div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-light" type="button" data-open="auth" data-signup>Post a Job</button>
+          <a class="btn btn-ghost-light" href="#talent">Find Talent</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</section>
+
+<!-- ===================== BROWSE JOBS ===================== -->
+<section class="view" data-view="jobs" hidden>
+  <div class="page-head">
+    <div class="wrap">
+      <span class="eyebrow">Find work across Pakistan</span>
+      <h1>Browse jobs</h1>
+      <p>Verified clients, clear PKR budgets and protected milestone contracts.</p>
+      <ul class="ph-facts"><li><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Budgets in PKR, shown up front</li><li><svg class="ic" aria-hidden="true"><use href="#i-user-check"/></svg>Verified clients are marked</li><li><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Milestones protected by SafePay™</li></ul>
+      <div class="quick-cats" role="group" aria-label="Quick filters"><span>Popular:</span><button type="button" data-jobcat="Development">Development</button><button type="button" data-jobcat="Design">Design</button><button type="button" data-jobcat="Marketing">Marketing</button><button type="button" data-jobcat="Writing">Writing</button><button type="button" data-jobcat="Video">Video</button></div>
+    </div>
+  </div>
+  <div class="wrap board">
+    <aside class="filters" aria-label="Filters">
+      <div class="filters-head"><strong>Filters</strong><button class="btn-text" type="button" data-clear-filters>Clear</button></div>
+      <div class="field"><label for="fCat">Category</label>
+        <select class="select" id="fCat"><option value="all">All categories</option><option>Development</option><option>Design</option><option>Marketing</option><option>Writing</option><option>Video</option></select></div>
+      <div class="field range-field">
+        <div class="range-head"><span class="lbl" id="fPriceLbl">Price range</span><output class="range-out" id="fPriceOut">PKR 0 – 100,000+</output></div>
+        <div class="range" id="fPrice" data-min="0" data-max="100000" data-step="1000" role="group" aria-labelledby="fPriceLbl">
+          <span class="range-track"></span><span class="range-fill"></span>
+          <span class="range-thumb" role="slider" tabindex="0" data-thumb="min" aria-label="Minimum price"></span>
+          <span class="range-thumb" role="slider" tabindex="0" data-thumb="max" aria-label="Maximum price"></span>
+        </div>
+        <div class="range-scale" aria-hidden="true"><span>PKR 0</span><span>PKR 100,000+</span></div>
+      </div>
+      <div class="field"><label for="fTrust">Client trust</label>
+        <select class="select" id="fTrust"><option value="any">Any client</option><option value="verified">Verified only</option></select></div>
+      <div class="check-wrap field">
+        <label class="check" for="fSafe"><input type="checkbox" id="fSafe"> SafePay jobs</label>
+        <p class="help">Jobs marked SafePay require funded milestones before protected work starts.</p>
+      </div>
+    </aside>
+    <div>
+      <div class="toolbar">
+        <div class="search-field"><span><svg class="ic ic-sm" aria-hidden="true"><use href="#i-search"/></svg></span><label for="jSearch" class="skip">Search jobs</label><input class="input" id="jSearch" placeholder="Search jobs"></div>
+        <label for="jSort" class="skip">Sort jobs</label>
+        <select class="select" id="jSort"><option value="new">Newest</option><option value="high">Budget: High to Low</option><option value="low">Budget: Low to High</option></select>
+      </div>
+      <div class="count" data-fix="1"><strong id="jobCount">Loading jobs…</strong><span>Matched to your filters</span></div>
+      <div class="list" id="jobList"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== JOB DETAIL ===================== -->
+<section class="view" data-view="job" hidden>
+  <div class="wrap">
+    <a class="back" href="#jobs">← Back to jobs</a>
+    <div class="detail" id="jobDetail"></div>
+  </div>
+</section>
+
+<!-- ===================== HIRE TALENT ===================== -->
+<section class="view" data-view="talent" hidden>
+  <div class="page-head">
+    <div class="wrap">
+      <div class="row">
+        <div>
+          <span class="eyebrow">Find people you can trust</span>
+          <h1>Verified Pakistani talent</h1>
+          <p>Browse directly, or let Paklance Match™ curate the strongest fit.</p>
+          <ul class="ph-facts"><li><svg class="ic" aria-hidden="true"><use href="#i-user-check"/></svg>Identity-verified specialists</li><li><svg class="ic" aria-hidden="true"><use href="#i-check-circle"/></svg>Ratings from finished contracts</li><li><svg class="ic" aria-hidden="true"><use href="#i-sparkle"/></svg>Portfolios and video introductions</li></ul>
+          <div class="quick-cats" role="group" aria-label="Quick filters"><span>Popular:</span><button type="button" data-cat="Development">Development</button><button type="button" data-cat="Design">Design</button><button type="button" data-cat="Marketing">Marketing</button><button type="button" data-cat="Writing">Writing</button><button type="button" data-cat="AI &amp; Data">AI &amp; Data</button></div>
+        </div>
+        <a class="btn btn-primary" href="#match">Get matched</a>
+    </div>
+  </div>
+  <div class="wrap pad-b">
+    <div class="toolbar" style="margin-bottom:18px">
+      <div class="search-field"><span><svg class="ic ic-sm" aria-hidden="true"><use href="#i-search"/></svg></span><label for="tSearch" class="skip">Search specialists</label><input class="input" id="tSearch" placeholder="Search specialists"></div>
+      <label for="tAvail" class="skip">Filter by availability</label>
+      <select class="select" id="tAvail"><option value="any">Any availability</option><option value="now">Available now</option></select>
+      <label for="tRate" class="skip">Filter by rate</label>
+      <select class="select" id="tRate"><option value="0">Any rate</option><option value="2500">Up to PKR 2,500/hr</option><option value="5000">Up to PKR 5,000/hr</option></select>
+    </div>
+    <div class="talent-grid" id="talentGrid"></div>
+  </div>
+</section>
+
+<!-- ===================== PERSON DETAIL ===================== -->
+<section class="view" data-view="person" hidden>
+  <div class="wrap">
+    <a class="back" href="#talent">← Back to talent</a>
+    <div class="detail" id="personDetail"></div>
+  </div>
+</section>
+
+<!-- ===================== HOW IT WORKS ===================== -->
+<section class="view" data-view="how" hidden>
+  <div class="page-head">
+    <div class="wrap">
+      <span class="eyebrow">How Paklance works</span>
+      <h1>From brief to paid — with every step visible.</h1>
+      <p>Paklance combines marketplace discovery, verified identity, contracts and protected milestone payments.</p>
+      <ul class="ph-facts"><li><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg>Free to post a job</li><li><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Money held until you approve</li><li><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Withdraw to bank or Raast</li></ul>
+    </div>
+  </div>
+  <div class="wrap pad-b">
+    <div class="hw-layout">
+      <div class="hw-main">
+      <div class="hw-switch" role="tablist" aria-label="Show the steps for">
+        <button type="button" role="tab" id="hw-tab-hire" aria-controls="hw-hire" aria-selected="true" data-hw="hire"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>I’m hiring</button>
+        <button type="button" role="tab" id="hw-tab-work" aria-controls="hw-work" aria-selected="false" data-hw="work"><svg class="ic" aria-hidden="true"><use href="#i-user-check"/></svg>I’m a specialist</button>
+      </div>
+        <ol class="hw-steps" id="hw-hire" data-hw-panel="hire" role="tabpanel" aria-labelledby="hw-tab-hire">
+          <li class="hw-step"><span class="hw-dot"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg><b>1</b></span><div class="hw-body"><h3>Post a brief</h3><p>Describe the work and set a clear PKR budget.</p><span class="hw-tag"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Budget · PKR 65,000</span></div></li>
+          <li class="hw-step"><span class="hw-dot"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg><b>2</b></span><div class="hw-body"><h3>Choose a specialist</h3><p>Review proposals, or get a curated Paklance Match™ shortlist.</p><span class="hw-tag"><svg class="ic" aria-hidden="true"><use href="#i-sparkle"/></svg>3 shortlisted · 94% best fit</span></div></li>
+          <li class="hw-step"><span class="hw-dot"><svg class="ic" aria-hidden="true"><use href="#i-contract"/></svg><b>3</b></span><div class="hw-body"><h3>Agree the contract</h3><p>Scope, milestones, NDA and IP terms are recorded up front.</p><span class="hw-tag"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>NDA ✓  IP terms ✓</span></div></li>
+          <li class="hw-step"><span class="hw-dot"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><b>4</b></span><div class="hw-body"><h3>Fund the milestone</h3><p>Money is held by SafePay™ before work starts.</p><span class="hw-tag"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>PKR 25,000 held in SafePay™</span></div></li>
+          <li class="hw-step"><span class="hw-dot"><svg class="ic" aria-hidden="true"><use href="#i-check-circle"/></svg><b>5</b></span><div class="hw-body"><h3>Approve and release</h3><p>Review the delivery, then release the protected payment.</p><span class="hw-tag"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Released to the specialist</span></div></li>
+        </ol>
+        <ol class="hw-steps" id="hw-work" data-hw-panel="work" role="tabpanel" aria-labelledby="hw-tab-work" hidden>
+          <li class="hw-step"><span class="hw-dot"><svg class="ic" aria-hidden="true"><use href="#i-user-check"/></svg><b>1</b></span><div class="hw-body"><h3>Build a verified profile</h3><p>Confirm your identity and add real portfolio work.</p><span class="hw-tag"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Identity verified</span></div></li>
+          <li class="hw-step"><span class="hw-dot"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><b>2</b></span><div class="hw-body"><h3>Apply or get matched</h3><p>Send proposals, or appear in curated client shortlists.</p><span class="hw-tag"><svg class="ic" aria-hidden="true"><use href="#i-sparkle"/></svg>Shortlisted for a SaaS team</span></div></li>
+          <li class="hw-step"><span class="hw-dot"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><b>3</b></span><div class="hw-body"><h3>Start once it’s funded</h3><p>You can see that each milestone is secured before you begin.</p><span class="hw-tag"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Milestone funded ✓</span></div></li>
+          <li class="hw-step"><span class="hw-dot"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg><b>4</b></span><div class="hw-body"><h3>Submit your work</h3><p>Deliverables, messages and approvals stay in one place.</p><span class="hw-tag"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Submitted · awaiting review</span></div></li>
+          <li class="hw-step"><span class="hw-dot"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg><b>5</b></span><div class="hw-body"><h3>Get paid</h3><p>Withdraw to your bank account or Raast ID.</p><span class="hw-tag"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>PKR 22,500 withdrawn to Raast</span></div></li>
+        </ol>
+      <div class="faq">
+        <div class="faq-head"><span class="eyebrow">Questions people ask</span><h2>Good to know</h2></div>
+        <details class="faq-item"><summary>Does it cost anything to post a job?<svg class="ic" aria-hidden="true"><use href="#i-chevron-down"/></svg></summary><p>No. Posting a job, receiving proposals and getting a Match™ shortlist are free. A small service fee applies only when you fund a milestone, and it’s shown before you pay. <a href="#pricing">See pricing</a>.</p></details>
+        <details class="faq-item"><summary>When does the specialist get paid?<svg class="ic" aria-hidden="true"><use href="#i-chevron-down"/></svg></summary><p>As soon as the client approves the milestone. The money is already held by SafePay™, so it’s released straight away.</p></details>
+        <details class="faq-item"><summary>What if the work isn’t delivered?<svg class="ic" aria-hidden="true"><use href="#i-chevron-down"/></svg></summary><p>The client can ask for changes. If you can’t agree, either side opens a case, and the funded money stays protected until it’s resolved. <a href="#trust">How protection works</a>.</p></details>
+        <details class="faq-item"><summary>Can international companies hire through Paklance?<svg class="ic" aria-hidden="true"><use href="#i-chevron-down"/></svg></summary><p>Yes. Many specialists work hours that overlap with UK, European and Gulf teams. <a href="#global">Check your overlap</a>.</p></details>
+        <details class="faq-item"><summary>How do specialists withdraw their money?<svg class="ic" aria-hidden="true"><use href="#i-chevron-down"/></svg></summary><p>To a Pakistani bank account or a Raast ID. JazzCash and Easypaisa are coming soon.</p></details>
+      </div>
+      </div>
+    <aside class="hw-aside" aria-label="Your next step">
+      <div class="card hw-cta" data-hw-cta="hire"><span class="eyebrow">Your next step</span><h3>Post your first job</h3><p>It’s free to post. You only pay a small fee when you fund a milestone.</p><button class="btn btn-primary btn-block" type="button" data-open="auth" data-signup>Post a Job</button><a class="btn btn-outline btn-block" href="#match">Get a Match™ shortlist</a></div>
+      <div class="card hw-cta" data-hw-cta="work" hidden><span class="eyebrow">Your next step</span><h3>Create your free profile</h3><p>Add your skills, portfolio and a video introduction, then start applying.</p><button class="btn btn-primary btn-block" type="button" data-open="auth" data-signup>Create a profile</button><a class="btn btn-outline btn-block" href="#jobs">Browse jobs</a></div>
+      <a class="card hw-mini" href="#trust"><span class="ni"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg></span><span><strong>Where does the money go?</strong><small>Follow a PKR 25,000 milestone through SafePay™.</small></span><svg class="ic go" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+    </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== GLOBAL HIRING ===================== -->
+<section class="view" data-view="global" hidden>
+  <div class="page-head">
+    <div class="wrap">
+      <span class="eyebrow">Global hiring through Pakistan</span>
+      <h1>Build your team with verified Pakistani specialists.</h1>
+      <p>From a single expert to a dedicated remote resource, Paklance is designed to help international companies hire with more confidence, clearer accountability and less sourcing friction.</p>
+      <ul class="ph-facts"><li><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Working hours that overlap with yours</li><li><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg>A shortlist, not a flood of bids</li><li><svg class="ic" aria-hidden="true"><use href="#i-contract"/></svg>NDA and IP terms included</li></ul>
+      <div class="hero-ctas" style="margin-top:20px">
+        <a class="btn btn-outline" href="#talent">Explore talent</a>
+        <button class="btn btn-primary" type="button" data-open="global">Build a global requirement</button>
+      </div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="models" style="padding-top:32px">
+      <div class="card-sm"><span class="step-no">01</span><strong>Project specialist</strong><p>Hire a verified professional for a defined project with structured milestones and delivery checkpoints.</p></div>
+      <div class="card-sm"><span class="step-no">02</span><strong>Dedicated resource</strong><p>Match with a professional aligned to your role, tools, seniority and working-hours requirements.</p></div>
+      <div class="card-sm"><span class="step-no">03</span><strong>Curated project team</strong><p>Combine complementary specialists for product, design, marketing or delivery work under one coordinated brief.</p></div>
+    </div>
+  </div>
+  <section class="section ov-section" aria-labelledby="ovTitle">
+    <div class="wrap ov-grid">
+      <div class="ov-intro">
+        <span class="eyebrow">Working hours</span>
+        <h2 id="ovTitle">See how your day overlaps with Pakistan.</h2>
+        <p>Pakistan (PKT, UTC+5) sits between Europe and the Gulf, and many specialists shift their day to match their clients.</p>
+        <div class="field"><label for="ovCity">Your team is in</label>
+          <select class="select" id="ovCity">
+            <option value="Europe/London">London</option><option value="Europe/Berlin">Berlin</option><option value="Asia/Dubai" selected>Dubai</option>
+            <option value="Asia/Riyadh">Riyadh</option><option value="America/New_York">New York</option><option value="America/Toronto">Toronto</option>
+            <option value="America/Los_Angeles">San Francisco</option><option value="Asia/Singapore">Singapore</option><option value="Australia/Sydney">Sydney</option>
+          </select></div>
+        <div class="field"><span class="lbl" id="ovShiftLbl">The specialist works</span>
+          <div class="ov-shifts" role="radiogroup" aria-labelledby="ovShiftLbl">
+            <button type="button" role="radio" aria-checked="true" data-ov-shift="9">9:00–18:00 PKT</button>
+            <button type="button" role="radio" aria-checked="false" data-ov-shift="12">12:00–21:00 PKT</button>
+            <button type="button" role="radio" aria-checked="false" data-ov-shift="15">15:00–24:00 PKT</button>
+          </div></div>
+      </div>
+      <div class="card ov-card" aria-live="polite">
+        <p class="ov-result" id="ovResult"></p>
+        <div class="ov-chart" id="ovChart" aria-hidden="true"></div>
+        <p class="help" id="ovNote"></p>
+      </div>
+    </div>
+  </section>
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head"><div>
+        <span class="eyebrow">A more controlled hiring flow</span>
+        <h2>Tell Paklance what you need. Get a shortlist, not a flood of bids.</h2>
+        <p>Paklance reduces sourcing friction by defining the requirement, curating relevant people and keeping selection, contracting, delivery and protection inside one controlled workflow.</p>
+      </div></div>
+      <div class="flow">
+        <div class="card-sm"><strong>1. Define</strong><p>Role, scope, seniority, budget and working model.</p></div>
+        <div class="card-sm"><strong>2. Match</strong><p>Receive a concise shortlist of verified, relevant specialists.</p></div>
+        <div class="card-sm"><strong>3. Contract</strong><p>Agree the engagement structure and milestones.</p></div>
+        <div class="card-sm"><strong>4. Deliver</strong><p>Track work, approvals and protected payment stages in Paklance.</p></div>
+      </div>
+      <div style="margin-top:28px">
+        <span class="eyebrow">Matching can account for</span>
+        <div class="chip-cloud"><span>Seniority</span><span>Tech stack</span><span>Time-zone overlap</span><span>Availability</span><span>Engagement length</span><span>Communication fit</span><span>NDA / IP readiness</span></div>
+      </div>
+    </div>
+  </section>
+  <section class="section alt">
+    <div class="wrap">
+      <div class="section-head"><div>
+        <span class="eyebrow">Built around real business needs</span>
+        <h2>Start with roles companies already hire remotely.</h2>
+        <p>Paklance can prioritize high-value, digitally deliverable talent where Pakistan has strong supply.</p>
+      </div></div>
+      <div class="models">
+        <div class="card-sm"><strong>Software &amp; Product</strong><p>Full-stack, frontend, backend, QA, product design</p></div>
+        <div class="card-sm"><strong>Brand &amp; Creative</strong><p>Brand identity, UI/UX, motion, production design</p></div>
+        <div class="card-sm"><strong>Growth &amp; Marketing</strong><p>Performance, SEO, content, lifecycle, analytics</p></div>
+      </div>
+    </div>
+  </section>
+</section>
+
+<!-- ===================== MATCH ===================== -->
+<section class="view" data-view="match" hidden>
+  <div class="page-head">
+    <div class="wrap row">
+      <div>
+        <span class="eyebrow">Paklance Match™</span>
+        <h1>Describe the role. Get a curated shortlist.</h1>
+        <p>Use structured matching instead of browsing endlessly. Paklance Match™ considers capability, verified delivery, seniority, availability and working-model fit.</p>
+      </div>
+      <div class="curated"><span>CURATED</span><strong>3–5</strong><small>recommended specialists</small></div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="match-grid">
+      <form class="card" data-form="match">
+        <div class="cc-top"><span class="eyebrow">Your requirement</span><span class="chip chip-verified"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-sparkle"/></svg>Guided matching</span></div>
+        <h2 style="margin-top:10px">What are you hiring for?</h2>
+        <p class="muted" style="margin-top:6px;font-size:14px">Complete the essentials. Paklance can refine the scope before matching.</p>
+        <div class="form-grid">
+          <div class="field full"><label for="mRole">Role or outcome</label><input class="input" id="mRole" value="Senior full-stack engineer for a SaaS dashboard"></div>
+          <div class="field"><label for="mEng">Engagement</label><select class="select" id="mEng"><option>Dedicated resource</option><option>Project specialist</option><option>Curated project team</option></select></div>
+          <div class="field"><label for="mSen">Seniority</label><select class="select" id="mSen"><option>Senior</option><option>Mid-level</option><option>Lead / Principal</option></select></div>
+          <div class="field"><label for="mTz">Time-zone overlap</label><select class="select" id="mTz"><option>4+ hours with UK / Europe</option><option>4+ hours with Gulf</option><option>4+ hours with North America</option><option>Flexible / asynchronous</option></select></div>
+          <div class="field"><label for="mBud">Budget model</label><select class="select" id="mBud"><option>Monthly engagement</option><option>Fixed project budget</option><option>Hourly</option></select></div>
+          <div class="field full"><label for="mSkills">Primary skills</label><input class="input" id="mSkills" value="React, Next.js, Node.js"></div>
+        </div>
+        <p class="alert alert-info" style="margin-top:16px"><b>No public flood of bids.</b> Your requirement can stay private while Paklance curates the shortlist.</p>
+        <button class="btn btn-primary btn-block" type="submit" style="margin-top:16px">Find my matches</button>
+      </form>
+      <div class="card" id="shortlist">
+        <div class="cc-top"><span class="eyebrow">Curated shortlist</span></div>
+        <h2 style="margin-top:10px">Recommended for your requirement</h2>
+        <p class="muted" style="margin-top:6px;font-size:14px">Fit indicators explain why each specialist appears here; they are not a hidden reputation score.</p>
+        <div class="sl">
+          <p class="muted" style="font-size:14px">No shortlist generated yet. Fill out the requirement form and click "Find my matches".</p>
+        </div>
+      </div>
+    </div>
+    <div class="guar">
+      <div class="card-sm"><strong><svg class="ic" aria-hidden="true"><use href="#i-user-check"/></svg>Identity checked</strong><p>Verification status visible before engagement.</p></div>
+      <div class="card-sm"><strong><svg class="ic" aria-hidden="true"><use href="#i-contract"/></svg>NDA &amp; IP ready</strong><p>Contract protections can be attached to the engagement.</p></div>
+      <div class="card-sm"><strong><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Milestone protection</strong><p>Structured funding and release for supported engagements.</p></div>
+      <div class="card-sm"><strong><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Resolution pathway</strong><p>Evidence and contract history stay together if a dispute arises.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TRUST CENTRE ===================== -->
+<section class="view" data-view="trust" hidden>
+  <div class="page-head">
+    <div class="wrap">
+      <span class="eyebrow">Paklance Trust Centre</span>
+      <h1>Trust is a workflow, not a badge.</h1>
+      <p>Identity, contract terms, delivery evidence, protected milestones and dispute handling are designed to work together.</p>
+      <ul class="ph-facts"><li><svg class="ic" aria-hidden="true"><use href="#i-user-check"/></svg>Verified identity</li><li><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Money held until work is approved</li><li><svg class="ic" aria-hidden="true"><use href="#i-scale"/></svg>A clear process for disputes</li></ul>
+    </div>
+  </div>
+  <div class="wrap pad-b">
+    <section class="card tf" id="tfDemo" aria-labelledby="tfTitle">
+      <div class="tf-head"><div><span class="eyebrow">See SafePay™ in action</span><h2 id="tfTitle">Follow a PKR 25,000 milestone</h2></div></div>
+      <div class="tf-track" data-s="0" aria-hidden="true">
+        <span class="tf-rail"><i></i></span>
+        <span class="tf-node" data-n="0"><span class="tf-ico"><svg class="ic" aria-hidden="true"><use href="#i-user-check"/></svg></span><b>Client</b><small class="tf-st">Agrees the milestone</small></span>
+        <span class="tf-node" data-n="1"><span class="tf-ico"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg></span><b>SafePay™</b><small class="tf-st">Waiting for funds</small></span>
+        <span class="tf-node" data-n="2"><span class="tf-ico"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg></span><b>Specialist</b><small class="tf-st">Waiting to start</small></span>
+        <span class="tf-coin">PKR 25,000</span>
+      </div>
+      <ol class="tf-steps" aria-label="Steps">
+        <li><button type="button" data-tf-go="0" aria-current="step">1. Agree</button></li>
+        <li><button type="button" data-tf-go="1">2. Fund</button></li>
+        <li><button type="button" data-tf-go="2">3. Deliver</button></li>
+        <li><button type="button" data-tf-go="3">4. Release</button></li>
+      </ol>
+      <p class="tf-cap" id="tfCap" aria-live="polite"><strong>The deal is agreed.</strong> The client and specialist agree the scope and a PKR 25,000 milestone in the contract.</p>
+      <div class="tf-ctrl"><button type="button" class="btn btn-primary btn-sm" data-tf="next">Next step</button><button type="button" class="btn btn-outline btn-sm" data-tf="dispute">What if there’s a problem?</button></div>
+    </section>
+    <div class="trust-grid">
+      <div class="card-sm"><span class="step-ico"><svg class="ic" aria-hidden="true"><use href="#i-user-check"/></svg></span><h3>Identity &amp; account verification</h3><p>Verification states are explicit, with stronger checks reserved for higher-risk actions and financial workflows.</p></div>
+      <div class="card-sm"><span class="step-ico"><svg class="ic" aria-hidden="true"><use href="#i-contract"/></svg></span><h3>Contract, NDA &amp; IP terms</h3><p>Scope, ownership, confidentiality, revision expectations and milestone acceptance can be recorded before work begins.</p></div>
+      <div class="card-sm"><span class="step-ico"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg></span><h3>SafePay™ workflow</h3><p>Supported milestones are visibly funded, protected and released according to the contract state—not informal chat promises.</p></div>
+      <div class="card-sm"><span class="step-ico"><svg class="ic" aria-hidden="true"><use href="#i-scale"/></svg></span><h3>Structured resolution</h3><p>Disputes use contract terms, messages, files, submissions and payment state as evidence in one case timeline.</p></div>
+    </div>
+    <p class="alert alert-warn" style="margin-top:20px"><b>Production note:</b> Payment custody, identity verification and international settlement must be implemented through the appropriate regulated and contractual partners before public launch.</p>
+  </div>
+</section>
+
+<!-- ===================== PRICING ===================== -->
+<section class="view" data-view="pricing" hidden>
+  <div class="page-head">
+    <div class="wrap">
+      <span class="eyebrow">Simple &amp; transparent</span>
+      <h1>Pricing that is clear before you commit.</h1>
+      <p>No subscription. A small fee applies only when money moves through SafePay™, and it's shown before you pay.</p>
+      <ul class="ph-facts"><li><svg class="ic" aria-hidden="true"><use href="#i-check-circle"/></svg>No subscription</li><li><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Fees shown before you pay</li><li><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Full refund if a milestone is cancelled</li></ul>
+    </div>
+  </div>
+  <div class="wrap" style="padding-top:32px">
+    <div class="plans" data-fix="2">
+      <article class="plan">
+        <div><h3>For clients</h3><p class="who">Businesses hiring in Pakistan</p></div>
+        <div class="plan-price"><strong>3%</strong><span>service fee per funded milestone</span></div>
+        <ul>
+          <li><span>Post a job</span><b>Free</b></li>
+          <li><span>Proposals &amp; Match™ shortlist</span><b>Free</b></li>
+          <li><span>Fund by bank transfer / Raast</span><b>No extra charge</b></li>
+          <li><span>JazzCash / Easypaisa</span><b>Coming soon</b></li>
+        </ul>
+        <button class="btn btn-primary btn-block" type="button" data-open="auth" data-signup>Post a Job</button>
+      </article>
+      <article class="plan">
+        <div><h3>For specialists</h3><p class="who">Freelancers and independent professionals</p></div>
+        <div class="plan-price"><strong>10%</strong><span>of each released milestone</span></div>
+        <ul>
+          <li><span>Create a verified profile</span><b>Free</b></li>
+          <li><span>Apply to jobs</span><b>Free</b></li>
+          <li><span>Withdraw to bank / Raast</span><b>Free</b></li>
+          <li><span>Fee on unfunded work</span><b>None</b></li>
+        </ul>
+        <a class="btn btn-outline btn-block" href="#jobs">Find work</a>
+      </article>
+      <article class="plan">
+        <div><h3>For global teams</h3><p class="who">International companies hiring remotely</p></div>
+        <div class="plan-price"><strong>Custom</strong><span>quoted per engagement</span></div>
+        <ul>
+          <li><span>Dedicated resource</span><b>Monthly fee</b></li>
+          <li><span>Curated project team</span><b>Fixed quote</b></li>
+          <li><span>NDA &amp; IP terms</span><b>Included</b></li>
+          <li><span>Replacement workflow</span><b>Eligible plans</b></li>
+        </ul>
+        <button class="btn btn-outline btn-block" type="button" data-open="global">Build a global requirement</button>
+      </article>
+    </div>
+    <div class="example">
+      <div class="card" data-fix="2">
+        <span class="eyebrow">Try your own numbers</span>
+        <h2 style="margin-top:8px;font-size:20px" id="calcTitle">A PKR 65,000 contract</h2>
+        <div class="calc-in">
+          <label for="calcAmt" class="skip">Contract value in PKR</label>
+          <input type="range" id="calcAmt" min="5000" max="500000" step="1000" value="65000" aria-describedby="calcTitle">
+          <div class="calc-presets" role="group" aria-label="Examples"><button type="button" data-amt="25000">25,000</button><button type="button" data-amt="65000" aria-pressed="true">65,000</button><button type="button" data-amt="150000">150,000</button><button type="button" data-amt="400000">400,000</button></div>
+        </div>
+        <table class="calc" aria-live="polite">
+          <tr><td>Contract value</td><td data-calc="v">PKR 65,000</td></tr>
+          <tr><td>Client service fee (3%)</td><td data-calc="cf">+ PKR 1,950</td></tr>
+          <tr class="total"><td>Client pays</td><td data-calc="cp">PKR 66,950</td></tr>
+          <tr><td>Specialist fee (10%)</td><td data-calc="sf">− PKR 6,500</td></tr>
+          <tr class="total last"><td>Specialist receives</td><td data-calc="sr">PKR 58,500</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <span class="eyebrow">Good to know</span>
+        <div class="m-body" style="margin-top:12px">
+          <div class="kv"><span>Hidden charges</span><strong>None</strong></div>
+          <div class="kv"><span>When fees are shown</span><strong>Before you fund a milestone</strong></div>
+          <div class="kv"><span>Refund if a milestone is cancelled</span><strong>Full amount, fee included</strong></div>
+          <p class="help">JazzCash and Easypaisa funding will be added after merchant onboarding; any gateway charge will be shown at checkout.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== DASHBOARD (after sign up / log in) ===================== -->
+<section class="view" data-view="dashboard" hidden>
+  <div class="page-head">
+    <div class="wrap row">
+      <div>
+        <span class="eyebrow">Dashboard</span>
+        <h1 id="dashHello">Welcome</h1>
+        <p>Your account is ready. Here's your profile and work that matches your skills.</p>
+      </div>
+      <button class="btn btn-outline" type="button" data-logout>Log out</button>
+    </div>
+  </div>
+  <!-- Profile completion tracker: filled by PaklanceProfile.mount() -->
+  <div class="wrap"><section class="pc-tracker" id="dashTracker" aria-label="Profile completion" hidden></section></div>
+  <div class="wrap dash">
+    <aside class="card dash-profile" id="dashProfile"></aside>
+    <div class="dash-main">
+      <div class="card">
+        <span class="eyebrow">Your setup</span>
+        <ol class="checklist" id="dashChecklist"></ol>
+      </div>
+      <div class="card" id="dashVideo" hidden></div>
+      <div class="card">
+        <div class="cc-top"><h3 style="font-size:19px">Jobs that match your skills</h3></div>
+        <p class="muted" id="dashJobsNote" style="font-size:14px;margin-top:6px"></p>
+        <div class="list" id="dashJobs"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== BLOG (/blog and /blog/<slug>) ===================== -->
+<section class="view" data-view="blog" hidden><div id="blogIndex"></div></section>
+<section class="view" data-view="article" hidden><div id="blogArticle"></div></section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="logo" href="#home" aria-label="Paklance home"><svg class="logo-mark" aria-hidden="true" focusable="false"><use href="#pk-logo"/></svg>Paklance</a>
+        <p>Pakistan's trust-first talent marketplace for local hiring and global remote teams.</p>
+        <p class="foot-safe"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-shield"/></svg>Protected by Paklance SafePay™</p>
+      </div>
+      <div class="foot-col"><h4>Marketplace</h4><a href="#jobs">Browse jobs</a><a href="#talent">Find talent</a><a href="#global">Global hiring</a><a href="#pricing">Pricing</a></div>
+      <div class="foot-col"><h4>Trust</h4><a href="#trust">Trust Centre</a><a href="#how">How SafePay works</a><button type="button" data-open="dispute">Disputes</button></div>
+      <div class="foot-col"><h4>Company</h4><a href="#blog">Blog</a><button type="button" data-toast>About</button><button type="button" data-toast>Careers</button><button type="button" data-toast>Contact</button></div>
+      <div class="foot-col"><h4>Legal</h4><button type="button" data-toast>Terms</button><button type="button" data-toast>Privacy</button><button type="button" data-toast>Marketplace policy</button></div>
+    </div>
+    <p class="foot-bottom">© 2026 Paklance · All rights reserved · English · اردو</p>
+  </div>
+</footer>
+
+<nav class="bottom-nav" aria-label="App">
+  <button type="button" data-bn="home"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg>Home</button>
+  <button type="button" data-bn="find"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>Find</button>
+  <button type="button" data-bn="contracts"><svg class="ic" aria-hidden="true"><use href="#i-contract"/></svg>Contracts</button>
+  <button type="button" data-bn="messages"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg>Messages</button>
+  <button type="button" data-bn="wallet"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg>Wallet</button>
+</nav>
+
+<!-- ===================== MODALS ===================== -->
+<!-- ===== PAKLANCE AUTH MODULE: HTML START ===== -->
+<div class="pa-modal" id="paAuth" hidden role="dialog" aria-modal="true" aria-labelledby="pa-h-choose">
+  <div class="pa-card">
+    <div class="pa-top">
+      <button class="pa-back" type="button" data-pa-back aria-label="Back" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <span class="pa-brand"><svg class="logo-mark" aria-hidden="true" focusable="false"><use href="#pk-logo"/></svg>Paklance</span>
+      <button class="pa-x" type="button" data-pa-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+
+    <!-- 1 · Choose sign up method (Google or Email on the same page) -->
+    <section class="pa-screen" data-screen="choose">
+      <h2 class="pa-h" id="pa-h-choose" tabindex="-1">Welcome to Paklance</h2>
+      <p class="pa-sub">Create your account and start your journey.</p>
+      <div class="pa-stack">
+        <div class="pa-alert" role="alert" hidden></div>
+        <button class="pa-btn pa-btn-google" type="button" data-pa-go="google"><span class="pa-g"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg></span>Continue with Google</button>
+        <div class="pa-or"><span>OR</span></div>
+        <button class="pa-btn pa-btn-outline" type="button" data-pa-go="email"><span class="pa-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>Continue with Email</button>
+      </div>
+      <p class="pa-foot">Already have an account? <button class="pa-link" type="button" data-pa-go="login">Log in</button></p>
+    </section>
+
+    <!-- 2a · Google account selection (preview stand-in for Google's own picker) -->
+    <section class="pa-screen" data-screen="google" hidden>
+      <div class="pa-gmark"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg></div>
+      <h2 class="pa-h pa-tc" id="pa-h-google" tabindex="-1">Choose an account</h2>
+      <p class="pa-sub pa-tc">to continue to Paklance</p>
+      <ul class="pa-accounts">
+        <li><button type="button" data-pa-account="ayesha.khan@gmail.com"><span class="pa-av">A</span><span><strong>Ayesha Khan</strong><small>ayesha.khan@gmail.com</small></span></button></li>
+        <li><button type="button" data-pa-account="syeda.tanveer@gmail.com"><span class="pa-av pa-av-2">S</span><span><strong>Syeda Tanveer</strong><small>syeda.tanveer@gmail.com</small></span></button></li>
+        <li><button type="button" data-pa-other><span class="pa-av pa-av-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span><span><strong>Use another account</strong></span></button></li>
+      </ul>
+      <form class="pa-form pa-other" id="paOtherForm" hidden novalidate>
+        <div class="pa-field"><label for="paOtherEmail">Google account email</label><input id="paOtherEmail" type="email" inputmode="email" autocomplete="email" placeholder="name@gmail.com"><p class="pa-err" hidden></p></div>
+        <button class="pa-btn pa-btn-primary" type="submit">Next</button>
+      </form>
+      <p class="pa-fine" style="margin-top:16px">Before using this app, you can review Paklance’s <button class="pa-link" type="button" data-pa-doc>privacy policy</button> and <button class="pa-link" type="button" data-pa-doc>terms of service</button>.</p>
+      <p class="pa-mock" data-pa-mock>Preview only: on the live site, Google opens its own account picker here.</p>
+    </section>
+
+    <!-- 3a · Signing you in (Google) -->
+    <section class="pa-screen pa-center" data-screen="signing" hidden>
+      <div class="pa-g-lg"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg></div>
+      <h2 class="pa-h" id="pa-h-signing" tabindex="-1">Signing you in…</h2>
+      <span class="pa-spinner" aria-hidden="true"></span>
+      <p class="pa-sub" role="status">Connecting your Google account securely.</p>
+      <p class="pa-foot"><button class="pa-link" type="button" data-pa-cancel>Cancel</button></p>
+    </section>
+
+    <!-- 2b · Email & password -->
+    <section class="pa-screen" data-screen="email" hidden>
+      <h2 class="pa-h" id="pa-h-email" tabindex="-1">Create your account</h2>
+      <p class="pa-sub">Enter your details to get started.</p>
+      <form class="pa-form" id="paEmailForm" novalidate>
+        <div class="pa-alert" role="alert" hidden></div>
+        <div class="pa-field"><label for="paEmail">Email address</label><input id="paEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" data-pa-focus><p class="pa-err" hidden></p></div>
+        <div class="pa-field"><label for="paPw">Password</label>
+          <div class="pa-pw"><input id="paPw" type="password" autocomplete="new-password" placeholder="Create a strong password"><button class="pa-eye" type="button" data-pa-eye="paPw" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+          <ul class="pa-rules" id="paRules" aria-label="Password requirements"><li data-rule="len">8+ characters</li><li data-rule="letter">A letter</li><li data-rule="num">A number</li></ul>
+          <p class="pa-err" hidden></p></div>
+        <div class="pa-field"><label for="paPw2">Confirm password</label>
+          <div class="pa-pw"><input id="paPw2" type="password" autocomplete="new-password" placeholder="Confirm your password"><button class="pa-eye" type="button" data-pa-eye="paPw2" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+          <p class="pa-err" hidden></p></div>
+        <button class="pa-btn pa-btn-primary" type="submit">Sign up</button>
+        <p class="pa-fine">By signing up, you agree to our <button class="pa-link" type="button" data-pa-doc>Terms of Service</button> and <button class="pa-link" type="button" data-pa-doc>Privacy Policy</button>.</p>
+      </form>
+    </section>
+
+    <!-- 3b · Email verification (required) -->
+    <section class="pa-screen pa-center" data-screen="verify" hidden>
+      <span class="pa-bubble"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
+      <h2 class="pa-h" id="pa-h-verify" tabindex="-1">Verify your email</h2>
+      <p class="pa-sub">We’ve sent a 6-digit verification code to <strong id="paVerifyEmail">your email address</strong>.</p>
+      <div class="pa-code" id="paCode" role="group" aria-label="6-digit verification code">
+        <input type="text" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 1" data-pa-focus>
+        <input type="text" inputmode="numeric" autocomplete="off" aria-label="Digit 2">
+        <input type="text" inputmode="numeric" autocomplete="off" aria-label="Digit 3">
+        <input type="text" inputmode="numeric" autocomplete="off" aria-label="Digit 4">
+        <input type="text" inputmode="numeric" autocomplete="off" aria-label="Digit 5">
+        <input type="text" inputmode="numeric" autocomplete="off" aria-label="Digit 6">
+      </div>
+      <p class="pa-err" id="paCodeErr" role="alert" hidden></p>
+      <p class="pa-status" id="paCodeStatus" role="status"></p>
+      <p class="pa-foot" style="margin-top:12px">Didn’t receive the code? <button class="pa-link" type="button" id="paResend">Resend</button></p>
+      <p class="pa-foot pa-foot-sm">Wrong email? <button class="pa-link" type="button" data-pa-go="email">Change it</button></p>
+      <p class="pa-mock" data-pa-mock>Preview: the verification code is 123456.</p>
+    </section>
+
+    <!-- 4 · Full name (mandatory, no skip) -->
+    <section class="pa-screen pa-center" data-screen="name" hidden>
+      <span class="pa-bubble"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
+      <h2 class="pa-h" id="pa-h-name" tabindex="-1">Add your full name</h2>
+      <p class="pa-sub">This name will be shown on your profile and to other users.</p>
+      <form class="pa-form" id="paNameForm" novalidate>
+        <div class="pa-field"><label for="paName" class="pa-sr">Full name</label><input id="paName" autocomplete="name" placeholder="Full name (e.g. Ayesha Khan)" maxlength="60" data-pa-focus><p class="pa-err" hidden></p></div>
+        <button class="pa-btn pa-btn-primary" type="submit">Next</button>
+      </form>
+    </section>
+
+    <!-- 5 · Skills (mandatory, no skip) -->
+    <section class="pa-screen" data-screen="skills" hidden>
+      <div class="pa-center">
+        <span class="pa-bubble"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+        <h2 class="pa-h" id="pa-h-skills" tabindex="-1">What are your skills?</h2>
+        <p class="pa-sub">Select the skills that match your expertise.</p>
+      </div>
+      <div class="pa-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <label for="paSkillQ" class="pa-sr">Search skills</label>
+        <input id="paSkillQ" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="paSkillList" autocomplete="off" placeholder="Search skills…">
+        <ul class="pa-suggest" id="paSkillList" role="listbox" aria-label="Matching skills" hidden></ul>
+      </div>
+      <div class="pa-chips pa-selected" id="paSelected" aria-live="polite"></div>
+      <div id="paPopularWrap"><p class="pa-label">Popular skills</p><div class="pa-chips" id="paPopular"></div></div>
+      <button class="pa-add" type="button" id="paAddCustom">+ Add custom skill</button>
+      <form class="pa-custom" id="paCustomForm" hidden novalidate>
+        <label for="paCustomInput" class="pa-sr">Custom skill</label>
+        <input id="paCustomInput" maxlength="40" placeholder="e.g. Shopify Plus" autocomplete="off">
+        <button class="pa-btn pa-btn-sm pa-btn-primary" type="submit">Add</button>
+        <button class="pa-btn pa-btn-sm pa-btn-outline" type="button" id="paCustomCancel">Cancel</button>
+      </form>
+      <p class="pa-err" id="paSkillErr" role="alert" hidden></p>
+      <p class="pa-count" id="paSkillCount">Select at least 1 skill to continue.</p>
+      <button class="pa-btn pa-btn-primary" type="button" id="paSkillsNext">Next</button>
+    </section>
+
+    <!-- 6 · Account created -->
+    <section class="pa-screen pa-center" data-screen="done" hidden>
+      <div class="pa-success" aria-hidden="true"><span class="pa-spark"></span><span class="pa-spark"></span><span class="pa-spark"></span><span class="pa-spark"></span><span class="pa-spark"></span><span class="pa-spark"></span><span class="pa-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7"/></svg></span></div>
+      <h2 class="pa-h" id="pa-h-done" tabindex="-1">Welcome to Paklance!</h2>
+      <p class="pa-sub">Your account has been created successfully.</p>
+      <button class="pa-btn pa-btn-primary" type="button" data-pa-finish style="margin-top:22px">Go to Dashboard</button>
+    </section>
+
+    <!-- Log in (existing users) -->
+    <section class="pa-screen" data-screen="login" hidden>
+      <h2 class="pa-h" id="pa-h-login" tabindex="-1">Welcome back</h2>
+      <p class="pa-sub">Log in to continue to Paklance.</p>
+      <div class="pa-stack">
+        <div class="pa-alert" role="alert" hidden></div>
+        <button class="pa-btn pa-btn-google" type="button" data-pa-go="google"><span class="pa-g"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg></span>Continue with Google</button>
+        <div class="pa-or"><span>OR</span></div>
+      </div>
+      <form class="pa-form" id="paLoginForm" novalidate style="margin-top:14px">
+        <div class="pa-field"><label for="paLoginEmail">Email address</label><input id="paLoginEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"><p class="pa-err" hidden></p></div>
+        <div class="pa-field"><label for="paLoginPw">Password</label>
+          <div class="pa-pw"><input id="paLoginPw" type="password" autocomplete="current-password" placeholder="Your password"><button class="pa-eye" type="button" data-pa-eye="paLoginPw" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+          <p class="pa-err" hidden></p></div>
+        <div class="pa-row-end"><button class="pa-link" type="button" data-pa-go="forgot">Forgot password?</button></div>
+        <button class="pa-btn pa-btn-primary" type="submit">Log in</button>
+      </form>
+      <p class="pa-foot">New to Paklance? <button class="pa-link" type="button" data-pa-go="choose">Create an account</button></p>
+      </section>
+
+    <!-- Forgot password -->
+    <section class="pa-screen" data-screen="forgot" hidden>
+      <h2 class="pa-h" id="pa-h-forgot" tabindex="-1">Reset your password</h2>
+      <p class="pa-sub">Enter the email you signed up with and we’ll send you a reset link.</p>
+      <form class="pa-form" id="paForgotForm" novalidate>
+        <div class="pa-alert" role="alert" hidden></div>
+        <div class="pa-field"><label for="paForgotEmail">Email address</label><input id="paForgotEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" data-pa-focus><p class="pa-err" hidden></p></div>
+        <button class="pa-btn pa-btn-primary" type="submit">Send reset link</button>
+      </form>
+    </section>
+    <section class="pa-screen pa-center" data-screen="forgot-sent" hidden>
+      <span class="pa-bubble"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
+      <h2 class="pa-h" id="pa-h-forgot-sent" tabindex="-1">Check your email</h2>
+      <p class="pa-sub">If an account exists for <strong id="paResetEmail"></strong>, we’ve sent a link to reset your password.</p>
+      <button class="pa-btn pa-btn-outline" type="button" data-pa-go="login" style="margin-top:22px">Back to log in</button>
+    </section>
+  </div>
+</div>
+<!-- ===== PAKLANCE AUTH MODULE: HTML END ===== -->
+
+<div class="modal" id="m-global" hidden role="dialog" aria-modal="true" aria-labelledby="globalTitle">
+  <div class="modal-card wide">
+    <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <span class="eyebrow">Global hiring requirement</span>
+    <h2 id="globalTitle">Tell us exactly what your team needs.</h2>
+    <p class="sub">This private brief can be used to curate a dedicated specialist or project team.</p>
+    <form data-form="global">
+      <div class="form-grid">
+        <div class="field full"><label for="gRole">Role / team</label><input class="input" id="gRole" placeholder="e.g. Senior React engineer + QA"></div>
+        <div class="field"><label for="gEng">Engagement</label><select class="select" id="gEng"><option>Dedicated resource</option><option>Project specialist</option><option>Curated project team</option></select></div>
+        <div class="field"><label for="gTz">Company time zone</label><select class="select" id="gTz"><option>UK / Europe</option><option>Gulf</option><option>North America</option><option>Asia Pacific</option></select></div>
+        <div class="field"><label for="gDur">Duration</label><select class="select" id="gDur"><option>6 months+</option><option>3–6 months</option><option>1–3 months</option><option>Defined project</option></select></div>
+        <div class="field"><label for="gStart">Start window</label><select class="select" id="gStart"><option>Within 2 weeks</option><option>Within 1 month</option><option>Flexible</option></select></div>
+        <div class="field full"><label for="gSkills">Required skills</label><input class="input" id="gSkills" placeholder="React, TypeScript, Playwright"></div>
+        <div class="field full"><span class="lbl">Commercial protections</span>
+          <div class="checks">
+            <label class="check" for="gc1"><input type="checkbox" id="gc1" checked> NDA / confidentiality</label>
+            <label class="check" for="gc2"><input type="checkbox" id="gc2" checked> IP ownership terms</label>
+            <label class="check" for="gc3"><input type="checkbox" id="gc3" checked> Replacement workflow for eligible dedicated engagements</label>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" style="margin-top:18px">Create private requirement</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="m-contract" hidden role="dialog" aria-modal="true" aria-labelledby="contractTitle">
+  <div class="modal-card wide">
+    <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <div class="cc-top" style="padding-right:44px"><span class="eyebrow">Contracts</span></div>
+    <h2 id="contractTitle">Your Contracts</h2>
+    <div class="empty" style="padding:40px 20px;text-align:center">
+      <svg class="ic ic-lg" style="margin:0 auto 12px;opacity:0.4;display:block" aria-hidden="true"><use href="#i-contract"/></svg>
+      <h3>No active contracts</h3>
+      <p class="muted">When you hire a specialist or start work on a job, protected contracts and milestones appear here.</p>
+      <div class="hero-ctas" style="margin-top:16px"><a class="btn btn-primary btn-sm" href="#jobs">Browse jobs</a><a class="btn btn-outline btn-sm" href="#talent">Find talent</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="m-dispute" hidden role="dialog" aria-modal="true" aria-labelledby="disputeTitle">
+  <div class="modal-card">
+    <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <span class="eyebrow">Resolution Centre</span>
+    <h2 id="disputeTitle">Open a structured case</h2>
+    <p class="sub">A case links the contract, milestone, messages and submitted files so both parties can respond to the same evidence.</p>
+    <form class="m-body" data-form="dispute">
+      <div class="sum"><div class="kv"><span>Contract</span><strong>No active contract selected</strong></div></div>
+      <div class="field"><label for="dIssue">Issue</label><select class="select" id="dIssue"><option>Deliverable does not match agreed scope</option><option>Missed deadline</option><option>Revision disagreement</option><option>Payment / release issue</option><option>Other</option></select></div>
+      <div class="field"><label for="dWhat">What happened?</label><textarea class="input" id="dWhat" placeholder="Describe the issue and what outcome you expect."></textarea></div>
+      <div class="alert alert-info alert-ic"><svg class="ic ic-sm" aria-hidden="true"><use href="#i-upload"/></svg>Add evidence: files, screenshots or supporting documents</div>
+      <button class="btn btn-primary btn-block" type="submit">Submit case for review</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="m-wallet" hidden role="dialog" aria-modal="true" aria-labelledby="walletTitle">
+  <div class="modal-card wide">
+    <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <span class="eyebrow">Wallet &amp; Gateways</span>
+    <h2 id="walletTitle">Supported Pakistani Payment Methods</h2>
+    <p class="sub">Paklance uses official merchant gateway architecture for client payments and specialist payouts.</p>
+    <div class="m-body">
+      <p class="alert alert-warn"><b>Live Gateway Integration Notice:</b> Live production merchant accounts for <b>JazzCash (Mobilink)</b> and <b>Easypaisa (Telenor Bank)</b> are currently in onboarding/partner integration. Simulated successful transactions are strictly disabled on production to prevent false accounting. All contract milestone payments are securely verified server-side before escrow release.</p>
+      <div class="gw-list">
+        <div class="gw-list" data-fix="3">
+          <div class="gw off"><div><strong>JazzCash Merchant Checkout</strong><span class="d">HMAC-SHA256 signed mobile account &amp; debit card gateway · merchant onboarding in progress</span></div><span class="chip chip-soon">Coming soon</span></div>
+          <div class="gw off"><div><strong>Easypaisa IPG Checkout</strong><span class="d">Telenor Microfinance Bank hosted checkout &amp; MA payments · merchant onboarding in progress</span></div><span class="chip chip-soon">Coming soon</span></div>
+        </div>
+        <div class="gw"><div><strong>1Link / Raast Interbank Payout</strong><span class="d">State Bank of Pakistan instant interbank clearing for specialist withdrawals</span></div><span class="chip chip-paid">Active</span></div>
+      </div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-outline" type="button" data-open="payout">Add payout method</button>
+      <button class="btn btn-outline" type="button" data-open="withdraw">Withdraw funds</button>
+      <button class="btn btn-primary" type="button" data-close>Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="m-escrow" hidden role="dialog" aria-modal="true" aria-labelledby="escrowTitle">
+  <div class="modal-card">
+    <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <span class="eyebrow">SafePay Escrow</span>
+    <h2 id="escrowTitle">Fund Milestone Escrow</h2>
+    <p class="sub">Deposit funds securely into SafePay Escrow. Funds are protected and only released when you approve the milestone.</p>
+    <form class="m-body" data-form="escrow">
+      <div class="sum">
+        <div class="kv"><span>Contract milestone</span><strong>No pending milestone</strong></div>
+        <div class="kv"><span>Deposit amount</span><strong>PKR 0</strong></div>
+      </div>
+      <div class="field" data-fix="3">
+        <label for="eGw">Select Payment Gateway</label>
+        <select class="select" id="eGw">
+          <option disabled>JazzCash (Mobile Account / Card Checkout) — coming soon</option>
+          <option disabled>Easypaisa (Telenor Bank IPG) — coming soon</option>
+          <option selected>Direct Bank Transfer (1Link Enterprise)</option>
+        </select>
+        <p class="help">JazzCash and Easypaisa can't be selected until merchant onboarding is complete.</p>
+      </div>
+      <p class="alert alert-info"><b>Official Gateway Protocol:</b> Payment session with HMAC-SHA256 signature verification will be initiated on the server.</p>
+      <div class="m-actions" style="margin-top:4px">
+        <button class="btn btn-outline" type="button" data-close>Cancel</button>
+        <button class="btn btn-primary" type="submit">Initiate Checkout</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="m-payout" hidden role="dialog" aria-modal="true" aria-labelledby="payoutTitle">
+  <div class="modal-card">
+    <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <span class="eyebrow">Specialist Payouts</span>
+    <h2 id="payoutTitle">Add Payout Method</h2>
+    <p class="sub">Save your local Pakistani bank account or Raast ID for withdrawals. JazzCash and Easypaisa payouts are coming soon.</p>
+    <form class="m-body" data-form="payout">
+      <div class="field" data-fix="3"><label for="pCh">Payout Channel Type *</label>
+        <select class="select" id="pCh"><option>Bank Account / 1Link (IBAN)</option><option disabled>JazzCash Mobile Wallet — coming soon</option><option disabled>Easypaisa Mobile Wallet — coming soon</option><option>Raast ID / Number</option></select></div>
+      <div class="field"><label for="pTitle">Account Title / Beneficiary Name *</label><input class="input" id="pTitle"></div>
+      <div class="field"><label for="pNum">Account / IBAN / Raast Number *</label><input class="input" id="pNum"></div>
+      <div class="field"><label for="pBank">Bank Name</label><input class="input" id="pBank"></div>
+      <label class="check" for="pDef"><input type="checkbox" id="pDef"> Set as my default withdrawal method</label>
+      <div class="m-actions" style="margin-top:4px"><button class="btn btn-outline" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Save Payout Method</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="m-withdraw" hidden role="dialog" aria-modal="true" aria-labelledby="withdrawTitle">
+  <div class="modal-card">
+    <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <span class="eyebrow">Wallet Payout</span>
+    <h2 id="withdrawTitle">Withdraw Funds</h2>
+    <p class="sub">Transfer your available balance to your local Pakistani bank account or Raast ID.</p>
+    <form class="m-body" data-form="withdraw">
+      <div class="sum"><div class="kv"><span>Available for withdrawal</span><strong>PKR 0</strong></div></div>
+      <div class="field" data-fix="3"><label for="wCh">Payout Channel</label>
+        <select class="select" id="wCh"><option>Bank Account / 1Link (IBAN)</option><option disabled>JazzCash Mobile Wallet — coming soon</option><option disabled>Easypaisa Mobile Wallet — coming soon</option><option>Raast ID / Mobile</option></select></div>
+      <div class="field"><label for="wTitle">Account Title / Beneficiary Name *</label><input class="input" id="wTitle"></div>
+      <div class="field"><label for="wNum">Account / IBAN / Raast Number *</label><input class="input" id="wNum"></div>
+      <div class="field"><label for="wAmt">Withdrawal Amount (PKR) *</label><input class="input" id="wAmt" inputmode="numeric"></div>
+      <p class="help"><b>Settlement note:</b> Withdrawal requests reserve your available funds into a locked balance until batch processed via 1Link interbank clearing.</p>
+      <div class="m-actions" style="margin-top:4px"><button class="btn btn-outline" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Submit Withdrawal</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal side" id="m-notif" hidden role="dialog" aria-modal="true" aria-labelledby="notifTitle">
+  <div class="modal-card">
+    <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <span class="eyebrow">Activity</span>
+    <h2 id="notifTitle" style="font-size:19px">Notifications</h2>
+    <div id="notifList">
+      <p class="muted" style="font-size:14px;padding:24px 0;text-align:center">No notifications yet</p>
+    </div>
+    <button class="btn-text" type="button" id="markRead" style="margin-top:14px">Mark all as read</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<!-- ===================== MESSAGES MODAL ===================== -->
+<div class="modal pk-msg-modal" id="m-messages" hidden role="dialog" aria-modal="true" aria-labelledby="msgTitle">
+  <div class="modal-card pk-msg-card" role="document">
+    <button class="m-close" type="button" data-close aria-label="Close messages"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <div class="pk-msg-layout" id="pkMsgLayout">
+      <!-- LEFT: conversation list -->
+      <aside class="pk-msg-sidebar" id="pkMsgSidebar" aria-label="Conversations">
+        <div class="pk-msg-sidebar-head">
+          <div class="pk-msg-head-title-wrap">
+            <h2 id="msgTitle">Messages</h2>
+            <span class="chip chip-muted pk-msg-count" id="pkMsgCount" hidden>0</span>
+          </div>
+          <button class="btn btn-primary btn-sm pk-msg-new-btn" id="pkMsgNewBtn" type="button" title="Start new conversation">+ New</button>
+        </div>
+        <div class="pk-msg-search-box">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="ic pk-msg-search-ic"><use href="#i-mag"/></svg>
+          <input type="search" class="input pk-msg-search-input" id="pkMsgSearch" placeholder="Search conversations or users…" aria-label="Search conversations or users" autocomplete="off">
+        </div>
+        <div class="pk-msg-new-panel" id="pkMsgNewPanel" hidden>
+          <div class="pk-msg-new-header">
+            <span>Select recipient</span>
+            <button class="btn btn-outline btn-xs" id="pkMsgCancelNew" type="button">Cancel</button>
+          </div>
+          <div class="pk-msg-users-list" id="pkMsgUsersList"></div>
+        </div>
+        <div class="pk-msg-conv-list" id="pkMsgConvList" role="listbox" aria-label="Conversation list">
+          <p class="pk-msg-empty-hint" id="pkMsgConvEmpty">Loading conversations…</p>
+        </div>
+      </aside>
+      <!-- RIGHT: active chat thread -->
+      <section class="pk-msg-thread" id="pkMsgThread" aria-label="Chat thread">
+        <div class="pk-msg-thread-head" id="pkMsgThreadHead" hidden>
+          <button class="pk-msg-back btn btn-outline btn-sm" id="pkMsgBackBtn" type="button" aria-label="Back to conversations">← Back</button>
+          <span class="avatar pk-msg-thread-av" id="pkMsgThreadAv" aria-hidden="true"></span>
+          <div class="pk-msg-thread-meta">
+            <strong id="pkMsgThreadName"></strong>
+            <span class="pk-msg-thread-role" id="pkMsgThreadRole"></span>
+          </div>
+        </div>
+        <div class="pk-msg-thread-empty" id="pkMsgThreadEmpty">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="ic ic-lg" style="opacity:.25;display:block;margin:0 auto 12px"><use href="#i-chat"/></svg>
+          <p style="color:var(--muted);font-size:14px;text-align:center">Select a conversation or start a new one from a specialist's profile.</p>
+        </div>
+        <div class="pk-msg-bubbles" id="pkMsgBubbles" role="log" aria-live="polite" aria-label="Messages"></div>
+        <form class="pk-msg-compose" id="pkMsgCompose" hidden autocomplete="off">
+          <label class="sr-only" for="pkMsgInput">Type a message</label>
+          <textarea class="pk-msg-input input" id="pkMsgInput" rows="1" placeholder="Type a message…" maxlength="4000" aria-label="Message input"></textarea>
+          <button class="btn btn-primary pk-msg-send" type="submit" id="pkMsgSendBtn" aria-label="Send message">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+          </button>
+        </form>
+        <p class="pk-msg-err" id="pkMsgErr" role="alert" hidden></p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/auth.js"></script>
+<script src="/assets/js/blog.js"></script>
+<script src="/assets/js/site.js"></script>
+</body>
+</html>

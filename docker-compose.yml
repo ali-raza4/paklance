@@ -1,0 +1,48 @@
+# Run Paklance + PostgreSQL:   docker compose up --build   →   http://localhost:3000
+# Fill in the values marked "change me" (or put them in a .env file next to this one) before going live.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: paklance
+      POSTGRES_PASSWORD: paklance-change-me
+      POSTGRES_DB: paklance
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paklance"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      DATABASE_URL: postgres://paklance:paklance-change-me@db:5432/paklance
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-string}
+      # Local testing over plain http: allow the session cookie without HTTPS. Remove behind HTTPS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-Paklance <no-reply@paklance.com>}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ESCROW_ACCOUNT_TITLE: ${ESCROW_ACCOUNT_TITLE:-}
+      ESCROW_BANK_NAME: ${ESCROW_BANK_NAME:-}
+      ESCROW_IBAN: ${ESCROW_IBAN:-}
+      ESCROW_RAAST_ID: ${ESCROW_RAAST_ID:-}
+    volumes:
+      - uploads:/app/data/uploads   # profile photos and video introductions
+
+volumes:
+  pgdata:
+  uploads:

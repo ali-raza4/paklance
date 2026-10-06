@@ -1,0 +1,19 @@
+# Paklance Frontend Vercel Ignore
+# Strictly exclude all backend code and unnecessary assets
+src/
+migrations/
+seeds/
+scripts/
+tests/
+knexfile.js
+Dockerfile
+docker-compose.yml
+local-proxy.js
+public_backup/
+node_modules/
+package.json
+package-lock.json
+README.md
+.env*
+*.log
+scratch/
