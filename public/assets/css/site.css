@@ -52,8 +52,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 .icon-btn .badge-dot{position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:50%;background:#D23B3B;border:2px solid #fff}
 .link-match{font-weight:600;font-size:14px;color:var(--brand);padding:8px 10px;white-space:nowrap}
 .link-login{font-weight:500;font-size:14px;padding:8px 10px;background:none;border:0;cursor:pointer;white-space:nowrap}
+.desktop-only{display:inline-flex}
 .burger{display:none}
 @media (max-width:1200px){.main-nav,.link-match,.link-login{display:none}.burger{display:grid}}
+@media (max-width:760px){.desktop-only,.site-header [data-open="messages"]{display:none!important}}
 @media (max-width:480px){.lang{display:none}}
 @media (max-width:400px){
   .header-inner{gap:8px}
