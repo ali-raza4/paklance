@@ -58,3 +58,16 @@ export class ResendVerificationDto {
   @IsNotEmpty()
   email: string;
 }
+
+export class GoogleAuthDto {
+  @ApiPropertyOptional({ description: 'Google OAuth authorization code from popup flow' })
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Google ID token credential' })
+  @IsOptional()
+  @IsString()
+  credential?: string;
+}
+

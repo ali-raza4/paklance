@@ -81,6 +81,8 @@ export class ProfilesService {
                 { name: { contains: q, mode: 'insensitive' } },
                 { headline: { contains: q, mode: 'insensitive' } },
                 { bio: { contains: q, mode: 'insensitive' } },
+                { city: { contains: q, mode: 'insensitive' } },
+                { country: { contains: q, mode: 'insensitive' } },
                 { skills: { has: q } },
               ],
             }

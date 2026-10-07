@@ -6,6 +6,7 @@ import {
   LoginDto,
   VerifyEmailDto,
   ResendVerificationDto,
+  GoogleAuthDto,
 } from './dto/auth.dto';
 
 @ApiTags('Auth')
@@ -40,6 +41,13 @@ export class AuthController {
   @Post('login')
   login(@Body() body: LoginDto) {
     return this.authService.login(body);
+  }
+
+  @ApiOperation({ summary: 'Authenticate or register via Google OAuth (returns user and JWT)' })
+  @HttpCode(HttpStatus.OK)
+  @Post('google')
+  googleAuth(@Body() body: GoogleAuthDto) {
+    return this.authService.googleAuth(body);
   }
 }
 

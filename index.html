@@ -7573,27 +7573,80 @@
       }
 
       // === 11. TALENT SEARCH ===
-      async function renderTalent() {
-        if ($('#talentGrid')) $('#talentGrid').innerHTML = '<div class="empty-state"><p style="color:var(--muted);font-size:12px">Loading specialists&hellip;</p></div>';
+      let _loadingTalent = false;
+      async function loadTalentFromAPI() {
+        if (_loadingTalent) return;
+        _loadingTalent = true;
         try {
           const r = await api('/profiles/search');
           if (r.ok && Array.isArray(r.data) && r.data.length > 0) {
-            liveFreelancers = r.data.map(u => ({
+            liveFreelancers = r.data.map((u, i) => ({
               id: u.id,
               initials: (u.name || u.email || 'U').slice(0, 2).toUpperCase(),
               name: u.name || u.email?.split('@')[0] || 'Specialist',
               role: u.headline || 'Freelancer',
               city: u.city || u.country || 'Pakistan',
-              rate: Number(u.hourlyRate) || 3500,
+              country: u.country || 'Pakistan',
+              rate: Number(u.hourlyRate) || 0,
               available: u.availability === 'AVAILABLE',
               bio: u.bio || '',
-              skills: u.skills || ['Web Development', 'Design']
+              skills: Array.isArray(u.skills) ? u.skills : [],
+              _origIndex: i
             }));
           }
         } catch (e) { liveFreelancers = []; }
+        finally { _loadingTalent = false; }
+      }
 
-        if ($('#talentGrid')) {
-          $('#talentGrid').innerHTML = liveFreelancers.length ? liveFreelancers.map((f, i) => `
+      async function renderTalent(forceRefresh = false) {
+        const grid = $('#talentGrid');
+        if (!grid) return;
+
+        const shouldRefresh = forceRefresh === true;
+        if (shouldRefresh || !liveFreelancers || liveFreelancers.length === 0) {
+          grid.innerHTML = '<div class="empty-state"><p style="color:var(--muted);font-size:12px">Loading specialists&hellip;</p></div>';
+          await loadTalentFromAPI();
+        }
+
+        const rawQ = ($('#talentSearch')?.value || '').trim();
+        const tokens = rawQ.toLowerCase().split(/\s+/).filter(Boolean);
+        const avail = $('#talentAvailability')?.value || 'all';
+        const rate = $('#talentRate')?.value || 'all';
+
+        const filtered = liveFreelancers.filter(f => {
+          // 1. Text search: match all space-separated tokens against name, role, city, country, bio, skills
+          if (tokens.length > 0) {
+            const searchable = [
+              f.name || '',
+              f.role || '',
+              f.city || '',
+              f.country || '',
+              f.bio || '',
+              ...(Array.isArray(f.skills) ? f.skills : [])
+            ].join(' ').toLowerCase();
+
+            const matchesAll = tokens.every(token => searchable.includes(token));
+            if (!matchesAll) return false;
+          }
+
+          // 2. Availability filter
+          if (avail === 'available' && !f.available) {
+            return false;
+          }
+
+          // 3. Rate filter
+          if (rate !== 'all') {
+            const maxRate = Number(rate);
+            if (maxRate > 0 && (f.rate <= 0 || f.rate > maxRate)) {
+              return false;
+            }
+          }
+
+          return true;
+        });
+
+        if (filtered.length > 0) {
+          grid.innerHTML = filtered.map((f, i) => `
             <article class="freelancer-card">
               <div class="freelancer-top">
                 <span class="avatar large">${escHtml(f.initials)}</span>
@@ -7603,9 +7656,11 @@
                 </div>
               </div>
               <div class="freelancer-actions">
-                <button class="btn btn-primary" data-profile="${i}" data-profile-uid="${escHtml(f.id)}">View Profile</button>
+                <button class="btn btn-primary" data-profile="${f._origIndex !== undefined ? f._origIndex : i}" data-profile-uid="${escHtml(f.id)}">View Profile</button>
               </div>
-            </article>`).join('') : '<div class="empty-state">No specialists found.</div>';
+            </article>`).join('');
+        } else {
+          grid.innerHTML = '<div class="empty-state">No freelancers found</div>';
         }
       }
 

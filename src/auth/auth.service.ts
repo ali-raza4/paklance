@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
@@ -79,6 +80,9 @@ export class AuthService {
           email: user.email,
           role: user.role,
           name: user.name,
+          skills: user.skills || [],
+          avatarUrl: user.avatarUrl || null,
+          isEmailVerified: true,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         },
@@ -121,6 +125,9 @@ export class AuthService {
         email: updatedUser.email,
         role: updatedUser.role,
         name: updatedUser.name,
+        skills: updatedUser.skills || [],
+        avatarUrl: updatedUser.avatarUrl || null,
+        isEmailVerified: true,
         createdAt: updatedUser.createdAt,
         updatedAt: updatedUser.updatedAt,
       },
@@ -217,6 +224,144 @@ export class AuthService {
         email: user.email,
         role: user.role,
         name: user.name,
+        skills: user.skills || [],
+        avatarUrl: user.avatarUrl || null,
+        isEmailVerified: user.isEmailVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      accessToken: token,
+    };
+  }
+
+  /**
+   * Google OAuth handler: exchanges authorization code or verifies ID token,
+   * finds or provisions specialist user, and returns user data + JWT accessToken.
+   */
+  async googleAuth(data: { code?: string; credential?: string }) {
+    const clientId =
+      process.env.GOOGLE_CLIENT_ID || process.env.Google_Client_Id;
+    const clientSecret =
+      process.env.GOOGLE_CLIENT_SECRET || process.env.Google_Client_Secret;
+
+    if (!clientId) {
+      throw new ServiceUnavailableException(
+        'Google sign-in is not configured on this server.',
+      );
+    }
+
+    const code = typeof data.code === 'string' ? data.code.trim() : '';
+    const credential =
+      typeof data.credential === 'string' ? data.credential.trim() : '';
+
+    if (!code && !credential) {
+      throw new BadRequestException(
+        'Google authorization code or credential is required.',
+      );
+    }
+
+    let idToken = credential;
+
+    if (code) {
+      if (!clientSecret) {
+        throw new ServiceUnavailableException(
+          'Google client secret is not configured on this server.',
+        );
+      }
+
+      const tokenUrl = 'https://oauth2.googleapis.com/token';
+      const params = new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: 'postmessage',
+        grant_type: 'authorization_code',
+      });
+
+      const tokenRes = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+
+      if (!tokenRes.ok) {
+        throw new UnauthorizedException(
+          'Failed to exchange Google authorization code.',
+        );
+      }
+
+      const tokenData: any = await tokenRes.json();
+      idToken = tokenData.id_token;
+    }
+
+    if (!idToken) {
+      throw new UnauthorizedException('No ID token received from Google.');
+    }
+
+    const verifyRes = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+    );
+
+    if (!verifyRes.ok) {
+      throw new UnauthorizedException('Invalid Google token.');
+    }
+
+    const payload: any = await verifyRes.json();
+
+    if (payload.aud !== clientId) {
+      throw new UnauthorizedException('Google token audience mismatch.');
+    }
+
+    const email = (payload.email || '').toLowerCase().trim();
+    const isEmailVerified =
+      payload.email_verified === 'true' || payload.email_verified === true;
+
+    if (!email || !isEmailVerified) {
+      throw new BadRequestException('Google account email is not verified.');
+    }
+
+    let user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (user) {
+      if (!user.isEmailVerified) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { isEmailVerified: true },
+        });
+      }
+    } else {
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          name: payload.name || null,
+          passwordHash,
+          role: Role.SPECIALIST,
+          isEmailVerified: true,
+          avatarUrl: payload.picture || null,
+        },
+      });
+    }
+
+    const token = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    return {
+      message: 'Google sign-in successful.',
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        skills: user.skills || [],
+        avatarUrl: user.avatarUrl || null,
+        isEmailVerified: user.isEmailVerified,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -224,4 +369,5 @@ export class AuthService {
     };
   }
 }
+
 

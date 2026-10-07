@@ -54,7 +54,9 @@ export class UploadsController {
     const hasValidExt = ALLOWED_EXTENSIONS.some((allowed) =>
       ext.endsWith(allowed),
     );
-    if (!hasValidExt) {
+    if (!hasValidExt && !file.originalname?.includes('.')) {
+      // Default / blob uploads without explicit extension but valid MIME type are accepted
+    } else if (!hasValidExt) {
       throw new BadRequestException(
         'Invalid file extension. Allowed extensions: .jpg, .jpeg, .png, .webp, .gif',
       );
