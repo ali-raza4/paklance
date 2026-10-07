@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreatePortfolioItemDto } from './dto/create-portfolio-item.dto';
 import { SearchProfilesDto } from './dto/search-profiles.dto';
+import { Availability } from '@prisma/client';
 
 /**
  * Whitelist of safe scalar user fields for API responses.
@@ -48,6 +49,23 @@ const PUBLIC_PROFILE_SELECT = {
 export class ProfilesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private mapAvailability(val?: string): Availability | undefined {
+    if (!val) return undefined;
+    const v = String(val).toUpperCase().trim();
+    if (
+      v === 'AVAILABLE' ||
+      v.includes('AVAILABLE') ||
+      v.includes('NOW') ||
+      v.includes('OPEN') ||
+      v.includes('DEDICATED')
+    ) {
+      return Availability.AVAILABLE;
+    }
+    if (v === 'BUSY') return Availability.BUSY;
+    if (v === 'UNAVAILABLE' || v === 'NOT_AVAILABLE' || v.includes('NOT')) return Availability.NOT_AVAILABLE;
+    return Availability.AVAILABLE;
+  }
+
   async getProfileByUserId(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -61,9 +79,34 @@ export class ProfilesService {
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const data: any = {};
+
+    const name = dto.name ?? dto.fullName;
+    if (name !== undefined) data.name = name.trim();
+
+    const bio = dto.bio ?? dto.about;
+    if (bio !== undefined) data.bio = bio;
+
+    if (dto.headline !== undefined) data.headline = dto.headline;
+    if (dto.city !== undefined) data.city = dto.city;
+    if (dto.country !== undefined) data.country = dto.country;
+    if (dto.skills !== undefined) data.skills = Array.isArray(dto.skills) ? dto.skills : [];
+
+    const rate = dto.hourlyRate ?? dto.hourly_rate;
+    if (rate !== undefined && !isNaN(Number(rate))) {
+      data.hourlyRate = Number(rate);
+    }
+
+    const avatar = dto.avatarUrl ?? dto.photo;
+    if (avatar !== undefined) data.avatarUrl = avatar;
+
+    if (dto.availability !== undefined) {
+      data.availability = this.mapAvailability(dto.availability);
+    }
+
     return this.prisma.user.update({
       where: { id: userId },
-      data: { ...dto },
+      data,
       select: {
         ...SAFE_SCALAR_SELECT,
         portfolioItems: true,
@@ -100,7 +143,31 @@ export class ProfilesService {
   }
 
   async addPortfolioItem(userId: string, dto: CreatePortfolioItemDto) {
-    return this.prisma.portfolioItem.create({ data: { ...dto, userId } });
+    const kind = dto.kind || 'portfolio';
+    const subtitle = dto.subtitle ?? null;
+    const url = dto.url || dto.projectUrl || null;
+    const amount = dto.amount != null ? Number(dto.amount) : null;
+    const startYear = dto.startYear ?? dto.start_year ?? null;
+    const endYear = dto.endYear ?? dto.end_year ?? null;
+    const description = dto.description ?? null;
+    const imageUrl = dto.imageUrl ?? null;
+    const projectUrl = dto.projectUrl || dto.url || null;
+
+    return this.prisma.portfolioItem.create({
+      data: {
+        userId,
+        kind,
+        title: dto.title,
+        subtitle,
+        url,
+        amount,
+        startYear,
+        endYear,
+        description,
+        imageUrl,
+        projectUrl,
+      },
+    });
   }
 
   async removePortfolioItem(userId: string, itemId: string) {

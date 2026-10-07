@@ -241,7 +241,13 @@ model WithdrawalRequest {
 model PortfolioItem {
   id          String   @id @default(uuid())
   userId      String
+  kind        String   @default("portfolio")
   title       String
+  subtitle    String?
+  url         String?
+  amount      Decimal?
+  startYear   Int?
+  endYear     Int?
   description String?
   imageUrl    String?
   projectUrl  String?

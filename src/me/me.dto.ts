@@ -64,8 +64,7 @@ export class PatchMeDto {
   photo?: string;
 
   @IsOptional()
-  @IsEnum(Availability)
-  availability?: Availability;
+  availability?: any;
 }
 
 export class PutProfileDto {

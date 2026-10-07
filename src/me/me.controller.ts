@@ -171,6 +171,20 @@ export class MeController {
     if (!user) throw new NotFoundException('User not found');
 
     const rate = user.hourlyRate != null ? Number(user.hourlyRate) : null;
+    const formattedItems = (user.portfolioItems || []).map((item) => ({
+      id: item.id,
+      kind: item.kind || 'portfolio',
+      title: item.title,
+      subtitle: item.subtitle || null,
+      url: item.url || item.projectUrl || null,
+      amount: item.amount != null ? Number(item.amount) : null,
+      startYear: item.startYear ?? null,
+      endYear: item.endYear ?? null,
+      description: item.description || null,
+      imageUrl: item.imageUrl || null,
+      projectUrl: item.projectUrl || item.url || null,
+    }));
+
     return {
       profile: {
         headline: user.headline || null,
@@ -182,7 +196,8 @@ export class MeController {
         country: user.country || null,
         skills: user.skills || [],
       },
-      items: user.portfolioItems || [],
+      items: formattedItems,
+      portfolioItems: formattedItems,
       video: null,
     };
   }
@@ -275,7 +290,20 @@ export class MeController {
   ) {
     const userId = (req as any).user.id;
     const item = await this.profilesService.addPortfolioItem(userId, dto);
-    return { item };
+    const formatted = {
+      id: item.id,
+      kind: item.kind || 'portfolio',
+      title: item.title,
+      subtitle: item.subtitle || null,
+      url: item.url || item.projectUrl || null,
+      amount: item.amount != null ? Number(item.amount) : null,
+      startYear: item.startYear ?? null,
+      endYear: item.endYear ?? null,
+      description: item.description || null,
+      imageUrl: item.imageUrl || null,
+      projectUrl: item.projectUrl || item.url || null,
+    };
+    return { item: formatted, portfolioItem: formatted, ...formatted };
   }
 
   @ApiOperation({ summary: 'Delete portfolio item' })

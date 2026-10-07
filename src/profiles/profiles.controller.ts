@@ -58,8 +58,22 @@ export class ProfilesController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('me/items')
+  addProfileItem(@Req() req: Request, @Body() dto: CreatePortfolioItemDto) {
+    const userId = (req as any).user.id;
+    return this.profilesService.addPortfolioItem(userId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Delete('me/portfolio/:id')
   deletePortfolioItem(@Req() req: Request, @Param('id') id: string) {
+    const userId = (req as any).user.id;
+    return this.profilesService.removePortfolioItem(userId, id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me/items/:id')
+  deleteProfileItem(@Req() req: Request, @Param('id') id: string) {
     const userId = (req as any).user.id;
     return this.profilesService.removePortfolioItem(userId, id);
   }
