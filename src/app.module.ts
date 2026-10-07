@@ -22,6 +22,7 @@ import { MatchingModule } from './matching/matching.module';
 import { AdminModule } from './admin/admin.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PushModule } from './push/push.module';
+import { MeModule } from './me/me.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { PushModule } from './push/push.module';
     AdminModule,
     PaymentsModule,
     PushModule,
+    MeModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
