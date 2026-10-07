@@ -98,11 +98,28 @@ async function newSignupRequest(email, passwordHash, browser) {
   await sendCode(email, code);
 }
 
+async function ensureSkillsLoaded(u) {
+  if (!u) return u;
+  const skills = db.json(u.skills, []);
+  if (!skills.length) {
+    const tp = await db('talent_profiles').where({ user_id: u.id }).first();
+    if (tp && tp.skills) {
+      const tpSkills = db.json(tp.skills, []);
+      if (tpSkills.length) {
+        await db('users').where({ id: u.id }).update({ skills: JSON.stringify(tpSkills) });
+        return await db('users').where({ id: u.id }).first();
+      }
+    }
+  }
+  return u;
+}
+
 /* ---------- routes ---------- */
 
-router.get('/me', (req, res) => {
-  res.json({ user: present.user(req.user) });
-});
+router.get('/me', h(async (req, res) => {
+  const u = await ensureSkillsLoaded(req.user);
+  res.json({ user: present.user(u) });
+}));
 
 router.post('/auth/signup', h(async (req, res) => {
   const email = v.emailOrThrow(req.body.email);
@@ -230,7 +247,8 @@ router.post('/auth/login', h(async (req, res) => {
 
   limiter.clear(failKey);
   await createSession(req, res, u.id);
-  res.json({ user: present.user(u) });
+  const userRow = await ensureSkillsLoaded(u);
+  res.json({ user: present.user(userRow) });
 }));
 
 router.post('/auth/forgot-password', h(async (req, res) => {
@@ -331,7 +349,7 @@ router.post('/auth/google', h(async (req, res) => {
     await db('signup_requests').where({ email }).whereNull('consumed_at').del();
   }
   await createSession(req, res, u.id);
-  const fresh = await db('users').where({ id: u.id }).first();
+  const fresh = await ensureSkillsLoaded(await db('users').where({ id: u.id }).first());
   res.json({ user: present.user(fresh) });
 }));
 

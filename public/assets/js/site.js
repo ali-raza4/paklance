@@ -868,7 +868,9 @@
   }
   function authEntry(signup){
     var u = PaklanceAuth.getUser();
-    if (u && u.fullName && u.skills.length){ toast('You’re signed in as ' + u.fullName + '.'); go('dashboard'); return; }
+    var isClient = u && String(u.role || '').toLowerCase() === 'client';
+    var hasCompletedProfile = u && u.fullName && (isClient || (u.skills && u.skills.length));
+    if (hasCompletedProfile){ toast('You’re signed in as ' + u.fullName + '.'); go('dashboard'); return; }
     PaklanceAuth.open(signup ? 'signup' : 'login');
   }
   function updateHeader(u){
@@ -884,28 +886,31 @@
   }
   function matchJobs(u){
     var groups = PaklanceAuth.skillGroups, cats = {};
-    u.skills.forEach(function(s){ Object.keys(groups).forEach(function(g){ if (groups[g].indexOf(s) > -1) cats[g] = 1; }); });
-    var words = u.skills.map(function(s){ return s.toLowerCase(); });
+    (u.skills || []).forEach(function(s){ Object.keys(groups).forEach(function(g){ if (groups[g].indexOf(s) > -1) cats[g] = 1; }); });
+    var words = (u.skills || []).map(function(s){ return s.toLowerCase(); });
     return JOBS.map(function(j){
-      var hay = (j.title + ' ' + j.skills.join(' ') + ' ' + j.cat).toLowerCase();
+      var hay = (j.title + ' ' + (j.skills || []).join(' ') + ' ' + j.cat).toLowerCase();
       var score = (cats[j.cat] ? 2 : 0) + words.filter(function(w){ return hay.indexOf(w) > -1; }).length;
       return {j:j, score:score};
     }).filter(function(x){ return x.score > 0; }).sort(function(a,b){ return b.score - a.score; }).map(function(x){ return x.j; }).slice(0, 3);
   }
   function renderDashboard(){
     var u = PaklanceAuth.getUser(); if (!u) return;
+    var isClient = String(u.role || '').toLowerCase() === 'client';
     $('#dashHello').textContent = 'Welcome, ' + (u.fullName ? u.fullName.split(' ')[0] : 'there');
     $('#dashProfile').innerHTML =
       '<div class="t-head"><div class="pc-avwrap">' + PaklanceProfile.avatar(u, 'lg') +
         '<button type="button" class="pc-cam sm" data-pc-open="photo" aria-label="' + (u.photo ? 'Change profile photo' : 'Add a profile photo') + '"><svg class="pp-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3.2L9 6h6l1.8 2.5H20v10.5H4zM12 16.5a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6z"/></svg></button></div>' +
         '<div><strong>' + esc(u.fullName || 'Your name') + '</strong><span>' + esc(u.email) + '</span>' +
         '<button type="button" class="btn-text pc-photo-link" data-pc-open="photo">' + (u.photo ? 'Change photo' : 'Add a profile photo') + '</button></div></div>' +
-      '<div class="chip-row" style="margin-top:14px"><span class="chip chip-verified"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Email verified</span><span class="chip chip-muted">' + (u.provider === 'google' ? 'Signed in with Google' : 'Email & password') + '</span></div>' +
-      '<h4>Your skills</h4><div class="tags">' + u.skills.map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join('') + '</div>' +
+      '<div class="chip-row" style="margin-top:14px"><span class="chip chip-verified"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Email verified</span><span class="chip chip-muted">' + (u.provider === 'google' ? 'Signed in with Google' : 'Email & password') + '</span>' +
+      (isClient ? '<span class="chip chip-muted">Client account</span>' : '') + '</div>' +
+      (u.skills && u.skills.length ? ('<h4>Your skills</h4><div class="tags">' + u.skills.map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join('') + '</div>') : '') +
       '<a class="btn btn-primary btn-block" href="#profile" style="margin-top:18px">View my profile</a>' +
-      '<button class="btn btn-outline btn-block" type="button" data-edit-skills style="margin-top:10px">Edit skills</button>';
+      (!isClient ? '<button class="btn btn-outline btn-block" type="button" data-edit-skills style="margin-top:10px">Edit skills</button>' : '');
     $('#dashChecklist').innerHTML =
-      '<li class="ok">Account created</li><li class="ok">Email verified</li><li class="ok">Full name added</li><li class="ok">Skills added</li>' +
+      '<li class="ok">Account created</li><li class="ok">Email verified</li><li class="ok">Full name added</li>' +
+      (isClient ? '<li class="ok">Client account active</li>' : '<li class="ok">Skills added</li>') +
       (u.photo ? '<li class="ok">Profile photo added</li>' : '<li>Add a profile photo <button type="button" class="chip chip-muted pc-chip-btn" data-pc-open="photo">Add photo</button></li>') +
       '<li id="dashProfileStep">Complete your profile <span class="chip chip-muted">Next</span></li>';
     PaklanceProfile.mount($('#dashTracker'), { video: $('#dashVideo') });

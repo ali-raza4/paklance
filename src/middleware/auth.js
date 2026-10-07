@@ -70,12 +70,16 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// Signed in AND finished onboarding (verified email, full name, skills).
+// Signed in AND finished onboarding (verified email, full name, skills for freelancers).
 function requireReady(req, res, next) {
   if (!req.user) return next(E.unauthenticated());
+  if (!db.bool(req.user.email_verified) || !req.user.full_name) {
+    return next(E.forbidden('Finish setting up your account (full name) first.', 'PROFILE_INCOMPLETE'));
+  }
+  const isClient = String(req.user.role || '').toLowerCase() === 'client';
   const skills = db.json(req.user.skills, []);
-  if (!db.bool(req.user.email_verified) || !req.user.full_name || !skills.length) {
-    return next(E.forbidden('Finish setting up your account (full name and skills) first.', 'PROFILE_INCOMPLETE'));
+  if (!isClient && !skills.length) {
+    return next(E.forbidden('Finish setting up your account (skills) first.', 'PROFILE_INCOMPLETE'));
   }
   next();
 }

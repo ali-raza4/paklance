@@ -50,19 +50,23 @@ window.PaklanceAuth = (function () {
   function setToken(t) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
   function clearToken() { setToken(null); }
 
-  /* ---------- normalise a raw NestJS user object to the shape the UI expects ---------- */
+  /* ---------- normalise a user object (Express backend shape) to the shape the UI expects ---------- */
   function normaliseUser(u) {
     if (!u) return null;
     return {
       id:            u.id,
       email:         u.email,
-      fullName:      u.name || u.fullName || null,
+      // Express backend returns fullName directly; NestJS returned name
+      fullName:      u.fullName || u.name || null,
+      // Express backend returns skills as a parsed array (via present.user)
       skills:        Array.isArray(u.skills) ? u.skills : [],
-      emailVerified: !!(u.isEmailVerified !== undefined ? u.isEmailVerified : true),
+      // Express backend returns emailVerified; NestJS returned isEmailVerified
+      emailVerified: !!(u.emailVerified !== undefined ? u.emailVerified : (u.isEmailVerified !== undefined ? u.isEmailVerified : true)),
       provider:      u.provider || 'email',
-      memberSince:   u.createdAt ? u.createdAt.slice(0, 10) : null,
-      photo:         u.avatarUrl || u.photo || null,
-      role:          u.role || 'SPECIALIST'
+      // Express backend returns memberSince already as YYYY-MM-DD
+      memberSince:   u.memberSince || (u.createdAt ? String(u.createdAt).slice(0, 10) : null),
+      photo:         u.photo || u.avatarUrl || null,
+      role:          u.role || 'member'
     };
   }
 
@@ -178,163 +182,198 @@ window.PaklanceAuth = (function () {
   var _seminarRegs = {}; // track registrations in-session
 
   var RealAPI = {
-    // Restore session: GET /api/users/profile with stored Bearer token
+    // Restore session: GET /api/me — Express uses cookie-based sessions (same-origin fetch includes cookies)
     me: function () {
-      if (!getToken()) return Promise.resolve({ user: null });
-      return request('GET', '/users/profile').then(function (u) {
-        // /users/profile returns the raw user object, not wrapped in { user: ... }
-        return { user: normaliseUser(u) };
-      }).catch(function () { clearToken(); return { user: null }; });
+      return request('GET', '/me').then(function (r) {
+        // Express /api/me returns { user: {...} } where user follows present.user() shape
+        var u = r && (r.user || r);
+        if (!u || !u.id) return { user: null };
+        var norm = normaliseUser(u);
+        if (norm && !isClientUser(norm) && (!norm.skills || !norm.skills.length)) {
+          return RealAPI.getProfile().then(function (p) {
+            if (p && p.profile && Array.isArray(p.profile.skills) && p.profile.skills.length) {
+              norm.skills = p.profile.skills.slice();
+            }
+            return { user: norm };
+          }).catch(function () { return { user: norm }; });
+        }
+        return { user: norm };
+      }).catch(function () { return { user: null }; });
     },
 
-    // Google sign-in is not yet wired on the production NestJS backend for this frontend
+    // Google sign-in: POST /api/auth/google { code | credential }
     googleSignIn: function () {
       return getGoogleAuth().then(function (body) { return request('POST', '/auth/google', body); })
         .then(function (r) {
+          // Express returns { user } with cookie session — no accessToken
           if (r.accessToken) setToken(r.accessToken);
-          return { user: normaliseUser(r.user) };
+          var u = normaliseUser(r.user);
+          if (u && !isClientUser(u) && (!u.skills || !u.skills.length)) {
+            return RealAPI.getProfile().then(function (p) {
+              if (p && p.profile && Array.isArray(p.profile.skills) && p.profile.skills.length) {
+                u.skills = p.profile.skills.slice();
+                RealAPI.saveSkills(u.skills).catch(function () {});
+              }
+              return { user: u };
+            }).catch(function () { return { user: u }; });
+          }
+          return { user: u };
         });
     },
 
-    // POST /api/auth/register  — production DTO: { email, password, role? }
-    // The frontend always registers as SPECIALIST; clients sign up through a different flow.
+    // POST /api/auth/signup  — Express endpoint name
     emailSignUp: function (email, password) {
-      return request('POST', '/auth/register', { email: email, password: password, role: 'SPECIALIST' })
+      return request('POST', '/auth/signup', { email: email, password: password })
         .then(function (r) {
-          // Production returns { message, email, requiresVerification: true } — no user yet
+          // Express returns { pendingVerification: true }
           return { pendingVerification: true, email: r.email || email };
         });
     },
 
-    // POST /api/auth/verify-email  — production DTO uses 'otp' not 'code'
+    // POST /api/auth/verify-email  — Express endpoint, uses 'code' field
     verifyEmail: function (email, code) {
-      return request('POST', '/auth/verify-email', { email: email, otp: code })
+      return request('POST', '/auth/verify-email', { email: email, code: code })
         .then(function (r) {
-          // Production returns { user, accessToken }
+          // Express returns { user } with cookie session set — no accessToken
           if (r.accessToken) setToken(r.accessToken);
           return { user: normaliseUser(r.user) };
         });
     },
 
-    // POST /api/auth/resend-verification  — production endpoint name
+    // POST /api/auth/resend-code  — Express endpoint name
     resendCode: function (email) {
-      return request('POST', '/auth/resend-verification', { email: email })
+      return request('POST', '/auth/resend-code', { email: email })
         .then(function () { return { ok: true }; });
     },
 
-    // POST /api/auth/login  — same field names, returns { user, accessToken }
+    // POST /api/auth/login  — Express endpoint, returns { user } with cookie session
     emailLogIn: function (email, password) {
       return request('POST', '/auth/login', { email: email, password: password })
         .then(function (r) {
+          // Express backend: pendingVerification path
+          if (r.pendingVerification) return { pendingVerification: true };
+          // Express returns { user } — no accessToken (cookie-based session)
           if (r.accessToken) setToken(r.accessToken);
-          return { user: normaliseUser(r.user) };
+          var u = normaliseUser(r.user);
+          if (u && !isClientUser(u) && (!u.skills || !u.skills.length)) {
+            return RealAPI.getProfile().then(function (p) {
+              if (p && p.profile && Array.isArray(p.profile.skills) && p.profile.skills.length) {
+                u.skills = p.profile.skills.slice();
+                RealAPI.saveSkills(u.skills).catch(function () {});
+              }
+              return { user: u };
+            }).catch(function () { return { user: u }; });
+          }
+          return { user: u };
         });
     },
 
-    // Password reset is NOT implemented on the production backend.
-    // Show a truthful message instead of a silent 404.
-    requestPasswordReset: function () {
-      return Promise.reject(apiError(
-        'NOT_AVAILABLE',
-        'Password reset by email is not yet available. Please contact support@paklance.com to reset your password.'
-      ));
+    // Password reset: POST /api/auth/forgot-password
+    requestPasswordReset: function (email) {
+      return request('POST', '/auth/forgot-password', { email: email })
+        .then(function () { return { ok: true }; })
+        .catch(function () {
+          return Promise.reject(apiError(
+            'NOT_AVAILABLE',
+            'Password reset by email is not yet available. Please contact support@paklance.com to reset your password.'
+          ));
+        });
     },
 
-    // PATCH /api/profiles/me  — saves name field
+    // PATCH /api/me  — saves fullName field (Express uses fullName, not name)
     saveFullName: function (fullName) {
-      return request('PATCH', '/profiles/me', { name: fullName })
-        .then(function (r) { return { user: normaliseUser(r) }; });
+      return request('PATCH', '/me', { fullName: fullName })
+        .then(function (r) { return { user: normaliseUser(r.user || r) }; });
     },
 
-    // PATCH /api/profiles/me  — saves skills array
+    // PATCH /api/me  — saves skills array
     saveSkills: function (skills) {
-      return request('PATCH', '/profiles/me', { skills: skills })
-        .then(function (r) { return { user: normaliseUser(r) }; });
+      return request('PATCH', '/me', { skills: skills })
+        .then(function (r) { return { user: normaliseUser(r.user || r) }; });
     },
 
-    // Logout: stateless JWT — just clear the local token
+    // Logout: POST /api/auth/logout destroys the server-side session cookie
     logOut: function () {
-      clearToken();
-      return Promise.resolve({ ok: true });
+      return request('POST', '/auth/logout', null)
+        .catch(function () { return { ok: true }; })
+        .then(function () { clearToken(); return { ok: true }; });
     },
 
-    // GET /api/profiles/me  — returns full profile with portfolioItems
+    // GET /api/me/profile  — returns my public profile + portfolio items + video
     getProfile: function () {
-      return request('GET', '/profiles/me').then(function (r) {
+      return request('GET', '/me/profile').then(function (r) {
+        // Express returns { profile, items, video, rating, reviews, seller, buyer, delivery }
+        // profile may be null if not created yet
+        var p = r.profile || {};
         return {
-          profile: {
-            headline: r.headline || null,
-            bio:      r.bio || null,
-            hourlyRate: r.hourlyRate || null,
-            availability: r.availability || null,
-            city:     r.city || null,
-            country:  r.country || null
-          },
-          items: Array.isArray(r.portfolioItems) ? r.portfolioItems : [],
-          video: null  // video intro upload not available on production backend yet
+          profile: r.profile ? {
+            headline:     p.headline || null,
+            bio:          p.bio || null,
+            hourlyRate:   p.hourly_rate || p.hourlyRate || null,
+            availability: p.availability || null,
+            city:         p.city || null,
+            country:      null  // Express backend doesn't have country field
+          } : null,
+          items: Array.isArray(r.items) ? r.items : [],
+          video: r.video || null
         };
+      }).catch(function () {
+        return { profile: null, items: [], video: null };
       });
     },
 
-    // PATCH /api/profiles/me  — save headline, bio, rates (UpdateProfileDto fields)
+    // PUT /api/me/profile  — create/update public profile (headline, city, category, hourlyRate, availability, bio)
     saveIntro: function (data) {
       var payload = {};
-      if (data.headline   !== undefined) payload.headline     = data.headline;
-      if (data.bio        !== undefined) payload.bio          = data.bio;
-      if (data.hourlyRate !== undefined) payload.hourlyRate   = Number(data.hourlyRate);
+      if (data.headline     !== undefined) payload.headline     = data.headline;
+      if (data.bio          !== undefined) payload.bio          = data.bio;
+      if (data.hourlyRate   !== undefined) payload.hourly_rate  = Number(data.hourlyRate);
       if (data.availability !== undefined) payload.availability = data.availability;
-      if (data.city       !== undefined) payload.city         = data.city;
-      if (data.country    !== undefined) payload.country      = data.country;
-      return request('PATCH', '/profiles/me', payload)
-        .then(function (r) { return { profile: r }; });
+      if (data.city         !== undefined) payload.city         = data.city;
+      return request('PUT', '/me/profile', payload)
+        .then(function (r) { return { profile: r.profile || r }; });
     },
 
-    // POST /api/profiles/me/portfolio  — CreatePortfolioItemDto
+    // POST /api/me/profile/items  — add a portfolio/education/experience/etc item
     addProfileItem: function (item) {
-      return request('POST', '/profiles/me/portfolio', item)
-        .then(function (r) { return { item: r }; });
+      return request('POST', '/me/profile/items', item)
+        .then(function (r) { return { item: r.item || r }; });
     },
 
-    // DELETE /api/profiles/me/portfolio/:id
+    // DELETE /api/me/profile/items/:id
     removeProfileItem: function (id) {
-      return request('DELETE', '/profiles/me/portfolio/' + encodeURIComponent(id))
+      return request('DELETE', '/me/profile/items/' + encodeURIComponent(id))
         .then(function () { return { ok: true }; });
     },
 
-    // Video link save: PATCH /api/profiles/me  — stored as avatarUrl placeholder
-    // (dedicated video endpoint not available on production backend)
+    // Video link save: PUT /api/me/profile/video { url }
     saveVideo: function (url) {
-      // We store the video URL as part of profile bio/headline context for now.
-      // This is a no-op on the server but preserves the UI flow.
-      return Promise.resolve({ video: url ? { url: url } : null });
+      return request('PUT', '/me/profile/video', { url: url || null })
+        .then(function (r) { return { video: r.video || null }; })
+        .catch(function () { return { video: url ? { url: url } : null }; });
     },
 
-    // Video file upload: not available on production backend (uploads endpoint is images-only)
+    // Video file upload: POST /api/me/profile/video/upload (multipart)
     uploadVideo: function (file, meta, onProgress) {
-      return Promise.reject(apiError(
-        'NOT_AVAILABLE',
-        'Video file upload is not yet available on the live site. Please paste a YouTube, Vimeo or Loom link instead.'
-      ));
+      var f = new FormData();
+      f.append('video', file, file.name || 'video.mp4');
+      if (meta && meta.duration) f.append('duration', String(Math.round(meta.duration)));
+      return xhrUpload('/me/profile/video/upload', f, onProgress)
+        .then(function (r) { return { video: r.video || null }; });
     },
 
-    // Photo upload: POST /api/uploads (multipart, field name 'file')
-    // then PATCH /api/profiles/me { avatarUrl } to link it to the profile
+    // Photo upload: POST /api/me/photo (multipart, field name 'photo')
     savePhoto: function (blob) {
       var f = new FormData();
-      f.append('file', blob, 'photo.jpg');
-      return request('POST', '/uploads', f).then(function (r) {
-        var url = r.url || null;
-        return request('PATCH', '/profiles/me', { avatarUrl: url }).then(function (profile) {
-          return { user: normaliseUser(Object.assign({}, profile, { avatarUrl: url })) };
-        });
-      });
+      f.append('photo', blob, 'photo.jpg');
+      return request('POST', '/me/photo', f)
+        .then(function (r) { return { user: normaliseUser(r.user || r) }; });
     },
 
-    // Remove photo: PATCH /api/profiles/me { avatarUrl: null }
+    // Remove photo: DELETE /api/me/photo
     removePhoto: function () {
-      return request('PATCH', '/profiles/me', { avatarUrl: null }).then(function (profile) {
-        return { user: normaliseUser(Object.assign({}, profile, { avatarUrl: null })) };
-      });
+      return request('DELETE', '/me/photo', null)
+        .then(function (r) { return { user: normaliseUser(r.user || r) }; });
     },
 
     // Seminars: production backend has no seminar endpoint yet.
@@ -365,7 +404,7 @@ window.PaklanceAuth = (function () {
     current: null
   };
   function today() { return new Date().toISOString().slice(0, 10); }
-  function pub(u) { return u ? { id: u.id, email: u.email, fullName: u.fullName, skills: u.skills.slice(), emailVerified: u.emailVerified, provider: u.provider, memberSince: u.memberSince || null, photo: u.photo || null } : null; }
+  function pub(u) { return u ? { id: u.id, email: u.email, fullName: u.fullName, skills: u.skills.slice(), emailVerified: u.emailVerified, provider: u.provider, memberSince: u.memberSince || null, photo: u.photo || null, role: u.role || 'member' } : null; }
 
   // Sample seminars on recording a video introduction, always a few days ahead (times are Pakistan time, UTC+5).
   function nextAt(weekday, hour, weeksLater) {
@@ -482,10 +521,16 @@ window.PaklanceAuth = (function () {
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function notify(msg) { if (opts.notify) opts.notify(msg); }
   function setUser(u) { user = u; listeners.forEach(function (fn) { fn(u); }); }
+  function isClientUser(u) {
+    if (!u) return false;
+    var r = String(u.role || '').toLowerCase();
+    return r === 'client';
+  }
   function nextStep(u) {
     if (!u) return null;
     if (!u.emailVerified) return 'verify';
     if (!u.fullName) return 'name';
+    if (isClientUser(u)) return null;
     if (!u.skills || !u.skills.length) return 'skills';
     return null;
   }

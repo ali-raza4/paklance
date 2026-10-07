@@ -22,7 +22,8 @@ function user(u) {
     provider: u.provider,
     memberSince: u.created_at ? String(u.created_at).slice(0, 10) : null,
     photo: u.photo_url || null,
-    identityVerified: bool(u.identity_verified)
+    identityVerified: bool(u.identity_verified),
+    role: u.role || 'member'
   };
 }
 

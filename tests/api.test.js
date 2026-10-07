@@ -195,6 +195,50 @@ test('sign up with email: validation, verification, onboarding, log in/out', asy
   assert.equal(r.body.code, 'INVALID_CREDENTIALS');
   r = await a.post('/api/auth/login').send({ email: 'SARA@example.com', password: 'Passw0rd!' }).expect(200);
   assert.equal(r.body.user.fullName, 'Sara Ahmed');
+  assert.deepEqual(r.body.user.skills, ['React', 'Figma']);
+  assert.equal(r.body.user.role, 'member');
+});
+
+test('re-login: skills and profile preserved, client accounts do not require skills', async () => {
+  // 1. Specialist logs out and logs back in — skills are retained and returned
+  const specEmail = 'spec-relogin@example.com';
+  const spec = await newUser(specEmail, { name: 'ReLogin Specialist', skills: ['Web Development', 'Node.js'] });
+  let meRes = await spec.get('/api/me').expect(200);
+  assert.deepEqual(meRes.body.user.skills, ['Web Development', 'Node.js']);
+
+  await spec.post('/api/auth/logout').expect(200);
+  const specLogin = await request(app).post('/api/auth/login').send({ email: specEmail, password: 'Passw0rd!' }).expect(200);
+  assert.equal(specLogin.body.user.fullName, 'ReLogin Specialist');
+  assert.deepEqual(specLogin.body.user.skills, ['Web Development', 'Node.js']);
+
+  // 2. Client account setup: clients have full name but no skills required
+  const clientEmail = 'client-relogin@example.com';
+  const client = request.agent(app);
+  await client.post('/api/auth/signup').send({ email: clientEmail, password: 'Passw0rd!' }).expect(201);
+  await client.post('/api/auth/verify-email').send({ email: clientEmail, code: codeFor(clientEmail) }).expect(200);
+  await client.patch('/api/me').send({ fullName: 'Client Owner' }).expect(200);
+
+  // Mark role as client
+  await db('users').where({ email: clientEmail }).update({ role: 'client' });
+
+  // Client logs out and logs back in
+  await client.post('/api/auth/logout').expect(200);
+  const clientLogin = await client.post('/api/auth/login').send({ email: clientEmail, password: 'Passw0rd!' }).expect(200);
+  assert.equal(clientLogin.body.user.fullName, 'Client Owner');
+  assert.equal(clientLogin.body.user.role, 'client');
+  assert.deepEqual(clientLogin.body.user.skills, []);
+
+  // Client can post a job without skills setup requirement
+  await client.post('/api/jobs').send({
+    title: 'Client Project Job',
+    clientLabel: 'Client Org',
+    city: 'Lahore',
+    category: 'Development',
+    budget: 50000,
+    type: 'Fixed price',
+    skills: ['React'],
+    description: 'Detailed description for client project job posting requirement.'
+  }).expect(201);
 });
 
 test('unverified sign-up: log in continues at the verify step', async () => {
