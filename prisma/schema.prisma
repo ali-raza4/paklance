@@ -28,6 +28,12 @@ model User {
   headline                       String?
   hourlyRate                     Decimal?
   skills                         String[]
+  videoKind                      String?
+  videoUrl                       String?
+  videoName                      String?
+  videoSize                      BigInt?
+  videoType                      String?
+  videoDuration                  Int?
   contractsAsClient              Contract[]          @relation("ClientContracts")
   contractsAsSpecialist          Contract[]          @relation("SpecialistContracts")
   disputesRaised                 Dispute[]           @relation("UserDisputes")

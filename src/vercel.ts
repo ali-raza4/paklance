@@ -5,6 +5,10 @@ import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
+(BigInt.prototype as any).toJSON = function () {
+  return Number(this);
+};
+
 let cachedApp: any = null;
 
 async function bootstrap(): Promise<any> {

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Patch,
+  Put,
   Param,
   Query,
   Post,
@@ -17,7 +18,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreatePortfolioItemDto } from './dto/create-portfolio-item.dto';
 import { SearchProfilesDto } from './dto/search-profiles.dto';
 
-@Controller('profiles')
+@Controller(['profiles', 'talent'])
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
@@ -35,6 +36,13 @@ export class ProfilesController {
     return this.profilesService.updateProfile(userId, dto);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Put('me')
+  updateMyProfilePut(@Req() req: Request, @Body() dto: UpdateProfileDto) {
+    const userId = (req as any).user.id;
+    return this.profilesService.updateProfile(userId, dto);
+  }
+
   @Get('search')
   searchProfiles(@Query() query: SearchProfilesDto) {
     return this.profilesService.searchProfiles(query);
@@ -46,8 +54,22 @@ export class ProfilesController {
   }
 
   @Get(':userId')
-  getProfile(@Param('userId') userId: string) {
-    return this.profilesService.getProfileByUserId(userId);
+  async getProfile(@Param('userId') userId: string) {
+    const profile = await this.profilesService.getProfileByUserId(userId);
+    return {
+      talent: profile,
+      profile: profile,
+      ...profile,
+      page: {
+        photo: profile.avatarUrl || null,
+        video: profile.video || null,
+        items: profile.portfolioItems || [],
+        rating: null,
+        reviews: [],
+        seller: {},
+        buyer: {},
+      },
+    };
   }
 
   @UseGuards(JwtAuthGuard)

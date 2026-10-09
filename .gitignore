@@ -34,3 +34,6 @@ Thumbs.db
 *.njsproj
 *.sln
 .env*
+scratch/
+test-screenshots/
+

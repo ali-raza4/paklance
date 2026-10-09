@@ -56,6 +56,12 @@ export class PatchMeDto {
   hourly_rate?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  rate?: number;
+
+  @IsOptional()
   @IsString()
   avatarUrl?: string;
 
@@ -64,10 +70,25 @@ export class PatchMeDto {
   photo?: string;
 
   @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
   availability?: any;
+
+  @IsOptional()
+  identityVerified?: any;
 }
 
 export class PutProfileDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
   @IsOptional()
   @IsString()
   headline?: string;
@@ -93,6 +114,12 @@ export class PutProfileDto {
   hourly_rate?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  rate?: number;
+
+  @IsOptional()
   @IsString()
   availability?: string;
 
@@ -102,5 +129,27 @@ export class PutProfileDto {
 
   @IsOptional()
   @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  skills?: string[];
+
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  photo?: string;
+}
+
+export class PutVideoDto {
+  @IsOptional()
+  url?: any;
 }

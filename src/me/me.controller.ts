@@ -22,7 +22,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { ProfilesService } from '../profiles/profiles.service';
-import { PatchMeDto, PutProfileDto } from './me.dto';
+import { PatchMeDto, PutProfileDto, PutVideoDto } from './me.dto';
 import { CreatePortfolioItemDto } from '../profiles/dto/create-portfolio-item.dto';
 import { Availability } from '@prisma/client';
 
@@ -77,6 +77,38 @@ export class MeController {
         updatedAt: user.updatedAt,
       },
     };
+  }
+
+  private parseVideoLink(url: string) {
+    let s = String(url || '').trim();
+    if (!s) return null;
+    if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+    if (/\s/.test(s) || s.length > 300) return null;
+    let m: RegExpMatchArray | null;
+    if ((m = s.match(/^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})(?![\w-])/i)))
+      return { provider: 'YouTube', id: m[1], url: s };
+    if ((m = s.match(/^https?:\/\/(?:www\.|player\.)?vimeo\.com\/(?:video\/)?(\d{6,12})(?!\d)/i)))
+      return { provider: 'Vimeo', id: m[1], url: s };
+    if ((m = s.match(/^https?:\/\/(?:www\.)?loom\.com\/(?:share|embed)\/([a-f0-9]{16,40})(?![a-f0-9])/i)))
+      return { provider: 'Loom', id: m[1], url: s };
+    if ((m = s.match(/^https?:\/\/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]{20,})/i)))
+      return { provider: 'Google Drive', id: m[1], url: s };
+    return null;
+  }
+
+  private formatVideoResponse(user: any) {
+    if (!user || !user.videoUrl) return null;
+    if (user.videoKind === 'upload') {
+      return {
+        kind: 'upload',
+        url: user.videoUrl,
+        name: user.videoName || 'Video',
+        size: user.videoSize != null ? Number(user.videoSize) : null,
+        type: user.videoType || '',
+        duration: user.videoDuration != null ? Number(user.videoDuration) : null,
+      };
+    }
+    return { kind: 'link', url: user.videoUrl };
   }
 
   @ApiOperation({ summary: 'Get current user profile and skills' })
@@ -136,7 +168,7 @@ export class MeController {
       data.country = dto.country;
     }
 
-    const rate = dto.hourlyRate ?? dto.hourly_rate;
+    const rate = dto.hourlyRate ?? dto.hourly_rate ?? dto.rate;
     if (rate !== undefined && !isNaN(Number(rate))) {
       data.hourlyRate = Number(rate);
     }
@@ -195,10 +227,14 @@ export class MeController {
         city: user.city || null,
         country: user.country || null,
         skills: user.skills || [],
+        name: user.name || null,
+        fullName: user.name || null,
+        avatarUrl: user.avatarUrl || null,
+        photo: user.avatarUrl || null,
       },
       items: formattedItems,
       portfolioItems: formattedItems,
-      video: null,
+      video: this.formatVideoResponse(user),
     };
   }
 
@@ -210,15 +246,26 @@ export class MeController {
     const userId = (req as any).user.id;
     const data: any = {};
 
+    const name = dto.fullName ?? dto.name;
+    if (name !== undefined) data.name = name.trim();
+
     if (dto.headline !== undefined) data.headline = dto.headline;
     const bio = dto.bio ?? dto.about;
     if (bio !== undefined) data.bio = bio;
     if (dto.city !== undefined) data.city = dto.city;
+    if (dto.country !== undefined) data.country = dto.country;
 
-    const rate = dto.hourlyRate ?? dto.hourly_rate;
+    if (dto.skills !== undefined) {
+      data.skills = Array.isArray(dto.skills) ? dto.skills : [];
+    }
+
+    const rate = dto.hourlyRate ?? dto.hourly_rate ?? dto.rate;
     if (rate !== undefined && !isNaN(Number(rate))) {
       data.hourlyRate = Number(rate);
     }
+
+    const avatar = dto.avatarUrl ?? dto.photo;
+    if (avatar !== undefined) data.avatarUrl = avatar;
 
     if (dto.availability !== undefined) {
       data.availability = this.mapAvailability(dto.availability);
@@ -240,8 +287,124 @@ export class MeController {
         city: updated.city || null,
         country: updated.country || null,
         skills: updated.skills || [],
+        name: updated.name || null,
+        fullName: updated.name || null,
+        avatarUrl: updated.avatarUrl || null,
+        photo: updated.avatarUrl || null,
+      },
+      video: this.formatVideoResponse(updated),
+      user: {
+        id: updated.id,
+        email: updated.email,
+        role: updated.role,
+        name: updated.name,
+        fullName: updated.name,
+        skills: updated.skills || [],
+        headline: updated.headline || null,
+        bio: updated.bio || null,
+        city: updated.city || null,
+        country: updated.country || null,
+        hourlyRate: numRate,
+        hourly_rate: numRate,
+        avatarUrl: updated.avatarUrl || null,
+        photo: updated.avatarUrl || null,
+        availability: updated.availability,
+        isEmailVerified: updated.isEmailVerified,
       },
     };
+  }
+
+  @ApiOperation({ summary: 'Save or remove video introduction link' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Put('profile/video')
+  async saveVideo(@Req() req: Request, @Body() dto: PutVideoDto) {
+    const userId = (req as any).user.id;
+    const raw = dto && dto.url;
+    if (raw === null || raw === undefined || (typeof raw === 'string' && !raw.trim())) {
+      const updated = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          videoKind: null,
+          videoUrl: null,
+          videoName: null,
+          videoSize: null,
+          videoType: null,
+          videoDuration: null,
+        },
+      });
+      return { video: null };
+    }
+    if (typeof raw !== 'string') {
+      throw new BadRequestException('Paste a link to your video.');
+    }
+    const parsed = this.parseVideoLink(raw);
+    if (!parsed) {
+      throw new BadRequestException('Use a YouTube, Vimeo, Loom or Google Drive link to your video.');
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        videoKind: 'link',
+        videoUrl: parsed.url,
+        videoName: null,
+        videoSize: null,
+        videoType: null,
+        videoDuration: null,
+      },
+    });
+    return { video: this.formatVideoResponse(updated) };
+  }
+
+  @ApiOperation({ summary: 'Upload video introduction file' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('profile/video/upload')
+  @UseInterceptors(
+    FileInterceptor('video', {
+      limits: { fileSize: 100 * 1024 * 1024 },
+    }),
+  )
+  async uploadVideo(
+    @Req() req: Request,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+  ) {
+    const userId = (req as any).user.id;
+    if (!file) throw new BadRequestException('Video file is required');
+
+    const validMimes = /^video\/(mp4|quicktime|webm|x-m4v)$/i;
+    const validExts = /\.(mp4|mov|webm|m4v)$/i;
+    if (!validMimes.test(file.mimetype || '') && !validExts.test(file.originalname || '')) {
+      throw new BadRequestException('Choose an MP4, MOV or WebM video.');
+    }
+
+    const duration = Math.round(Number(body && body.duration));
+    const minSec = 10;
+    const maxSec = parseInt(process.env.VIDEO_MAX_SECONDS || '15', 10);
+    if (Number.isFinite(duration) && duration > maxSec) {
+      throw new BadRequestException(`Keep your video between ${minSec} and ${maxSec} seconds.`);
+    }
+    if (Number.isFinite(duration) && duration > 0 && duration < minSec) {
+      throw new BadRequestException(`Record at least ${minSec} seconds.`);
+    }
+
+    const url = await this.storageService.uploadFile(file);
+    const cleanName = String(file.originalname || 'Video').replace(/[\u0000-\u001F\u007F]/g, '').slice(0, 200) || 'Video';
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        videoKind: 'upload',
+        videoUrl: url,
+        videoName: cleanName,
+        videoSize: BigInt(file.size),
+        videoType: file.mimetype || 'video/mp4',
+        videoDuration: Number.isFinite(duration) && duration > 0 ? duration : null,
+      },
+    });
+
+    return { video: this.formatVideoResponse(updated) };
   }
 
   @ApiOperation({ summary: 'Upload profile photo' })

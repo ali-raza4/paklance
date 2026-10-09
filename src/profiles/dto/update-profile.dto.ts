@@ -16,6 +16,7 @@ export class UpdateProfileDto {
   @IsOptional() @IsArray() @IsString({ each: true }) skills?: string[];
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) hourlyRate?: number;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) hourly_rate?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) rate?: number;
   @IsOptional() availability?: any;
   @IsOptional() @IsString() country?: string;
   @IsOptional() @IsString() city?: string;

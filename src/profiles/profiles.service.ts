@@ -27,6 +27,12 @@ const SAFE_SCALAR_SELECT = {
   country: true,
   city: true,
   avatarUrl: true,
+  videoKind: true,
+  videoUrl: true,
+  videoName: true,
+  videoSize: true,
+  videoType: true,
+  videoDuration: true,
   createdAt: true,
   updatedAt: true,
 };
@@ -43,6 +49,12 @@ const PUBLIC_PROFILE_SELECT = {
   country: true,
   city: true,
   avatarUrl: true,
+  videoKind: true,
+  videoUrl: true,
+  videoName: true,
+  videoSize: true,
+  videoType: true,
+  videoDuration: true,
 };
 
 @Injectable()
@@ -66,6 +78,21 @@ export class ProfilesService {
     return Availability.AVAILABLE;
   }
 
+  formatVideo(user: any) {
+    if (!user || !user.videoUrl) return null;
+    if (user.videoKind === 'upload') {
+      return {
+        kind: 'upload',
+        url: user.videoUrl,
+        name: user.videoName || 'Video',
+        size: user.videoSize != null ? Number(user.videoSize) : null,
+        type: user.videoType || '',
+        duration: user.videoDuration != null ? Number(user.videoDuration) : null,
+      };
+    }
+    return { kind: 'link', url: user.videoUrl };
+  }
+
   async getProfileByUserId(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -75,7 +102,17 @@ export class ProfilesService {
       },
     });
     if (!user) throw new NotFoundException('Profile not found');
-    return user;
+    const rate = user.hourlyRate != null ? Number(user.hourlyRate) : null;
+    const video = this.formatVideo(user);
+    return {
+      ...user,
+      hourlyRate: rate,
+      hourly_rate: rate,
+      rate,
+      fullName: user.name,
+      photo: user.avatarUrl,
+      video,
+    };
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -92,7 +129,7 @@ export class ProfilesService {
     if (dto.country !== undefined) data.country = dto.country;
     if (dto.skills !== undefined) data.skills = Array.isArray(dto.skills) ? dto.skills : [];
 
-    const rate = dto.hourlyRate ?? dto.hourly_rate;
+    const rate = dto.hourlyRate ?? dto.hourly_rate ?? (dto as any).rate;
     if (rate !== undefined && !isNaN(Number(rate))) {
       data.hourlyRate = Number(rate);
     }
@@ -145,13 +182,18 @@ export class ProfilesService {
   async addPortfolioItem(userId: string, dto: CreatePortfolioItemDto) {
     const kind = dto.kind || 'portfolio';
     const subtitle = dto.subtitle ?? null;
-    const url = dto.url || dto.projectUrl || null;
-    const amount = dto.amount != null ? Number(dto.amount) : null;
+    const url = dto.url || dto.projectUrl || (dto as any).link || null;
+    const amount =
+      dto.amount != null
+        ? Number(dto.amount)
+        : (dto as any).price != null
+          ? Number((dto as any).price)
+          : null;
     const startYear = dto.startYear ?? dto.start_year ?? null;
-    const endYear = dto.endYear ?? dto.end_year ?? null;
+    const endYear = dto.endYear ?? dto.end_year ?? (dto as any).year ?? null;
     const description = dto.description ?? null;
     const imageUrl = dto.imageUrl ?? null;
-    const projectUrl = dto.projectUrl || dto.url || null;
+    const projectUrl = dto.projectUrl || dto.url || (dto as any).link || null;
 
     return this.prisma.portfolioItem.create({
       data: {

@@ -165,4 +165,53 @@ describe('MeController', () => {
       expect(res.ok).toBe(true);
     });
   });
+
+  describe('Video introduction', () => {
+    it('should save video link on PUT /me/profile/video', async () => {
+      const req: any = { user: { id: 'user-123' } };
+      const res = await controller.saveVideo(req, { url: 'https://youtube.com/watch?v=dQw4w9WgXcQ' });
+      expect(res.video).toBeDefined();
+      expect(res.video.kind).toBe('link');
+      expect(res.video.url).toBe('https://youtube.com/watch?v=dQw4w9WgXcQ');
+    });
+
+    it('should reject invalid video links', async () => {
+      const req: any = { user: { id: 'user-123' } };
+      await expect(controller.saveVideo(req, { url: 'https://example.com/invalid' })).rejects.toThrow();
+    });
+
+    it('should clear video when url is null or empty', async () => {
+      const req: any = { user: { id: 'user-123' } };
+      const res = await controller.saveVideo(req, { url: null });
+      expect(res.video).toBeNull();
+    });
+
+    it('should upload video file with 10s, 12s, and 15s duration', async () => {
+      const req: any = { user: { id: 'user-123' } };
+      const file: any = {
+        originalname: 'my-intro.mp4',
+        mimetype: 'video/mp4',
+        size: 1024 * 1024,
+        buffer: Buffer.from('fake-video'),
+      };
+      for (const dur of [10, 12, 15]) {
+        const res = await controller.uploadVideo(req, file, { duration: String(dur) });
+        expect(res.video).toBeDefined();
+        expect(res.video.kind).toBe('upload');
+        expect(res.video.duration).toBe(dur);
+      }
+    });
+
+    it('should reject video shorter than 10 seconds or longer than 15 seconds', async () => {
+      const req: any = { user: { id: 'user-123' } };
+      const file: any = {
+        originalname: 'my-intro.mp4',
+        mimetype: 'video/mp4',
+        size: 1024 * 1024,
+        buffer: Buffer.from('fake-video'),
+      };
+      await expect(controller.uploadVideo(req, file, { duration: '5' })).rejects.toThrow('Record at least 10 seconds.');
+      await expect(controller.uploadVideo(req, file, { duration: '20' })).rejects.toThrow('Keep your video between 10 and 15 seconds.');
+    });
+  });
 });
