@@ -361,66 +361,77 @@ window.PaklanceAuth = (function () {
         .catch(function () { return { video: url ? { url: url } : null }; });
     },
 
-    // Video file upload: direct browser-to-object-storage upload with fallback
+    // Video file upload: direct browser-to-object-storage upload with fallback & auto-token refresh
     uploadVideo: function (file, meta, onProgress) {
       var duration = meta && meta.duration ? Math.round(meta.duration) : null;
-      return request('POST', '/me/profile/video/upload-token', {
-        pathname: file.name || 'video.mp4',
-        duration: duration,
-        size: file.size,
-        type: file.type || 'video/mp4'
-      }).then(function (tokenRes) {
-        if (tokenRes && tokenRes.method === 'direct-blob' && tokenRes.uploadUrl && tokenRes.clientToken) {
-          return new Promise(function (resolve, reject) {
-            var x = new XMLHttpRequest();
-            x.open('PUT', tokenRes.uploadUrl);
-            x.setRequestHeader('Authorization', 'Bearer ' + tokenRes.clientToken);
-            x.setRequestHeader('x-api-version', '12');
-            x.setRequestHeader('x-vercel-blob-access', 'public');
-            x.setRequestHeader('content-type', file.type || 'video/mp4');
-            x.upload.onprogress = function (e) {
-              if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
-            };
-            x.onload = function () {
-              var d = {}; try { d = JSON.parse(x.responseText || '{}'); } catch (e) {}
-              if (x.status >= 200 && x.status < 300 && d.url) {
-                request('PUT', '/me/profile/video', {
-                  kind: 'upload',
-                  url: d.url,
-                  name: file.name || 'video.mp4',
-                  size: file.size,
-                  type: file.type || 'video/mp4',
-                  duration: duration
-                }).then(function (saveRes) {
-                  resolve({ video: saveRes.video || null });
-                }).catch(reject);
-              } else if (x.status === 413) {
-                reject(apiError('TOO_LARGE', 'The video is too large to upload. Please compress it and try again.'));
-              } else {
-                reject(apiError(d.error && d.error.code || 'SERVER_ERROR', (d.error && d.error.message) || 'Upload failed. Please try again.'));
-              }
-            };
-            x.onerror = function () {
-              reject(apiError('NETWORK', 'Can’t reach upload storage. Check your connection and try again.'));
-            };
-            x.send(file);
-          });
-        }
-        var f = new FormData();
-        f.append('video', file, file.name || 'video.mp4');
-        if (duration) f.append('duration', String(duration));
-        return xhrUpload('/me/profile/video/upload', f, onProgress)
-          .then(function (r) { return { video: r.video || null }; });
-      }).catch(function (err) {
-        if (err && (err.code === 'NOT_FOUND' || err.status === 404)) {
+      function performUpload(isRetry) {
+        return request('POST', '/me/profile/video/upload-token', {
+          pathname: file.name || 'video.mp4',
+          duration: duration,
+          size: file.size,
+          type: file.type || 'video/mp4'
+        }).then(function (tokenRes) {
+          if (tokenRes && tokenRes.method === 'direct-blob' && tokenRes.uploadUrl && tokenRes.clientToken) {
+            return new Promise(function (resolve, reject) {
+              var x = new XMLHttpRequest();
+              x.open('PUT', tokenRes.uploadUrl);
+              x.setRequestHeader('Authorization', 'Bearer ' + tokenRes.clientToken);
+              x.setRequestHeader('x-api-version', '12');
+              x.setRequestHeader('x-vercel-blob-access', 'public');
+              x.setRequestHeader('content-type', file.type || 'video/mp4');
+              x.upload.onprogress = function (e) {
+                if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+              };
+              x.onload = function () {
+                var d = {}; try { d = JSON.parse(x.responseText || '{}'); } catch (e) {}
+                if (x.status >= 200 && x.status < 300 && d.url) {
+                  // Step 2: Save permanent CDN URL and metadata into user profile DB
+                  request('PUT', '/me/profile/video', {
+                    kind: 'upload',
+                    url: d.url,
+                    name: file.name || 'video.mp4',
+                    size: file.size,
+                    type: file.type || 'video/mp4',
+                    duration: duration
+                  }).then(function (saveRes) {
+                    resolve({ video: saveRes.video || null });
+                  }).catch(function (saveErr) {
+                    reject(apiError(saveErr && saveErr.code || 'SERVER_ERROR', (saveErr && saveErr.message) || 'Video uploaded, but failed to save to profile. Please try again.'));
+                  });
+                } else if (!isRetry && (x.status === 403 || x.status === 401 || (d.error && /token.*expired/i.test(d.error.message || '')))) {
+                  // Auto-retry with fresh token if expired
+                  performUpload(true).then(resolve).catch(reject);
+                } else if (x.status === 413) {
+                  reject(apiError('TOO_LARGE', 'The video is too large to upload. Please compress it and try again.'));
+                } else {
+                  var errMsg = (d.error && d.error.message) || 'Upload failed. Please try again.';
+                  if (/token.*expired/i.test(errMsg)) errMsg = 'Upload session expired. Please try again.';
+                  reject(apiError(d.error && d.error.code || 'SERVER_ERROR', errMsg));
+                }
+              };
+              x.onerror = function () {
+                reject(apiError('NETWORK', 'Can’t reach upload storage. Check your connection and try again.'));
+              };
+              x.send(file);
+            });
+          }
           var f = new FormData();
           f.append('video', file, file.name || 'video.mp4');
           if (duration) f.append('duration', String(duration));
           return xhrUpload('/me/profile/video/upload', f, onProgress)
             .then(function (r) { return { video: r.video || null }; });
-        }
-        throw err;
-      });
+        }).catch(function (err) {
+          if (err && (err.code === 'NOT_FOUND' || err.status === 404)) {
+            var f = new FormData();
+            f.append('video', file, file.name || 'video.mp4');
+            if (duration) f.append('duration', String(duration));
+            return xhrUpload('/me/profile/video/upload', f, onProgress)
+              .then(function (r) { return { video: r.video || null }; });
+          }
+          throw err;
+        });
+      }
+      return performUpload(false);
     },
 
     // Photo upload: POST /api/me/photo (multipart, field name 'photo')
