@@ -152,4 +152,23 @@ export class PutProfileDto {
 export class PutVideoDto {
   @IsOptional()
   url?: any;
+
+  @IsOptional()
+  @IsString()
+  kind?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  size?: any;
+
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @IsOptional()
+  duration?: any;
 }
+

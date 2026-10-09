@@ -314,7 +314,35 @@ export class MeController {
     };
   }
 
-  @ApiOperation({ summary: 'Save or remove video introduction link' })
+  @ApiOperation({ summary: 'Generate client upload token for direct Blob storage upload' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('profile/video/upload-token')
+  async getUploadToken(
+    @Req() req: Request,
+    @Body() body: any,
+  ) {
+    const userId = (req as any).user.id;
+    const duration = Math.round(Number(body && body.duration));
+    const minSec = 10;
+    const maxSec = parseInt(process.env.VIDEO_MAX_SECONDS || '15', 10);
+    if (Number.isFinite(duration) && duration > maxSec) {
+      throw new BadRequestException(`Keep your video between ${minSec} and ${maxSec} seconds.`);
+    }
+    if (Number.isFinite(duration) && duration > 0 && duration < minSec) {
+      throw new BadRequestException(`Record at least ${minSec} seconds.`);
+    }
+
+    const rawName = String(body && (body.pathname || body.filename || body.name || 'video.mp4'));
+    const ext = (rawName.match(/\.[a-z0-9]+$/i) || ['.mp4'])[0].toLowerCase();
+    if (!['.mp4', '.mov', '.webm', '.m4v'].includes(ext)) {
+      throw new BadRequestException('Choose an MP4, MOV or WebM video.');
+    }
+
+    return this.storageService.createUploadToken(userId, rawName);
+  }
+
+  @ApiOperation({ summary: 'Save or remove video introduction' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Put('profile/video')
@@ -322,6 +350,14 @@ export class MeController {
     const userId = (req as any).user.id;
     const raw = dto && dto.url;
     if (raw === null || raw === undefined || (typeof raw === 'string' && !raw.trim())) {
+      const existing = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { videoUrl: true },
+      });
+      if (existing?.videoUrl) {
+        await this.storageService.deleteFile(existing.videoUrl);
+      }
+
       const updated = await this.prisma.user.update({
         where: { id: userId },
         data: {
@@ -335,9 +371,48 @@ export class MeController {
       });
       return { video: null };
     }
+
     if (typeof raw !== 'string') {
       throw new BadRequestException('Paste a link to your video.');
     }
+
+    // Check if saving an uploaded video (e.g. from direct Blob upload or data URI)
+    const isUploaded = (dto && dto.kind === 'upload') ||
+      raw.includes('.blob.vercel-storage.com') ||
+      raw.startsWith('data:video/') ||
+      raw.includes('/videos/') ||
+      raw.includes('/uploads/');
+
+    if (isUploaded) {
+      const duration = Math.round(Number(dto && dto.duration));
+      const minSec = 10;
+      const maxSec = parseInt(process.env.VIDEO_MAX_SECONDS || '15', 10);
+      if (Number.isFinite(duration) && duration > maxSec) {
+        throw new BadRequestException(`Keep your video between ${minSec} and ${maxSec} seconds.`);
+      }
+      if (Number.isFinite(duration) && duration > 0 && duration < minSec) {
+        throw new BadRequestException(`Record at least ${minSec} seconds.`);
+      }
+
+      const cleanName = String((dto && dto.name) || 'Video').replace(/[\u0000-\u001F\u007F]/g, '').slice(0, 200) || 'Video';
+      const size = dto && dto.size ? BigInt(dto.size) : null;
+      const type = String((dto && dto.type) || 'video/mp4');
+
+      const updated = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          videoKind: 'upload',
+          videoUrl: raw,
+          videoName: cleanName,
+          videoSize: size,
+          videoType: type,
+          videoDuration: Number.isFinite(duration) && duration > 0 ? duration : null,
+        },
+      });
+      return { video: this.formatVideoResponse(updated) };
+    }
+
+    // Otherwise validate as an external link (YouTube, Vimeo, Loom, Google Drive)
     const parsed = this.parseVideoLink(raw);
     if (!parsed) {
       throw new BadRequestException('Use a YouTube, Vimeo, Loom or Google Drive link to your video.');
@@ -354,6 +429,14 @@ export class MeController {
       },
     });
     return { video: this.formatVideoResponse(updated) };
+  }
+
+  @ApiOperation({ summary: 'Delete video introduction' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Delete('profile/video')
+  async deleteVideo(@Req() req: Request) {
+    return this.saveVideo(req, { url: null });
   }
 
   @ApiOperation({ summary: 'Upload video introduction file' })
@@ -387,6 +470,15 @@ export class MeController {
     }
     if (Number.isFinite(duration) && duration > 0 && duration < minSec) {
       throw new BadRequestException(`Record at least ${minSec} seconds.`);
+    }
+
+    // Delete existing video if present
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { videoUrl: true },
+    });
+    if (existing?.videoUrl) {
+      await this.storageService.deleteFile(existing.videoUrl);
     }
 
     const url = await this.storageService.uploadFile(file);

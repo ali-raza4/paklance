@@ -1,5 +1,7 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import * as Minio from 'minio';
+import { put, del } from '@vercel/blob';
+import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 
 @Injectable()
 export class StorageService implements OnModuleInit {
@@ -19,7 +21,7 @@ export class StorageService implements OnModuleInit {
           secretKey: process.env.MINIO_ROOT_PASSWORD || process.env.MINIO_SECRET_KEY || '',
         });
       } catch (err) {
-        this.logger.warn('MinIO initialization failed, using inline data storage fallback', err);
+        this.logger.warn('MinIO initialization failed, using fallback storage', err);
         this.minioClient = null;
       }
     }
@@ -45,7 +47,80 @@ export class StorageService implements OnModuleInit {
     }
   }
 
+  async createUploadToken(userId: string, originalName: string) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!token) {
+      return { method: 'standard-multipart', clientToken: null, uploadUrl: null, pathname: null };
+    }
+
+    const extMatch = (originalName || '').match(/\.[a-z0-9]+$/i);
+    const ext = extMatch ? extMatch[0].toLowerCase() : '.mp4';
+    const rawBase = (originalName || 'video').replace(/\.[^.]+$/, '');
+    const safeBase = rawBase.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'video';
+    const pathname = `videos/${userId}-${Date.now()}-${safeBase}${ext}`;
+
+    const clientToken = await generateClientTokenFromReadWriteToken({
+      pathname,
+      maximumSizeInBytes: 100 * 1024 * 1024,
+      allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v'],
+      token,
+    });
+
+    return {
+      method: 'direct-blob',
+      clientToken,
+      pathname,
+      uploadUrl: `https://vercel.com/api/blob/?pathname=${encodeURIComponent(pathname)}`,
+    };
+  }
+
+  async deleteFile(url: string | null | undefined): Promise<void> {
+    if (!url || typeof url !== 'string') return;
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (token && url.includes('.blob.vercel-storage.com')) {
+      try {
+        await del(url, { token });
+        this.logger.log(`Deleted Vercel blob: ${url}`);
+      } catch (err: any) {
+        this.logger.warn(`Failed to delete Vercel blob (${url}): ${err?.message}`);
+      }
+      return;
+    }
+
+    if (this.minioClient && url.includes(this.bucketName)) {
+      try {
+        const parts = url.split(this.bucketName + '/');
+        if (parts[1]) {
+          await this.minioClient.removeObject(this.bucketName, parts[1]);
+          this.logger.log(`Deleted MinIO object: ${parts[1]}`);
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed to delete MinIO object: ${err?.message}`);
+      }
+    }
+  }
+
   async uploadFile(file: Express.Multer.File): Promise<string> {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (token) {
+      try {
+        const extMatch = (file.originalname || '').match(/\.[a-z0-9]+$/i);
+        const ext = extMatch ? extMatch[0].toLowerCase() : '.mp4';
+        const rawBase = (file.originalname || 'upload').replace(/\.[^.]+$/, '');
+        const safeBase = rawBase.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'upload';
+        const pathname = `videos/${Date.now()}-${safeBase}${ext}`;
+
+        const blob = await put(pathname, file.buffer, {
+          access: 'public',
+          contentType: file.mimetype || 'video/mp4',
+          token,
+        });
+        return blob.url;
+      } catch (err: any) {
+        this.logger.warn(`Vercel Blob put failed (${err?.message}), checking other storage`);
+      }
+    }
+
     if (this.minioClient) {
       try {
         const filename = `${Date.now()}-${(file.originalname || 'upload').replace(/\s+/g, '-')}`;

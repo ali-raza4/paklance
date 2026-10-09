@@ -47,6 +47,13 @@ describe('MeController', () => {
 
   const mockStorage = {
     uploadFile: jest.fn().mockResolvedValue('https://example.com/new-avatar.jpg'),
+    createUploadToken: jest.fn().mockResolvedValue({
+      method: 'direct-blob',
+      clientToken: 'fake-client-token',
+      pathname: 'videos/test.mp4',
+      uploadUrl: 'https://vercel.com/api/blob/?pathname=test.mp4',
+    }),
+    deleteFile: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockProfiles = {
@@ -213,5 +220,41 @@ describe('MeController', () => {
       await expect(controller.uploadVideo(req, file, { duration: '5' })).rejects.toThrow('Record at least 10 seconds.');
       await expect(controller.uploadVideo(req, file, { duration: '20' })).rejects.toThrow('Keep your video between 10 and 15 seconds.');
     });
+
+    it('should generate upload token for valid 10s-15s video and valid format', async () => {
+      const req: any = { user: { id: 'user-123' } };
+      const res = await controller.getUploadToken(req, { duration: '12', pathname: 'my-intro.mp4' });
+      expect(res.clientToken).toBe('fake-client-token');
+      expect(res.uploadUrl).toBeDefined();
+    });
+
+    it('should reject upload token for invalid duration or unsupported extension', async () => {
+      const req: any = { user: { id: 'user-123' } };
+      await expect(controller.getUploadToken(req, { duration: '5', pathname: 'my-intro.mp4' })).rejects.toThrow('Record at least 10 seconds.');
+      await expect(controller.getUploadToken(req, { duration: '16', pathname: 'my-intro.mp4' })).rejects.toThrow('Keep your video between 10 and 15 seconds.');
+      await expect(controller.getUploadToken(req, { duration: '12', pathname: 'my-intro.exe' })).rejects.toThrow('Choose an MP4, MOV or WebM video.');
+    });
+
+    it('should save uploaded video metadata with valid duration on PUT /me/profile/video', async () => {
+      const req: any = { user: { id: 'user-123' } };
+      const res = await controller.saveVideo(req, {
+        kind: 'upload',
+        url: 'https://frys4iymzenevy3y.public.blob.vercel-storage.com/videos/test.mp4',
+        name: 'test.mp4',
+        size: 5000000,
+        type: 'video/mp4',
+        duration: '14',
+      });
+      expect(res.video).toBeDefined();
+      expect(res.video.kind).toBe('upload');
+      expect(res.video.duration).toBe(14);
+    });
+
+    it('should delete video on DELETE /me/profile/video', async () => {
+      const req: any = { user: { id: 'user-123' } };
+      const res = await controller.deleteVideo(req);
+      expect(res.video).toBeNull();
+    });
   });
 });
+
