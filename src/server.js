@@ -19,6 +19,8 @@ async function start() {
     if (!config.mail.smtp) console.log('Emails (verification codes, reset links) are printed in this window until SMTP is configured.');
     if (!config.google.clientId) console.log('Google sign-in is off until GOOGLE_CLIENT_ID is set.');
   });
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
 
   const stop = () => server.close(() => db.destroy().then(() => process.exit(0)));
   process.on('SIGINT', stop);

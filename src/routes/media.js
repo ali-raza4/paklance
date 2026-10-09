@@ -58,13 +58,14 @@ router.put('/me/profile/video', requireReady, h(async (req, res) => {
 
 router.post('/me/profile/video/upload', requireReady, uploads.videoUpload, h(async (req, res) => {
   const duration = Math.round(Number(req.body && req.body.duration));
-  if (req.file && Number.isFinite(duration) && duration > config.uploads.videoMaxSeconds) {
+  const { videoMinSeconds: minSec, videoMaxSeconds: maxSec } = config.uploads;
+  if (req.file && Number.isFinite(duration) && duration > maxSec) {
     uploads.discard(req.file);
-    throw E.validation({ video: `Keep your video to ${Math.floor(config.uploads.videoMaxSeconds / 60)} minutes or less.` });
+    throw E.validation({ video: `This video is too long. Keep it between ${minSec} and ${maxSec} seconds.` });
   }
-  if (req.file && Number.isFinite(duration) && duration > 0 && duration < 10) {
+  if (req.file && Number.isFinite(duration) && duration > 0 && duration < minSec) {
     uploads.discard(req.file);
-    throw E.validation({ video: 'Record at least 10 seconds.' });
+    throw E.validation({ video: `This video is too short. Record at least ${minSec} seconds (up to ${maxSec}).` });
   }
   const saved = uploads.saveVideo(req.file, req.user.id);
   const old = req.user.video_kind === 'upload' ? req.user.video_url : null;

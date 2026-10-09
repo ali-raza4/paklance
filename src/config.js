@@ -126,7 +126,8 @@ module.exports = {
     dir: path.resolve(ROOT, env.UPLOAD_DIR || (isTest ? 'data/test-uploads' : 'data/uploads')),
     photoMaxBytes: int('PHOTO_MAX_MB', 5) * 1024 * 1024,
     videoMaxBytes: int('VIDEO_MAX_MB', 100) * 1024 * 1024,
-    videoMaxSeconds: int('VIDEO_MAX_SECONDS', 180)
+    videoMinSeconds: 10,
+    videoMaxSeconds: int('VIDEO_MAX_SECONDS', 15)
   },
 
   payments: {

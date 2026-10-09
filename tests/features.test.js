@@ -91,14 +91,16 @@ test('video introduction: link, upload, replace, remove', async () => {
   r = await a.post('/api/me/profile/video/upload').set('Origin', ORIGIN).attach('video', TEXT, { filename: 'intro.mp4', contentType: 'video/mp4' }).expect(400);
   assert.match(r.body.message, /MP4, MOV or WebM/);
   r = await a.post('/api/me/profile/video/upload').set('Origin', ORIGIN).field('duration', '400').attach('video', MP4, 'intro.mp4').expect(400);
-  assert.match(r.body.message, /3 minutes/);
+  assert.match(r.body.message, /between 10 and 15 seconds/);
   r = await a.post('/api/me/profile/video/upload').set('Origin', ORIGIN).field('duration', '4').attach('video', MP4, 'intro.mp4').expect(400);
   assert.match(r.body.message, /at least 10 seconds/);
-  r = await a.post('/api/me/profile/video/upload').set('Origin', ORIGIN).field('duration', '74.6').attach('video', MP4, { filename: 'My intro.mp4', contentType: 'video/mp4' }).expect(201);
+  r = await a.post('/api/me/profile/video/upload').set('Origin', ORIGIN).field('duration', '16').attach('video', MP4, 'intro.mp4').expect(400);
+  assert.match(r.body.message, /between 10 and 15 seconds/);
+  r = await a.post('/api/me/profile/video/upload').set('Origin', ORIGIN).field('duration', '12.4').attach('video', MP4, { filename: 'My intro.mp4', contentType: 'video/mp4' }).expect(201);
   const v = r.body.video;
   assert.equal(v.kind, 'upload');
   assert.equal(v.name, 'My intro.mp4');
-  assert.equal(v.duration, 75);
+  assert.equal(v.duration, 12);
   assert.equal(v.type, 'video/mp4');
   assert.equal(v.size, MP4.length);
   r = await request(app).get(v.url).set('Range', 'bytes=0-99').expect(206);   // seeking works
@@ -273,5 +275,5 @@ test('demo articles stay in step with the seed file; config lists upload limits'
   assert.equal(r.body.article.takeaways.length, 3);
   assert.ok(r.body.article.body.length > 5);
   const c = await request(app).get('/api/config').expect(200);
-  assert.deepEqual(c.body.uploads, { photoMaxMb: 5, videoMaxMb: 100, videoMaxSeconds: 180 });
+  assert.deepEqual(c.body.uploads, { photoMaxMb: 5, videoMaxMb: 100, videoMaxSeconds: 15 });
 });

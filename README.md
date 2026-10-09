@@ -142,7 +142,7 @@ Rules (the same in the frontend):
 | DELETE | `/me/profile/items/:id` | owner | remove one of my profile sections |
 | POST · DELETE | `/me/photo` | signed in | multipart field `photo` (JPG, PNG or WebP, up to 5 MB; the type is checked from the file itself) → `{ user }` with `user.photo` |
 | PUT | `/me/profile/video` | onboarded user | `{ url }` a YouTube, Vimeo, Loom or Google Drive link; `url: null` removes the video → `{ video }` |
-| POST | `/me/profile/video/upload` | onboarded user | multipart `video` (MP4, MOV or WebM, up to 100 MB) + `duration` in seconds (10–180, measured by the browser) → `{ video: { kind: 'upload', url, name, size, type, duration } }`. Upload progress works with XHR. |
+| POST | `/me/profile/video/upload` | onboarded user | multipart `video` (MP4, MOV or WebM, up to 100 MB) + `duration` in seconds (10–15, measured by the browser) → `{ video: { kind: 'upload', url, name, size, type, duration } }`. Upload progress works with XHR. |
 | GET | `/seminars` | anyone | upcoming free seminars on recording a video introduction: `{ id, title, mode, place, about, startsAt, minutes, seats, taken, seatsLeft, sample, registered }` |
 | POST · DELETE | `/seminars/:id/register` | signed in | take or give up a place → `{ seminar }`. Emails the details. `FULL` (409) when no seats are left; sample dates return `SAMPLE_CONTENT`. |
 | POST | `/match-requests` | anyone | `{ role, engagement, seniority, timezone, budgetModel, skills }` → `{ shortlist:[{ …, fit, matchedSkills }] }` |

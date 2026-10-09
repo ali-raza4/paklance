@@ -107,7 +107,9 @@ window.PaklanceAuth = (function () {
       x.onload = function () {
         var d = {}; try { d = JSON.parse(x.responseText || '{}'); } catch (e) {}
         if (x.status >= 200 && x.status < 300) resolve(d);
-        else reject(apiError(d.code || 'SERVER_ERROR', d.message || 'Upload failed. Please try again.'));
+        else if (x.status === 413) reject(apiError('TOO_LARGE', 'The video is too large to upload. Please compress it and try again.'));
+        else if (x.status === 504 || x.status === 502) reject(apiError('SERVER_ERROR', 'The upload timed out. Please try again.'));
+        else reject(apiError(d.code || 'SERVER_ERROR', d.message || d.error || 'Upload failed. Please try again.'));
       };
       x.onerror = function () { reject(apiError('NETWORK', 'Can’t reach Paklance right now. Check your connection and try again.')); };
       x.send(formData);
@@ -302,7 +304,7 @@ window.PaklanceAuth = (function () {
     // GET /api/me/profile  — returns my public profile + portfolio items + video
     getProfile: function () {
       return request('GET', '/me/profile').then(function (r) {
-        // Express returns { profile, items, video, rating, reviews, seller, buyer, delivery }
+        // Express/NestJS returns { profile, items, video, ... }
         // profile may be null if not created yet
         var p = r.profile || {};
         return {
@@ -312,9 +314,9 @@ window.PaklanceAuth = (function () {
             hourlyRate:   p.hourly_rate || p.hourlyRate || null,
             availability: p.availability || null,
             city:         p.city || null,
-            country:      null  // Express backend doesn't have country field
+            country:      p.country || null
           } : null,
-          items: Array.isArray(r.items) ? r.items : [],
+          items: Array.isArray(r.items) ? r.items : (Array.isArray(r.portfolioItems) ? r.portfolioItems : []),
           video: r.video || null
         };
       }).catch(function () {
@@ -322,7 +324,7 @@ window.PaklanceAuth = (function () {
       });
     },
 
-    // PUT /api/me/profile  — create/update public profile (headline, city, category, hourlyRate, availability, bio)
+    // PUT /api/me/profile  — create/update public profile (headline, city, category, hourlyRate, availability, bio, country, name)
     saveIntro: function (data) {
       var payload = {};
       if (data.headline     !== undefined) payload.headline     = data.headline;
@@ -330,6 +332,11 @@ window.PaklanceAuth = (function () {
       if (data.hourlyRate   !== undefined) payload.hourly_rate  = Number(data.hourlyRate);
       if (data.availability !== undefined) payload.availability = data.availability;
       if (data.city         !== undefined) payload.city         = data.city;
+      if (data.country      !== undefined) payload.country      = data.country;
+      if (data.category     !== undefined) payload.category     = data.category;
+      if (data.fullName     !== undefined) payload.fullName     = data.fullName;
+      if (data.name         !== undefined) payload.name         = data.name;
+      if (data.skills       !== undefined) payload.skills       = data.skills;
       return request('PUT', '/me/profile', payload)
         .then(function (r) { return { profile: r.profile || r }; });
     },
@@ -1182,7 +1189,7 @@ window.PaklanceProfile = (function () {
   var modal = null, current = null, lastFocus = null, saving = false;
   var ph = null;                                   // photo editor: { img, url, zoom, x, y }
   var vu = null;                                   // video upload: { file, url, duration }
-  var VU_TYPES = /^video\/(mp4|quicktime|webm|x-m4v)$/i, VU_EXT = /\.(mp4|mov|webm|m4v)$/i, VU_MAX_MB = 100, VU_MAX_SEC = 180, VU_MIN_SEC = 10;
+  var VU_TYPES = /^video\/(mp4|quicktime|webm|x-m4v)$/i, VU_EXT = /\.(mp4|mov|webm|m4v)$/i, VU_MAX_MB = 100, VU_MAX_SEC = 15, VU_MIN_SEC = 10;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function pkr(n) { return 'PKR ' + Number(n || 0).toLocaleString('en-US'); }
@@ -1272,7 +1279,7 @@ window.PaklanceProfile = (function () {
         (v ? '<span class="chip chip-verified">Added</span>' : '<span class="chip chip-muted">Optional</span>') + '</div>' +
       (v ? '<div class="pc-vmini">' + PaklanceVideo.player(v, { title: 'your video introduction', initials: initialsOf(u.fullName || u.email), photo: u.photo, label: 'Play your video' }) + '</div>' +
            '<div class="pc-vactions"><button type="button" class="pc-btn" data-pc-open="video">Change video</button><a class="pc-btn" href="#profile">See it on your profile</a></div>'
-         : '<p class="pc-vtext">A 60–90 second video lets clients see and hear you before they hire. It plays at the top of your profile.</p>' +
+         : '<p class="pc-vtext">A 10–15 second video lets clients see and hear you before they hire. It plays at the top of your profile.</p>' +
            '<button type="button" class="btn btn-primary btn-sm" data-pc-open="video">Add video</button>') +
       helpLinks();
   }
@@ -1405,7 +1412,7 @@ window.PaklanceProfile = (function () {
       m.bio ? act('intro', 'Edit') : '');
     if (m.video || owner) main += sec('video', 'Video introduction', m.video
       ? '<div class="pp-video">' + PaklanceVideo.player(m.video, { title: (m.name || '') + '’s video introduction', initials: m.initials, photo: m.photo, label: 'Meet ' + first + ' · play video' }) + '</div>'
-      : '<div class="pp-empty pp-empty-video"><p>Add a 60–90 second video so clients can see and hear you before they hire.</p>' +
+      : '<div class="pp-empty pp-empty-video"><p>Add a 10–15 second video so clients can see and hear you before they hire.</p>' +
           '<button type="button" class="pc-btn" data-pc-open="video">Add video</button>' + helpLinks() + '</div>',
       m.video ? act('video', 'Change') : '');
     main += sec('skills', 'My expertise', (m.skills || []).length ? '<div class="tags">' + m.skills.map(function (x) { return '<span class="tag">' + esc(x) + '</span>'; }).join('') + '</div>' : '<p class="pp-none">No skills added yet.</p>',
@@ -1529,7 +1536,7 @@ window.PaklanceProfile = (function () {
         '</div>' +
         '<div class="vu-panel" id="vu-panel-upload" role="tabpanel" aria-labelledby="vu-tab-upload" data-vu-panel="upload"' + (tab === 'upload' ? '' : ' hidden') + '>' +
           '<input type="file" id="pc-video-file" class="pa-sr vu-file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.m4v,.webm">' +
-          '<label class="ph-drop vu-drop" for="pc-video-file">' + I.upload + '<span><b>Choose a video</b><small>or drag it here · MP4, MOV or WebM, up to ' + VU_MAX_MB + ' MB and 3 minutes</small></span></label>' +
+          '<label class="ph-drop vu-drop" for="pc-video-file">' + I.upload + '<span><b>Choose a video</b><small>or drag it here · MP4, MOV or WebM, up to ' + VU_MAX_MB + ' MB, 10 to ' + VU_MAX_SEC + ' seconds</small></span></label>' +
           '<div class="vu-picked" hidden>' +
             '<video class="vu-preview" controls playsinline preload="metadata"></video>' +
             '<div class="vu-meta"><strong class="vu-name"></strong><span class="vu-info"></span></div>' +
@@ -1594,7 +1601,7 @@ window.PaklanceProfile = (function () {
       if (!vu || vu.url !== url) return;
       if (isFinite(vid.duration) && vid.duration > 0) vu.duration = Math.round(vid.duration);
       vuInfo();
-      if (vu.duration && vu.duration > VU_MAX_SEC) { clearTimeout(vu.timer); vuStatus(''); vuErr('This video is ' + PaklanceVideo.duration(vu.duration) + ' long. Keep it under 3 minutes; 60 to 90 seconds works best.'); return; }
+      if (vu.duration && vu.duration > VU_MAX_SEC) { clearTimeout(vu.timer); vuStatus(''); vuErr('This video is ' + PaklanceVideo.duration(vu.duration) + ' long. Keep it between 10 and 15 seconds.'); return; }
       if (vu.duration && vu.duration < VU_MIN_SEC) { clearTimeout(vu.timer); vuStatus(''); vuErr('This video is only ' + vu.duration + ' seconds long. Record at least ' + VU_MIN_SEC + ' seconds.'); return; }
       ready();
     };
@@ -1630,7 +1637,7 @@ window.PaklanceProfile = (function () {
       '<p class="pa-label" id="pc-seminars" tabindex="-1">Upcoming seminars</p>' +
       '<div class="sem-list" aria-live="polite"><p class="pc-hint">Loading seminars…</p></div>' +
       '<p class="pa-label">Quick tips</p><ul class="vh-tips">' +
-        '<li>Keep it between 60 and 90 seconds.</li>' +
+        '<li>Keep it between 10 and 15 seconds.</li>' +
         '<li>Face a window or a lamp, in a quiet room.</li>' +
         '<li>Hold your phone sideways, at eye level.</li>' +
         '<li>Say who you are, what you do, one result you’re proud of, and invite clients to message you.</li>' +
