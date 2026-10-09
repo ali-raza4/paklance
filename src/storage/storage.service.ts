@@ -59,11 +59,14 @@ export class StorageService implements OnModuleInit {
     const safeBase = rawBase.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'video';
     const pathname = `videos/${userId}-${Date.now()}-${safeBase}${ext}`;
 
+    const validUntil = Date.now() + 24 * 60 * 60 * 1000; // 24 hours validity
+
     const clientToken = await generateClientTokenFromReadWriteToken({
       pathname,
       maximumSizeInBytes: 100 * 1024 * 1024,
       allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v'],
       token,
+      validUntil,
     });
 
     return {
@@ -71,6 +74,7 @@ export class StorageService implements OnModuleInit {
       clientToken,
       pathname,
       uploadUrl: `https://vercel.com/api/blob/?pathname=${encodeURIComponent(pathname)}`,
+      validUntil,
     };
   }
 
