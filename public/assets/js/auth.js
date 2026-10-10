@@ -66,7 +66,7 @@ window.PaklanceAuth = (function () {
       // Express backend returns memberSince already as YYYY-MM-DD
       memberSince:   u.memberSince || (u.createdAt ? String(u.createdAt).slice(0, 10) : null),
       photo:         u.photo || u.avatarUrl || null,
-      role:          u.role || 'member'
+      role:          (u.role && String(u.role).toUpperCase() === 'ADMIN') ? 'ADMIN' : (u.role || 'member')
     };
   }
 
@@ -191,7 +191,7 @@ window.PaklanceAuth = (function () {
         var u = r && (r.user || r);
         if (!u || !u.id) return { user: null };
         var norm = normaliseUser(u);
-        if (norm && !isClientUser(norm) && (!norm.skills || !norm.skills.length)) {
+        if (norm && !isClientUser(norm) && !isAdminUser(norm) && (!norm.skills || !norm.skills.length)) {
           return RealAPI.getProfile().then(function (p) {
             if (p && p.profile && Array.isArray(p.profile.skills) && p.profile.skills.length) {
               norm.skills = p.profile.skills.slice();
@@ -592,11 +592,16 @@ window.PaklanceAuth = (function () {
     var r = String(u.role || '').toLowerCase();
     return r === 'client';
   }
+  function isAdminUser(u) {
+    if (!u) return false;
+    var r = String(u.role || '').toUpperCase();
+    return r === 'ADMIN';
+  }
   function nextStep(u) {
     if (!u) return null;
     if (!u.emailVerified) return 'verify';
     if (!u.fullName) return 'name';
-    if (isClientUser(u)) return null;
+    if (isClientUser(u) || isAdminUser(u)) return null;
     if (!u.skills || !u.skills.length) return 'skills';
     return null;
   }
@@ -1022,6 +1027,9 @@ window.PaklanceAuth = (function () {
     // logOut clears the stored JWT token (stateless backend — no server-side session to destroy)
     logOut: function () { return API.logOut().catch(function () {}).then(function () { clearToken(); setUser(null); }); },
     getUser: function () { return user; },
+    isAdminUser: function () { return isAdminUser(user); },
+    isClientUser: function () { return isClientUser(user); },
+    getToken: getToken,
     onChange: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (f) { return f !== fn; }); }; },
     isOpen: function () { return !!root && !root.hidden; },
     skillGroups: SKILL_GROUPS,

@@ -1555,3 +1555,44 @@ a.pc-btn{display:inline-flex;align-items:center}
 @media (prefers-reduced-motion:reduce){.pk-msg-thread{transition:none}.pk-bubble-unsend{transition:none}.pk-msg-conv-item{transition:none}}
 /* Message action button on specialist cards / profiles */
 .pk-contact-btn{margin-top:8px}
+
+/* ===== PAKLANCE ADMIN CONSOLE STYLES ===== */
+.admin-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
+.admin-kpi-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;display:flex;align-items:flex-start;gap:16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:transform .18s,box-shadow .18s}
+.admin-kpi-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,0.06)}
+.admin-kpi-icon{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;flex-shrink:0}
+.admin-kpi-icon svg{width:22px;height:22px}
+.admin-kpi-info{display:flex;flex-direction:column;min-width:0}
+.admin-kpi-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:4px}
+.admin-kpi-val{font-size:26px;font-weight:700;color:var(--ink);margin:0 0 2px 0;line-height:1.2}
+.admin-kpi-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.admin-nav-tabs{display:flex;gap:8px;border-bottom:1px solid var(--line);padding-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.admin-tab{background:transparent;border:1px solid transparent;padding:10px 16px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;transition:all .15s}
+.admin-tab:hover{background:var(--mint-2);color:var(--ink)}
+.admin-tab.active{background:#0B3B2D;color:#fff;border-color:#0B3B2D}
+
+.admin-search-input{width:100%;max-width:380px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;outline:none;transition:border-color .15s,box-shadow .15s}
+.admin-search-input:focus{border-color:#12A56F;box-shadow:0 0 0 3px rgba(18,165,111,0.15)}
+
+.admin-filter-pill{background:#fff;border:1px solid var(--line);padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .14s}
+.admin-filter-pill:hover{border-color:#12A56F;color:var(--ink)}
+.admin-filter-pill.active{background:#12A56F;border-color:#12A56F;color:#fff}
+
+.admin-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:12px}
+.admin-table{width:100%;border-collapse:collapse;font-size:13.5px;text-align:left}
+.admin-table th{background:var(--mint-2);color:var(--ink);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--line);font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}
+.admin-table td{padding:12px 14px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+.admin-table tbody tr:hover{background:rgba(240,253,244,0.5)}
+
+.role-badge{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:700;letter-spacing:.02em}
+.role-badge.role-admin{background:rgba(220,38,38,0.1);color:#DC2626;border:1px solid rgba(220,38,38,0.2)}
+.role-badge.role-client{background:rgba(37,99,235,0.1);color:#2563EB;border:1px solid rgba(37,99,235,0.2)}
+.role-badge.role-specialist{background:rgba(18,165,111,0.1);color:#12A56F;border:1px solid rgba(18,165,111,0.2)}
+
+.status-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+.status-badge.status-verified{background:rgba(18,165,111,0.1);color:#12A56F}
+.status-badge.status-pending{background:rgba(217,119,6,0.1);color:#D97706}
+.status-badge.status-open{background:rgba(220,38,38,0.1);color:#DC2626}
+.status-badge.status-completed{background:rgba(18,165,111,0.1);color:#12A56F}
+

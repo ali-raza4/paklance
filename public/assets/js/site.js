@@ -146,7 +146,7 @@
   }
 
   /* ---------- routing ---------- */
-  var VIEWS = ['home','jobs','job','talent','person','profile','how','global','match','trust','pricing','dashboard','blog','article'];
+  var VIEWS = ['home','jobs','job','talent','person','profile','how','global','match','trust','pricing','dashboard','blog','article','admin'];
   function route(){
     var r = (location.hash || '#home').slice(1);
     var blogSlug = null;
@@ -193,8 +193,27 @@
       }
     }
     if (r === 'person' && !currentPerson) r = 'talent';
-    if (r === 'dashboard' && !PaklanceAuth.getUser()){ r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0); }
-    if (r === 'dashboard') renderDashboard();
+    if (r === 'admin'){
+      var curAdminUser = PaklanceAuth.getUser();
+      if (!curAdminUser){ r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0); }
+      else if (String(curAdminUser.role || '').toUpperCase() !== 'ADMIN'){
+        toast('Access restricted to platform administrators.');
+        go('dashboard');
+        return;
+      } else {
+        renderAdminDashboard();
+      }
+    }
+    if (r === 'dashboard'){
+      var curDashUser = PaklanceAuth.getUser();
+      if (!curDashUser){ r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0); }
+      else if (String(curDashUser.role || '').toUpperCase() === 'ADMIN'){
+        go('admin');
+        return;
+      } else {
+        renderDashboard();
+      }
+    }
     if (r === 'profile' && !PaklanceAuth.getUser()){ r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0); }
     var own = r === 'profile'; if (own) r = 'person';          // my own profile uses the same page, with edit buttons
     $$('.view').forEach(function(v){ v.hidden = v.getAttribute('data-view') !== r; });
@@ -1632,23 +1651,47 @@
   }
   function authEntry(signup){
     var u = PaklanceAuth.getUser();
+    var isAdmin = u && (String(u.role || '').toUpperCase() === 'ADMIN');
     var isClient = u && String(u.role || '').toLowerCase() === 'client';
-    var hasCompletedProfile = u && u.fullName && (isClient || (u.skills && u.skills.length));
-    if (hasCompletedProfile){ toast('You’re signed in as ' + u.fullName + '.'); go('dashboard'); return; }
+    var hasCompletedProfile = u && u.fullName && (isAdmin || isClient || (u.skills && u.skills.length));
+    if (hasCompletedProfile){
+      toast('You’re signed in as ' + u.fullName + '.');
+      go(isAdmin ? 'admin' : 'dashboard');
+      return;
+    }
     PaklanceAuth.open(signup ? 'signup' : 'login');
   }
   function updateHeader(u){
     document.body.classList.toggle('signed-in', !!u);
+    var isAdmin = u && (String(u.role || '').toUpperCase() === 'ADMIN');
     var isClient = u && String(u.role || '').toLowerCase() === 'client';
     var mobPostBtn = $('#mobPostJobBtn');
     if (mobPostBtn) mobPostBtn.style.display = isClient ? 'block' : 'none';
+    var hdrAdminLink = $('#hdrAdminLink');
+    if (hdrAdminLink) hdrAdminLink.style.display = isAdmin ? 'inline-block' : 'none';
+    var mobAdminLink = $('#mobAdminLink');
+    if (mobAdminLink) mobAdminLink.style.display = isAdmin ? 'block' : 'none';
     if (u){
       $('#hdrAv').innerHTML = u.photo ? '<img src="' + esc(u.photo) + '" alt="">' : esc(initials(u.fullName || u.email));
       $('#hdrName').textContent = u.fullName ? u.fullName.split(' ')[0] : 'Account';
+      var userPill = $('.user-pill');
+      if (userPill) userPill.setAttribute('href', isAdmin ? '#admin' : '#dashboard');
     }
     if (LIVE) refreshDot();
     var onDash = !$('[data-view="dashboard"]').hidden;
-    if (onDash){ if (u) renderDashboard(); else go('home'); }
+    if (onDash){
+      if (u){
+        if (isAdmin) go('admin');
+        else renderDashboard();
+      } else {
+        go('home');
+      }
+    }
+    var onAdmin = !$('[data-view="admin"]').hidden;
+    if (onAdmin){
+      if (u && isAdmin) renderAdminDashboard();
+      else go('home');
+    }
     if (!u && location.hash === '#profile') go('home');
     var onJobDetail = !$('[data-view="job"]').hidden;
     if (onJobDetail && currentJob) renderJobDetail();
@@ -2837,5 +2880,279 @@
 
     return { init: init, open: open, close: close, startConversation: startConversationWithUser };
   })();
+
+  /* =====================================================================
+     PAKLANCE ADMIN DASHBOARD CONTROLLER
+     ===================================================================== */
+  var adminData = {
+    stats: null,
+    financials: null,
+    users: [],
+    disputes: [],
+    verifications: [],
+    withdrawals: [],
+    activeTab: 'users',
+    roleFilter: 'ALL',
+    searchQuery: '',
+    loading: false
+  };
+
+  function renderAdminDashboard(){
+    var u = PaklanceAuth.getUser();
+    if (!u || String(u.role || '').toUpperCase() !== 'ADMIN') return;
+
+    var adminView = $('#adminView');
+    if (!adminView) return;
+
+    if (!adminView._initialized) {
+      adminView._initialized = true;
+
+      // Refresh button
+      var refreshBtn = $('#adminRefreshBtn');
+      if (refreshBtn) {
+        refreshBtn.onclick = function(){
+          toast('Refreshing platform data...');
+          loadAdminDashboardData(true);
+        };
+      }
+
+      // Tab buttons
+      var tabs = adminView.querySelectorAll('.admin-tab');
+      tabs.forEach(function(tab){
+        tab.onclick = function(){
+          var targetTab = tab.getAttribute('data-admin-tab');
+          adminData.activeTab = targetTab;
+          tabs.forEach(function(t){
+            var isCurrent = t === tab;
+            t.classList.toggle('active', isCurrent);
+            t.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
+          });
+          adminView.querySelectorAll('.admin-panel').forEach(function(p){
+            p.hidden = p.id !== ('adminPanel' + targetTab.charAt(0).toUpperCase() + targetTab.slice(1));
+          });
+        };
+      });
+
+      // Role filter pills
+      var filterPills = adminView.querySelectorAll('[data-role-filter]');
+      filterPills.forEach(function(pill){
+        pill.onclick = function(){
+          filterPills.forEach(function(p){ p.classList.remove('active'); });
+          pill.classList.add('active');
+          adminData.roleFilter = pill.getAttribute('data-role-filter');
+          renderAdminUsersTable();
+        };
+      });
+
+      // Search input
+      var searchInput = $('#adminUserSearch');
+      if (searchInput) {
+        searchInput.oninput = function(){
+          adminData.searchQuery = searchInput.value.trim().toLowerCase();
+          renderAdminUsersTable();
+        };
+      }
+    }
+
+    loadAdminDashboardData();
+  }
+
+  function loadAdminDashboardData(force){
+    if (adminData.loading && !force) return;
+    adminData.loading = true;
+
+    Promise.all([
+      api('GET', '/admin/stats').catch(function(){ return {}; }),
+      api('GET', '/admin/financials/stats').catch(function(){ return {}; }),
+      api('GET', '/admin/users').catch(function(){ return []; }),
+      api('GET', '/admin/disputes').catch(function(){ return []; }),
+      api('GET', '/admin/verifications').catch(function(){ return []; }),
+      api('GET', '/admin/financials/withdrawals').catch(function(){ return []; })
+    ]).then(function(results){
+      adminData.loading = false;
+      adminData.stats = results[0] || {};
+      adminData.financials = results[1] || {};
+      adminData.users = Array.isArray(results[2]) ? results[2] : [];
+      adminData.disputes = Array.isArray(results[3]) ? results[3] : [];
+      adminData.verifications = Array.isArray(results[4]) ? results[4] : [];
+      adminData.withdrawals = Array.isArray(results[5]) ? results[5] : [];
+
+      updateAdminKpis();
+      renderAdminUsersTable();
+      renderAdminDisputesTable();
+      renderAdminVerificationsTable();
+      renderAdminWithdrawalsTable();
+    }).catch(function(err){
+      adminData.loading = false;
+      toast('Failed to load admin data: ' + (err.message || 'Unknown error'));
+    });
+  }
+
+  function updateAdminKpis(){
+    var s = adminData.stats || {};
+    var f = adminData.financials || {};
+    var uCount = adminData.users.length || s.totalUsers || 0;
+    var jCount = s.totalJobs || 0;
+    var cCount = s.totalContracts || 0;
+    var pCount = s.totalProposals || 0;
+    var dCount = s.openDisputes != null ? s.openDisputes : adminData.disputes.filter(function(d){ return d.status === 'OPEN'; }).length;
+    var vCount = s.pendingVerifications != null ? s.pendingVerifications : adminData.verifications.filter(function(v){ return v.status === 'PENDING'; }).length;
+
+    var elUsers = $('#adminStatUsers'); if (elUsers) elUsers.textContent = uCount.toLocaleString();
+    var elJobs = $('#adminStatJobs'); if (elJobs) elJobs.textContent = jCount.toLocaleString();
+    var elContracts = $('#adminStatContracts'); if (elContracts) elContracts.textContent = cCount.toLocaleString();
+    var elContractsSub = $('#adminStatContractsSub'); if (elContractsSub) elContractsSub.textContent = pCount + ' active proposals';
+    var elDisputes = $('#adminStatDisputes'); if (elDisputes) elDisputes.textContent = dCount.toLocaleString();
+    var elVerifs = $('#adminStatVerifs'); if (elVerifs) elVerifs.textContent = vCount.toLocaleString();
+
+    // Escrow held
+    var escrowHeld = (f.escrows && f.escrows._sum && f.escrows._sum.balance) || 0;
+    var elEscrow = $('#adminStatEscrow'); if (elEscrow) elEscrow.textContent = 'PKR ' + Number(escrowHeld).toLocaleString();
+
+    // Tab count badges
+    var tabU = $('#adminTabUsersCount'); if (tabU) tabU.textContent = uCount;
+    var tabD = $('#adminTabDisputesCount'); if (tabD) tabD.textContent = adminData.disputes.length;
+    var tabV = $('#adminTabVerifsCount'); if (tabV) tabV.textContent = adminData.verifications.length;
+    var tabW = $('#adminTabWithdrawalsCount'); if (tabW) tabW.textContent = adminData.withdrawals.length;
+  }
+
+  function renderAdminUsersTable(){
+    var tbody = $('#adminUsersTbody');
+    if (!tbody) return;
+
+    var filtered = adminData.users.filter(function(u){
+      var roleMatch = adminData.roleFilter === 'ALL' || String(u.role || '').toUpperCase() === adminData.roleFilter;
+      if (!roleMatch) return false;
+      if (!adminData.searchQuery) return true;
+      var q = adminData.searchQuery;
+      var name = String(u.name || u.fullName || '').toLowerCase();
+      var email = String(u.email || '').toLowerCase();
+      var role = String(u.role || '').toLowerCase();
+      var headline = String(u.headline || '').toLowerCase();
+      return name.indexOf(q) > -1 || email.indexOf(q) > -1 || role.indexOf(q) > -1 || headline.indexOf(q) > -1;
+    });
+
+    if (!filtered.length){
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">No users match the selected criteria.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(function(u){
+      var r = String(u.role || 'SPECIALIST').toUpperCase();
+      var roleClass = r === 'ADMIN' ? 'role-admin' : (r === 'CLIENT' ? 'role-client' : 'role-specialist');
+      var name = esc(u.name || u.fullName || 'User');
+      var email = esc(u.email || '—');
+      var verified = u.isEmailVerified !== false;
+      var joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+      var avail = esc(u.availability || 'AVAILABLE');
+      var init = initials(u.name || u.email);
+
+      return '<tr>' +
+        '<td>' +
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<div style="width:34px;height:34px;border-radius:50%;background:#0B3B2D;color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px;flex-shrink:0">' + init + '</div>' +
+            '<div><strong style="display:block;color:var(--ink)">' + name + '</strong><span style="font-size:12px;color:var(--muted)">' + email + '</span></div>' +
+          '</div>' +
+        '</td>' +
+        '<td><span class="role-badge ' + roleClass + '">' + r + '</span></td>' +
+        '<td><span class="status-badge ' + (verified ? 'status-verified' : 'status-pending') + '">' + (verified ? '✓ Verified' : '⏳ Unverified') + '</span></td>' +
+        '<td style="color:var(--muted);font-size:13px">' + joined + '</td>' +
+        '<td><span style="font-size:12.5px;color:var(--ink)">' + avail + '</span></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderAdminDisputesTable(){
+    var tbody = $('#adminDisputesTbody');
+    if (!tbody) return;
+    if (!adminData.disputes.length){
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No active disputes on the platform. All contracts are healthy.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = adminData.disputes.map(function(d){
+      var statusClass = d.status === 'OPEN' ? 'status-open' : 'status-completed';
+      var date = d.createdAt ? new Date(d.createdAt).toLocaleDateString() : '—';
+      return '<tr>' +
+        '<td><code style="font-size:11.5px">' + esc(String(d.id).slice(0, 8)) + '…</code></td>' +
+        '<td><code style="font-size:11.5px">' + esc(String(d.contractId || d.contract_id || '—').slice(0, 8)) + '</code></td>' +
+        '<td>' + esc(d.initiatorId || d.userId || 'User') + '</td>' +
+        '<td>' + esc(d.reason || d.description || 'Dispute regarding deliverables') + '</td>' +
+        '<td><span class="status-badge ' + statusClass + '">' + esc(d.status || 'OPEN') + '</span></td>' +
+        '<td style="color:var(--muted)">' + date + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderAdminVerificationsTable(){
+    var tbody = $('#adminVerifsTbody');
+    if (!tbody) return;
+    if (!adminData.verifications.length){
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">No pending specialist verification requests in queue.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = adminData.verifications.map(function(v){
+      var statusClass = v.status === 'PENDING' ? 'status-pending' : 'status-verified';
+      var date = v.createdAt ? new Date(v.createdAt).toLocaleDateString() : '—';
+      return '<tr>' +
+        '<td><code style="font-size:11.5px">' + esc(String(v.id).slice(0, 8)) + '…</code></td>' +
+        '<td>' + esc(v.userId || v.user_id || 'Specialist') + '</td>' +
+        '<td>' + esc(v.type || v.documentType || 'CNIC / Identity') + '</td>' +
+        '<td><span class="status-badge ' + statusClass + '">' + esc(v.status || 'PENDING') + '</span></td>' +
+        '<td style="color:var(--muted)">' + date + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderAdminWithdrawalsTable(){
+    var tbody = $('#adminWithdrawalsTbody');
+    if (!tbody) return;
+    if (!adminData.withdrawals.length){
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">No pending specialist withdrawal requests.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = adminData.withdrawals.map(function(w){
+      var isPending = w.status === 'REQUESTED' || w.status === 'PENDING';
+      var isProcessing = w.status === 'PROCESSING';
+      var statusClass = (w.status === 'COMPLETED' ? 'status-completed' : (w.status === 'FAILED' ? 'status-open' : 'status-pending'));
+      var actions = '';
+      if (isPending || isProcessing){
+        actions = '<div style="display:flex;gap:6px">' +
+          '<button class="btn btn-sm btn-primary" style="padding:4px 8px;font-size:11.5px" data-process-withdrawal="' + esc(w.id) + '" data-action="COMPLETED">Approve</button>' +
+          (isPending ? '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:11.5px" data-process-withdrawal="' + esc(w.id) + '" data-action="PROCESSING">Process</button>' : '') +
+          '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:11.5px;color:#DC2626;border-color:#DC2626" data-process-withdrawal="' + esc(w.id) + '" data-action="FAILED">Reject</button>' +
+        '</div>';
+      } else {
+        actions = '<span style="color:var(--muted);font-size:12px">Processed</span>';
+      }
+
+      return '<tr>' +
+        '<td><code style="font-size:11.5px">' + esc(String(w.id).slice(0, 8)) + '…</code></td>' +
+        '<td>' + esc(w.specialistId || w.userId || 'Specialist') + '</td>' +
+        '<td><strong>PKR ' + Number(w.amount || 0).toLocaleString() + '</strong></td>' +
+        '<td>' + esc(w.channel || w.method || 'Bank Transfer') + '</td>' +
+        '<td>' + esc(w.accountNumber || w.iban || w.phoneNumber || '—') + '</td>' +
+        '<td><span class="status-badge ' + statusClass + '">' + esc(w.status) + '</span></td>' +
+        '<td>' + actions + '</td>' +
+      '</tr>';
+    }).join('');
+
+    tbody.querySelectorAll('[data-process-withdrawal]').forEach(function(btn){
+      btn.onclick = function(){
+        var id = btn.getAttribute('data-process-withdrawal');
+        var action = btn.getAttribute('data-action');
+        var note = prompt('Enter admin note for ' + action + ' (optional):') || undefined;
+        btn.disabled = true;
+        api('PATCH', '/admin/financials/withdrawals/' + encodeURIComponent(id) + '/process', { action: action, adminNote: note })
+          .then(function(){
+            toast('Withdrawal updated to ' + action + '.');
+            loadAdminDashboardData(true);
+          })
+          .catch(function(err){
+            btn.disabled = false;
+            toast('Failed: ' + (err.message || 'Error processing withdrawal'));
+          });
+      };
+    });
+  }
 
 })();

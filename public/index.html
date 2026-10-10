@@ -54,6 +54,7 @@
       <a href="#how" data-nav="how">How It Works</a>
       <a href="#global" data-nav="global">Global Hiring</a>
       <a href="#blog" data-nav="blog">Blog</a>
+      <a href="#admin" data-nav="admin" id="hdrAdminLink" style="display:none;font-weight:600;color:#12A56F">Admin</a>
     </nav>
     <div class="header-actions">
       <button class="lang" type="button" id="langBtn">EN/اردو</button>
@@ -80,6 +81,7 @@
       <a href="#blog">Blog</a>
       <a href="#match">Paklance Match™</a>
       <button type="button" id="mobPostJobBtn" data-post-job data-when="in" style="display:none;">Post a Job</button>
+      <a href="#admin" id="mobAdminLink" data-when="in" style="display:none;font-weight:600;color:#12A56F">Admin Console</a>
       <button type="button" data-open="auth" data-when="out">Log in</button>
       <button type="button" data-open="auth" data-signup data-when="out">Get Started</button>
       <a href="#dashboard" data-when="in">Dashboard</a>
@@ -655,7 +657,231 @@
         <p class="muted" id="dashJobsNote" style="font-size:14px;margin-top:6px"></p>
         <div class="list" id="dashJobs"></div>
       </div>
+  </div>
+</section>
+
+<!-- ===================== ADMIN DASHBOARD (Administrator Console) ===================== -->
+<section class="view" data-view="admin" id="adminView" hidden>
+  <div class="page-head" style="background: linear-gradient(135deg, #07251C 0%, #0B3B2D 100%); color: #fff;">
+    <div class="wrap row">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span class="badge" style="background:rgba(18,165,111,0.2);color:#34D399;border:1px solid rgba(52,211,153,0.3);font-size:11px;padding:3px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:6px">
+            <span style="width:6px;height:6px;border-radius:50%;background:#34D399;display:inline-block;box-shadow:0 0 6px #34D399"></span>
+            ADMIN CONSOLE · LIVE
+          </span>
+        </div>
+        <h1 style="color:#fff;margin:0 0 6px 0;font-size:28px">Platform Administration</h1>
+        <p style="color:rgba(255,255,255,0.75);margin:0;font-size:15px">System health, platform metrics, user directory, dispute moderation, and financial controls.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary" type="button" id="adminRefreshBtn" style="background:#12A56F;border-color:#12A56F">
+          <svg class="ic ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          Refresh Data
+        </button>
+        <button class="btn btn-outline" type="button" data-logout style="border-color:rgba(255,255,255,0.3);color:#fff">Log out</button>
+      </div>
     </div>
+  </div>
+
+  <div class="wrap" style="padding-top:24px;padding-bottom:48px">
+    <!-- KPI STATS CARDS -->
+    <div class="admin-kpi-grid" id="adminKpiGrid">
+      <div class="admin-kpi-card">
+        <div class="admin-kpi-icon" style="background:rgba(18,165,111,0.1);color:#12A56F">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="admin-kpi-info">
+          <span class="admin-kpi-label">Total Users</span>
+          <h3 class="admin-kpi-val" id="adminStatUsers">-</h3>
+          <span class="admin-kpi-sub" id="adminStatUsersSub">Loading user base...</span>
+        </div>
+      </div>
+
+      <div class="admin-kpi-card">
+        <div class="admin-kpi-icon" style="background:rgba(37,99,235,0.1);color:#2563EB">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        </div>
+        <div class="admin-kpi-info">
+          <span class="admin-kpi-label">Posted Jobs</span>
+          <h3 class="admin-kpi-val" id="adminStatJobs">-</h3>
+          <span class="admin-kpi-sub" id="adminStatJobsSub">Loading marketplace jobs...</span>
+        </div>
+      </div>
+
+      <div class="admin-kpi-card">
+        <div class="admin-kpi-icon" style="background:rgba(217,119,6,0.1);color:#D97706">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <div class="admin-kpi-info">
+          <span class="admin-kpi-label">Contracts & Proposals</span>
+          <h3 class="admin-kpi-val" id="adminStatContracts">-</h3>
+          <span class="admin-kpi-sub" id="adminStatContractsSub">- active proposals</span>
+        </div>
+      </div>
+
+      <div class="admin-kpi-card">
+        <div class="admin-kpi-icon" style="background:rgba(220,38,38,0.1);color:#DC2626">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="admin-kpi-info">
+          <span class="admin-kpi-label">Open Disputes</span>
+          <h3 class="admin-kpi-val" id="adminStatDisputes">-</h3>
+          <span class="admin-kpi-sub" id="adminStatDisputesSub">Requiring arbitration</span>
+        </div>
+      </div>
+
+      <div class="admin-kpi-card">
+        <div class="admin-kpi-icon" style="background:rgba(124,58,237,0.1);color:#7C3AED">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="admin-kpi-info">
+          <span class="admin-kpi-label">Pending Verifications</span>
+          <h3 class="admin-kpi-val" id="adminStatVerifs">-</h3>
+          <span class="admin-kpi-sub" id="adminStatVerifsSub">Specialist badge requests</span>
+        </div>
+      </div>
+
+      <div class="admin-kpi-card">
+        <div class="admin-kpi-icon" style="background:rgba(5,150,105,0.1);color:#059669">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div class="admin-kpi-info">
+          <span class="admin-kpi-label">Escrow In SafePay™</span>
+          <h3 class="admin-kpi-val" id="adminStatEscrow">-</h3>
+          <span class="admin-kpi-sub" id="adminStatEscrowSub">Active milestone funds</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN TABS -->
+    <div class="admin-nav-tabs" role="tablist">
+      <button type="button" class="admin-tab active" data-admin-tab="users" role="tab" aria-selected="true">
+        <svg class="ic ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Users Directory (<span id="adminTabUsersCount">0</span>)
+      </button>
+      <button type="button" class="admin-tab" data-admin-tab="disputes" role="tab" aria-selected="false">
+        <svg class="ic ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Disputes (<span id="adminTabDisputesCount">0</span>)
+      </button>
+      <button type="button" class="admin-tab" data-admin-tab="verifications" role="tab" aria-selected="false">
+        <svg class="ic ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Verifications (<span id="adminTabVerifsCount">0</span>)
+      </button>
+      <button type="button" class="admin-tab" data-admin-tab="financials" role="tab" aria-selected="false">
+        <svg class="ic ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Financials & Withdrawals (<span id="adminTabWithdrawalsCount">0</span>)
+      </button>
+    </div>
+
+    <!-- TAB PANEL: USERS -->
+    <div class="admin-panel" id="adminPanelUsers">
+      <div class="card" style="margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:240px">
+            <input type="text" id="adminUserSearch" placeholder="Search users by name, email, or role..." class="admin-search-input">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="admin-filter-pill active" data-role-filter="ALL">All Roles</button>
+            <button type="button" class="admin-filter-pill" data-role-filter="CLIENT">Clients</button>
+            <button type="button" class="admin-filter-pill" data-role-filter="SPECIALIST">Specialists</button>
+            <button type="button" class="admin-filter-pill" data-role-filter="ADMIN">Admins</button>
+          </div>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table" id="adminUsersTable">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Role</th>
+                <th>Email Status</th>
+                <th>Joined</th>
+                <th>Availability</th>
+              </tr>
+            </thead>
+            <tbody id="adminUsersTbody">
+              <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">Loading user directory...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB PANEL: DISPUTES -->
+    <div class="admin-panel" id="adminPanelDisputes" hidden>
+      <div class="card" style="margin-top:16px">
+        <h3 style="font-size:18px;margin-bottom:12px">Escrow & Project Disputes</h3>
+        <p class="muted" style="font-size:14px;margin-bottom:16px">Disputes raised on SafePay milestones requiring review or arbitration.</p>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Dispute ID</th>
+                <th>Contract</th>
+                <th>Initiator</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Date Raised</th>
+              </tr>
+            </thead>
+            <tbody id="adminDisputesTbody">
+              <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Loading disputes...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB PANEL: VERIFICATIONS -->
+    <div class="admin-panel" id="adminPanelVerifications" hidden>
+      <div class="card" style="margin-top:16px">
+        <h3 style="font-size:18px;margin-bottom:12px">Specialist Verifications Queue</h3>
+        <p class="muted" style="font-size:14px;margin-bottom:16px">Identity and skill verification submissions awaiting admin review.</p>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Verification ID</th>
+                <th>User</th>
+                <th>Document / Type</th>
+                <th>Status</th>
+                <th>Submitted</th>
+              </tr>
+            </thead>
+            <tbody id="adminVerifsTbody">
+              <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">Loading verifications...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB PANEL: FINANCIALS -->
+    <div class="admin-panel" id="adminPanelFinancials" hidden>
+      <div class="card" style="margin-top:16px">
+        <h3 style="font-size:18px;margin-bottom:12px">Withdrawal Requests Queue</h3>
+        <p class="muted" style="font-size:14px;margin-bottom:16px">Specialist payout requests through local payment rails (Raast, NayaPay, SadaPay, Bank Transfer).</p>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Request ID</th>
+                <th>Specialist</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Account Details</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminWithdrawalsTbody">
+              <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Loading withdrawal requests...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 </section>
 
