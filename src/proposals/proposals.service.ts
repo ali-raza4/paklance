@@ -38,7 +38,9 @@ export class ProposalsService {
   async getProposalsByJob(userId: string, jobId: string) {
     const job = await this.prisma.job.findUnique({ where: { id: jobId } });
     if (!job) throw new NotFoundException('Job not found');
-    if (job.clientId !== userId) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const isAdmin = user && user.role === 'ADMIN';
+    if (job.clientId !== userId && !isAdmin) {
       throw new ForbiddenException('Only the job owner can view proposals');
     }
 

@@ -49,6 +49,17 @@ export class JobsController {
     });
   }
 
+  @ApiOperation({ summary: 'Get proposals on a job (Owner CLIENT or ADMIN)' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/proposals')
+  async getJobProposals(
+    @CurrentUser('id') userId: string,
+    @Param('id') jobId: string,
+  ) {
+    return this.proposalsService.getProposalsByJob(userId, jobId);
+  }
+
   @ApiOperation({ summary: 'Post a new job (CLIENT only)' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
