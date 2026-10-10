@@ -1672,6 +1672,14 @@
   $('#burger').addEventListener('click', function(){
     var m = $('#mobileMenu'); m.hidden = !m.hidden; this.setAttribute('aria-expanded', String(!m.hidden));
   });
+  $$('#mobileMenu a, #mobileMenu button').forEach(function(l){
+    l.addEventListener('click', function(){
+      var m = $('#mobileMenu');
+      if (m) m.hidden = true;
+      var b = $('#burger');
+      if (b) b.setAttribute('aria-expanded', 'false');
+    });
+  });
   $('#langBtn').addEventListener('click', function(){ toast('The Urdu version is coming soon.'); });
   $('#markRead').addEventListener('click', function(){
     $$('#notifList .notif-item').forEach(function(n){ n.classList.add('read'); });
@@ -2984,6 +2992,13 @@
       t.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
     });
 
+    var sideLinks = adminView.querySelectorAll('.admin-side-link[data-admin-tab]');
+    sideLinks.forEach(function(l){
+      var isCurrent = l.getAttribute('data-admin-tab') === targetTab;
+      l.classList.toggle('active', isCurrent);
+      l.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
+    });
+
     var targetPanelId = 'adminPanel' + targetTab.charAt(0).toUpperCase() + targetTab.slice(1);
     adminView.querySelectorAll('.admin-panel').forEach(function(p){
       p.hidden = p.id !== targetPanelId;
@@ -3019,10 +3034,50 @@
         };
       }
 
+      // Add New Blog buttons (Header, KPI, and Sidebar)
+      var hdrAddBlogBtn = $('#adminHdrAddBlogBtn');
+      if (hdrAddBlogBtn) {
+        hdrAddBlogBtn.onclick = function(e){
+          e.preventDefault();
+          switchAdminTab('blogs');
+          openAdminBlogEditor();
+        };
+      }
+
+      var kpiAddBlogBtn = $('#adminKpiAddBlogBtn');
+      if (kpiAddBlogBtn) {
+        kpiAddBlogBtn.onclick = function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          switchAdminTab('blogs');
+          openAdminBlogEditor();
+        };
+      }
+
+      var sideAddBlogBtn = $('#adminSideBtnAddBlog');
+      if (sideAddBlogBtn) {
+        sideAddBlogBtn.onclick = function(e){
+          e.preventDefault();
+          switchAdminTab('blogs');
+          openAdminBlogEditor();
+        };
+      }
+
+      // Admin side panel links
+      var sideLinks = adminView.querySelectorAll('.admin-side-link[data-admin-tab]');
+      sideLinks.forEach(function(link){
+        link.onclick = function(e){
+          e.preventDefault();
+          var targetTab = link.getAttribute('data-admin-tab');
+          if (targetTab) switchAdminTab(targetTab);
+        };
+      });
+
       // KPI cards single-click navigation
       var kpiCards = adminView.querySelectorAll('.admin-kpi-card[data-open-tab]');
       kpiCards.forEach(function(card){
         card.onclick = function(e){
+          if (e.target && e.target.closest('#adminKpiAddBlogBtn')) return;
           e.preventDefault();
           var targetTab = card.getAttribute('data-open-tab');
           if (targetTab) switchAdminTab(targetTab);
@@ -3189,6 +3244,17 @@
       var coverUrlInp = $('#blogFormCoverUrl');
       if (coverUrlInp) coverUrlInp.oninput = updateCoverPreview;
 
+      var removeCoverBtn = $('#blogBtnRemoveCover');
+      if (removeCoverBtn) {
+        removeCoverBtn.onclick = function(){
+          $('#blogFormCoverUrl').value = '';
+          var coverFile = $('#blogFormCoverFile');
+          if (coverFile) coverFile.value = '';
+          updateCoverPreview();
+          toast('Cover image removed.');
+        };
+      }
+
       var uploadBtn = $('#blogFormUploadBtn');
       var fileInp = $('#blogFormCoverFile');
       if (uploadBtn && fileInp) {
@@ -3200,7 +3266,7 @@
           formData.append('image', file);
           toast('Uploading cover image...');
           var userObj = PaklanceAuth.getUser();
-          var token = (userObj && (userObj.token || userObj.accessToken)) || localStorage.getItem('token');
+          var token = (userObj && (userObj.token || userObj.accessToken)) || localStorage.getItem('pk_access_token') || localStorage.getItem('token');
           fetch('https://paklance-backend-updated.vercel.app/api/admin/blogs/upload-image', {
             method: 'POST',
             headers: token ? { 'Authorization': 'Bearer ' + token } : {},
@@ -3247,16 +3313,54 @@
           };
         }
 
+        function insertInlineImage(url){
+          var editor = $('#blogRichBody');
+          if (!editor) return;
+          editor.focus();
+          var imgHtml = '<p><img src="' + esc(url) + '" alt="Article image" style="max-width:100%;border-radius:10px;margin:16px 0;display:block;box-shadow:0 2px 8px rgba(0,0,0,0.06)"></p><p><br></p>';
+          document.execCommand('insertHTML', false, imgHtml);
+        }
+
         var imgBtn = $('#blogToolbarImageBtn');
-        if (imgBtn) {
+        var inlineFileInp = $('#blogToolbarImageFileInput');
+        if (imgBtn && inlineFileInp) {
           imgBtn.onmousedown = function(e){
             e.preventDefault();
-            var url = prompt('Enter image URL (e.g. https://...):');
-            if (url) {
-              document.execCommand('insertImage', false, url);
+            var choice = confirm("Upload an image from your computer/device?\n\n• Click OK to upload an image file from your device.\n• Click Cancel to enter a direct image URL.");
+            if (choice) {
+              inlineFileInp.click();
+            } else {
+              var url = prompt('Enter direct image URL:');
+              if (url && url.trim()) {
+                insertInlineImage(url.trim());
+              }
             }
-            var editor = $('#blogRichBody');
-            if (editor) editor.focus();
+          };
+
+          inlineFileInp.onchange = function(){
+            var file = this.files[0];
+            if (!file) return;
+            var formData = new FormData();
+            formData.append('image', file);
+            toast('Uploading article image...');
+            var userObj = PaklanceAuth.getUser();
+            var token = (userObj && (userObj.token || userObj.accessToken)) || localStorage.getItem('pk_access_token') || localStorage.getItem('token');
+            fetch('https://paklance-backend-updated.vercel.app/api/admin/blogs/upload-image', {
+              method: 'POST',
+              headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+              body: formData
+            }).then(function(r){
+              if (!r.ok) throw new Error('Upload failed (' + r.status + ')');
+              return r.json();
+            }).then(function(d){
+              if (d.url){
+                insertInlineImage(d.url);
+                toast('Image inserted into article!');
+              }
+            }).catch(function(e){
+              toast('Image upload failed: ' + (e.message || ''));
+            });
+            this.value = '';
           };
         }
       }
@@ -3343,6 +3447,7 @@
     var tabJ = $('#adminTabJobsCount'); if (tabJ) tabJ.textContent = jCount;
     var tabC = $('#adminTabContractsCount'); if (tabC) tabC.textContent = cCount;
     var tabB = $('#adminTabBlogsCount'); if (tabB) tabB.textContent = bCount;
+    var sideB = $('#adminSideBlogCount'); if (sideB) sideB.textContent = bCount;
     var tabD = $('#adminTabDisputesCount'); if (tabD) tabD.textContent = adminData.disputes.length;
     var tabV = $('#adminTabVerifsCount'); if (tabV) tabV.textContent = adminData.verifications.length;
     var tabW = $('#adminTabWithdrawalsCount'); if (tabW) tabW.textContent = adminData.withdrawals.length;
@@ -3543,6 +3648,8 @@
     var url = $('#blogFormCoverUrl') ? $('#blogFormCoverUrl').value.trim() : '';
     var img = $('#blogCoverPreviewImg');
     var placeholder = $('#blogCoverPreviewPlaceholder');
+    var removeBtn = $('#blogBtnRemoveCover');
+    if (removeBtn) removeBtn.style.display = url ? 'inline-block' : 'none';
     if (!img || !placeholder) return;
     if (url){
       img.src = url;
@@ -3595,6 +3702,9 @@
       var tagPills = (Array.isArray(b.tags) && b.tags.length)
         ? b.tags.slice(0, 3).map(function(t){ return '<span class="chip chip-muted" style="font-size:11px;padding:1px 6px;margin:2px 3px 2px 0">' + esc(t) + '</span>'; }).join('')
         : '';
+      var toggleBtn = st === 'PUBLISHED'
+        ? '<button class="btn btn-sm btn-outline" type="button" data-toggle-blog-status="' + esc(b.id) + '" data-next-status="DRAFT" style="padding:4px 8px;font-size:12px;margin-right:6px;color:#D97706;border-color:rgba(217,119,6,0.3)" title="Move to drafts">Unpublish</button>'
+        : '<button class="btn btn-sm btn-outline" type="button" data-toggle-blog-status="' + esc(b.id) + '" data-next-status="PUBLISHED" style="padding:4px 8px;font-size:12px;margin-right:6px;color:#12A56F;border-color:rgba(18,165,111,0.3)" title="Publish live to website">Publish</button>';
 
       return '<tr>' +
         '<td>' +
@@ -3622,6 +3732,7 @@
         '<td style="text-align:right;white-space:nowrap">' +
           '<button class="btn btn-sm btn-outline" type="button" data-edit-blog="' + esc(b.id) + '" style="padding:4px 10px;font-size:12px;margin-right:6px">Edit</button>' +
           '<button class="btn btn-sm btn-outline" type="button" data-preview-blog="' + esc(b.id) + '" style="padding:4px 8px;font-size:12px;margin-right:6px" title="Preview article">View</button>' +
+          toggleBtn +
           '<button class="btn btn-sm btn-outline" type="button" data-delete-blog="' + esc(b.id) + '" style="padding:4px 8px;font-size:12px;color:#DC2626;border-color:rgba(220,38,38,0.3)" title="Delete article">Delete</button>' +
         '</td>' +
       '</tr>';
@@ -3641,6 +3752,21 @@
         var id = btn.getAttribute('data-preview-blog');
         var b = adminData.blogs.find(function(x){ return x.id === id; });
         if (b) openAdminBlogPreview(b);
+      };
+    });
+    tbody.querySelectorAll('[data-toggle-blog-status]').forEach(function(btn){
+      btn.onclick = function(e){
+        e.stopPropagation();
+        var id = btn.getAttribute('data-toggle-blog-status');
+        var nextStatus = btn.getAttribute('data-next-status');
+        toast((nextStatus === 'PUBLISHED' ? 'Publishing' : 'Unpublishing') + ' article...');
+        api('PUT', '/admin/blogs/' + encodeURIComponent(id), { status: nextStatus }).then(function(){
+          toast('Article status updated to ' + nextStatus + '!');
+          loadAdminDashboardData(true);
+          loadData();
+        }).catch(function(err){
+          toast('Failed to update status: ' + (err.message || ''));
+        });
       };
     });
     tbody.querySelectorAll('[data-delete-blog]').forEach(function(btn){

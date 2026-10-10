@@ -720,10 +720,18 @@ window.PaklanceBlog = (function () {
     '</section>';
   }
   function SideReading(a) {
-    var list = related(a).slice(3, 6);
+    var rel = related(a);
+    var list = rel.length >= 4 ? rel.slice(3, 6) : rel.slice(0, 3);
+    if (!list.length) {
+      list = ARTICLES.filter(function (x) { return x.slug !== a.slug; }).slice(0, 3);
+    }
     return '<section class="blog-side-card" aria-labelledby="blogSideTitle"><h2 id="blogSideTitle">More on this topic</h2><ul class="blog-side-list">' +
       list.map(function (x) { return '<li><a href="' + href(x) + '"><span class="blog-cat">' + esc(x.category) + '</span><strong>' + esc(x.title) + '</strong></a></li>'; }).join('') +
-    '</ul></section>';
+    '</ul>' +
+    '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">' +
+      '<a href="#blog" class="btn btn-outline btn-sm" style="display:block;text-align:center;width:100%;font-weight:600">Explore All Blog Articles →</a>' +
+    '</div>' +
+    '</section>';
   }
 
   /* ---------------- pages ---------------- */
