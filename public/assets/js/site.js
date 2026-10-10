@@ -2888,14 +2888,50 @@
     stats: null,
     financials: null,
     users: [],
+    jobs: [],
+    contracts: [],
     disputes: [],
     verifications: [],
     withdrawals: [],
     activeTab: 'users',
     roleFilter: 'ALL',
     searchQuery: '',
+    jobSearchQuery: '',
+    jobStatusFilter: 'ALL',
+    contractSearchQuery: '',
+    contractStatusFilter: 'ALL',
+    verifStatusFilter: 'ALL',
     loading: false
   };
+
+  function switchAdminTab(targetTab){
+    if (!targetTab) return;
+    adminData.activeTab = targetTab;
+    var adminView = $('#adminView');
+    if (!adminView) return;
+
+    var tabs = adminView.querySelectorAll('.admin-tab');
+    tabs.forEach(function(t){
+      var isCurrent = t.getAttribute('data-admin-tab') === targetTab;
+      t.classList.toggle('active', isCurrent);
+      t.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
+    });
+
+    var targetPanelId = 'adminPanel' + targetTab.charAt(0).toUpperCase() + targetTab.slice(1);
+    adminView.querySelectorAll('.admin-panel').forEach(function(p){
+      p.hidden = p.id !== targetPanelId;
+    });
+
+    adminView.querySelectorAll('.admin-kpi-card').forEach(function(c){
+      var isKpiCurrent = c.getAttribute('data-open-tab') === targetTab;
+      c.classList.toggle('active-kpi', isKpiCurrent);
+    });
+
+    var navTabs = adminView.querySelector('.admin-nav-tabs');
+    if (navTabs && typeof navTabs.scrollIntoView === 'function'){
+      navTabs.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
 
   function renderAdminDashboard(){
     var u = PaklanceAuth.getUser();
@@ -2916,24 +2952,34 @@
         };
       }
 
-      // Tab buttons
-      var tabs = adminView.querySelectorAll('.admin-tab');
-      tabs.forEach(function(tab){
-        tab.onclick = function(){
-          var targetTab = tab.getAttribute('data-admin-tab');
-          adminData.activeTab = targetTab;
-          tabs.forEach(function(t){
-            var isCurrent = t === tab;
-            t.classList.toggle('active', isCurrent);
-            t.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
-          });
-          adminView.querySelectorAll('.admin-panel').forEach(function(p){
-            p.hidden = p.id !== ('adminPanel' + targetTab.charAt(0).toUpperCase() + targetTab.slice(1));
-          });
+      // KPI cards single-click navigation
+      var kpiCards = adminView.querySelectorAll('.admin-kpi-card[data-open-tab]');
+      kpiCards.forEach(function(card){
+        card.onclick = function(e){
+          e.preventDefault();
+          var targetTab = card.getAttribute('data-open-tab');
+          if (targetTab) switchAdminTab(targetTab);
+        };
+        card.onkeydown = function(e){
+          if (e.key === 'Enter' || e.key === ' '){
+            e.preventDefault();
+            var targetTab = card.getAttribute('data-open-tab');
+            if (targetTab) switchAdminTab(targetTab);
+          }
         };
       });
 
-      // Role filter pills
+      // Tab buttons
+      var tabs = adminView.querySelectorAll('.admin-tab');
+      tabs.forEach(function(tab){
+        tab.onclick = function(e){
+          e.preventDefault();
+          var targetTab = tab.getAttribute('data-admin-tab');
+          if (targetTab) switchAdminTab(targetTab);
+        };
+      });
+
+      // Role filter pills (Users)
       var filterPills = adminView.querySelectorAll('[data-role-filter]');
       filterPills.forEach(function(pill){
         pill.onclick = function(){
@@ -2944,7 +2990,7 @@
         };
       });
 
-      // Search input
+      // Search input (Users)
       var searchInput = $('#adminUserSearch');
       if (searchInput) {
         searchInput.oninput = function(){
@@ -2952,6 +2998,57 @@
           renderAdminUsersTable();
         };
       }
+
+      // Job Status filter pills
+      var jobPills = adminView.querySelectorAll('[data-job-status-filter]');
+      jobPills.forEach(function(pill){
+        pill.onclick = function(){
+          jobPills.forEach(function(p){ p.classList.remove('active'); });
+          pill.classList.add('active');
+          adminData.jobStatusFilter = pill.getAttribute('data-job-status-filter');
+          renderAdminJobsTable();
+        };
+      });
+
+      // Job Search
+      var jobSearch = $('#adminJobSearch');
+      if (jobSearch) {
+        jobSearch.oninput = function(){
+          adminData.jobSearchQuery = jobSearch.value.trim().toLowerCase();
+          renderAdminJobsTable();
+        };
+      }
+
+      // Contract Status filter pills
+      var contractPills = adminView.querySelectorAll('[data-contract-status-filter]');
+      contractPills.forEach(function(pill){
+        pill.onclick = function(){
+          contractPills.forEach(function(p){ p.classList.remove('active'); });
+          pill.classList.add('active');
+          adminData.contractStatusFilter = pill.getAttribute('data-contract-status-filter');
+          renderAdminContractsTable();
+        };
+      });
+
+      // Contract Search
+      var contractSearch = $('#adminContractSearch');
+      if (contractSearch) {
+        contractSearch.oninput = function(){
+          adminData.contractSearchQuery = contractSearch.value.trim().toLowerCase();
+          renderAdminContractsTable();
+        };
+      }
+
+      // Verification Status filter pills
+      var verifPills = adminView.querySelectorAll('[data-verif-status-filter]');
+      verifPills.forEach(function(pill){
+        pill.onclick = function(){
+          verifPills.forEach(function(p){ p.classList.remove('active'); });
+          pill.classList.add('active');
+          adminData.verifStatusFilter = pill.getAttribute('data-verif-status-filter');
+          renderAdminVerificationsTable();
+        };
+      });
     }
 
     loadAdminDashboardData();
@@ -2965,6 +3062,8 @@
       api('GET', '/admin/stats').catch(function(){ return {}; }),
       api('GET', '/admin/financials/stats').catch(function(){ return {}; }),
       api('GET', '/admin/users').catch(function(){ return []; }),
+      api('GET', '/jobs').catch(function(){ return []; }),
+      api('GET', '/contracts').catch(function(){ return []; }),
       api('GET', '/admin/disputes').catch(function(){ return []; }),
       api('GET', '/admin/verifications').catch(function(){ return []; }),
       api('GET', '/admin/financials/withdrawals').catch(function(){ return []; })
@@ -2973,12 +3072,16 @@
       adminData.stats = results[0] || {};
       adminData.financials = results[1] || {};
       adminData.users = Array.isArray(results[2]) ? results[2] : [];
-      adminData.disputes = Array.isArray(results[3]) ? results[3] : [];
-      adminData.verifications = Array.isArray(results[4]) ? results[4] : [];
-      adminData.withdrawals = Array.isArray(results[5]) ? results[5] : [];
+      adminData.jobs = Array.isArray(results[3]) ? results[3] : [];
+      adminData.contracts = Array.isArray(results[4]) ? results[4] : [];
+      adminData.disputes = Array.isArray(results[5]) ? results[5] : [];
+      adminData.verifications = Array.isArray(results[6]) ? results[6] : [];
+      adminData.withdrawals = Array.isArray(results[7]) ? results[7] : [];
 
       updateAdminKpis();
       renderAdminUsersTable();
+      renderAdminJobsTable();
+      renderAdminContractsTable();
       renderAdminDisputesTable();
       renderAdminVerificationsTable();
       renderAdminWithdrawalsTable();
@@ -2992,8 +3095,8 @@
     var s = adminData.stats || {};
     var f = adminData.financials || {};
     var uCount = adminData.users.length || s.totalUsers || 0;
-    var jCount = s.totalJobs || 0;
-    var cCount = s.totalContracts || 0;
+    var jCount = adminData.jobs.length || s.totalJobs || 0;
+    var cCount = adminData.contracts.length || s.totalContracts || 0;
     var pCount = s.totalProposals || 0;
     var dCount = s.openDisputes != null ? s.openDisputes : adminData.disputes.filter(function(d){ return d.status === 'OPEN'; }).length;
     var vCount = s.pendingVerifications != null ? s.pendingVerifications : adminData.verifications.filter(function(v){ return v.status === 'PENDING'; }).length;
@@ -3001,7 +3104,7 @@
     var elUsers = $('#adminStatUsers'); if (elUsers) elUsers.textContent = uCount.toLocaleString();
     var elJobs = $('#adminStatJobs'); if (elJobs) elJobs.textContent = jCount.toLocaleString();
     var elContracts = $('#adminStatContracts'); if (elContracts) elContracts.textContent = cCount.toLocaleString();
-    var elContractsSub = $('#adminStatContractsSub'); if (elContractsSub) elContractsSub.textContent = pCount + ' active proposals';
+    var elContractsSub = $('#adminStatContractsSub'); if (elContractsSub) elContractsSub.textContent = (pCount || 0) + ' active proposals';
     var elDisputes = $('#adminStatDisputes'); if (elDisputes) elDisputes.textContent = dCount.toLocaleString();
     var elVerifs = $('#adminStatVerifs'); if (elVerifs) elVerifs.textContent = vCount.toLocaleString();
 
@@ -3011,9 +3114,26 @@
 
     // Tab count badges
     var tabU = $('#adminTabUsersCount'); if (tabU) tabU.textContent = uCount;
+    var tabJ = $('#adminTabJobsCount'); if (tabJ) tabJ.textContent = jCount;
+    var tabC = $('#adminTabContractsCount'); if (tabC) tabC.textContent = cCount;
     var tabD = $('#adminTabDisputesCount'); if (tabD) tabD.textContent = adminData.disputes.length;
     var tabV = $('#adminTabVerifsCount'); if (tabV) tabV.textContent = adminData.verifications.length;
     var tabW = $('#adminTabWithdrawalsCount'); if (tabW) tabW.textContent = adminData.withdrawals.length;
+  }
+
+  function bindDetailClicks(container){
+    if (!container) return;
+    container.querySelectorAll('.admin-clickable-row, [data-detail-type]').forEach(function(el){
+      el.onclick = function(e){
+        if (e.target.closest('[data-process-withdrawal]') || e.target.closest('a')) return;
+        var type = el.getAttribute('data-detail-type') || (el.closest('[data-detail-type]') && el.closest('[data-detail-type]').getAttribute('data-detail-type'));
+        var id = el.getAttribute('data-detail-id') || (el.closest('[data-detail-id]') && el.closest('[data-detail-id]').getAttribute('data-detail-id'));
+        if (type && id){
+          e.preventDefault();
+          openAdminRecordDetail(type, id);
+        }
+      };
+    });
   }
 
   function renderAdminUsersTable(){
@@ -3033,7 +3153,7 @@
     });
 
     if (!filtered.length){
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">No users match the selected criteria.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No users match the selected criteria.</td></tr>';
       return;
     }
 
@@ -3045,9 +3165,9 @@
       var verified = u.isEmailVerified !== false;
       var joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
       var avail = esc(u.availability || 'AVAILABLE');
-      var init = initials(u.name || u.email);
+      var init = initials(u.name || u.fullName || u.email);
 
-      return '<tr>' +
+      return '<tr class="admin-clickable-row" data-detail-type="user" data-detail-id="' + esc(u.id) + '">' +
         '<td>' +
           '<div style="display:flex;align-items:center;gap:10px">' +
             '<div style="width:34px;height:34px;border-radius:50%;background:#0B3B2D;color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px;flex-shrink:0">' + init + '</div>' +
@@ -3058,49 +3178,163 @@
         '<td><span class="status-badge ' + (verified ? 'status-verified' : 'status-pending') + '">' + (verified ? '✓ Verified' : '⏳ Unverified') + '</span></td>' +
         '<td style="color:var(--muted);font-size:13px">' + joined + '</td>' +
         '<td><span style="font-size:12.5px;color:var(--ink)">' + avail + '</span></td>' +
+        '<td style="text-align:right"><button class="btn btn-sm btn-outline admin-view-btn" type="button" data-detail-type="user" data-detail-id="' + esc(u.id) + '">View Details</button></td>' +
       '</tr>';
     }).join('');
+
+    bindDetailClicks(tbody);
+  }
+
+  function renderAdminJobsTable(){
+    var tbody = $('#adminJobsTbody');
+    if (!tbody) return;
+
+    var filtered = adminData.jobs.filter(function(j){
+      var statusMatch = adminData.jobStatusFilter === 'ALL' || String(j.status || '').toUpperCase() === adminData.jobStatusFilter;
+      if (!statusMatch) return false;
+      if (!adminData.jobSearchQuery) return true;
+      var q = adminData.jobSearchQuery;
+      var title = String(j.title || '').toLowerCase();
+      var cat = String(j.category || '').toLowerCase();
+      var clientName = String((j.client && (j.client.fullName || j.client.name)) || '').toLowerCase();
+      var clientEmail = String((j.client && j.client.email) || '').toLowerCase();
+      return title.indexOf(q) > -1 || cat.indexOf(q) > -1 || clientName.indexOf(q) > -1 || clientEmail.indexOf(q) > -1;
+    });
+
+    if (!filtered.length){
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">No marketplace jobs found matching criteria.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(function(j){
+      var st = String(j.status || 'OPEN').toUpperCase();
+      var statusClass = st === 'OPEN' ? 'status-verified' : (st === 'IN_PROGRESS' ? 'status-pending' : (st === 'COMPLETED' ? 'status-completed' : 'status-open'));
+      var clientName = esc((j.client && (j.client.fullName || j.client.name)) || 'Client');
+      var clientEmail = esc((j.client && j.client.email) || '—');
+      var date = j.createdAt ? new Date(j.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+      var propCount = Array.isArray(j.Proposal) ? j.Proposal.length : (j._count && j._count.Proposal != null ? j._count.Proposal : (j.proposalsCount || 0));
+      var budget = Number(j.budget || 0).toLocaleString();
+
+      return '<tr class="admin-clickable-row" data-detail-type="job" data-detail-id="' + esc(j.id) + '">' +
+        '<td>' +
+          '<strong style="display:block;color:var(--ink);font-size:14px">' + esc(j.title || 'Untitled Job') + '</strong>' +
+          '<span style="font-size:12px;color:var(--muted)">' + esc(j.category || 'General') + ' · ' + esc(j.budgetType || 'FIXED') + '</span>' +
+        '</td>' +
+        '<td><div><span style="font-weight:600;color:var(--ink)">' + clientName + '</span><span style="display:block;font-size:11.5px;color:var(--muted)">' + clientEmail + '</span></div></td>' +
+        '<td><strong>PKR ' + budget + '</strong></td>' +
+        '<td><span class="chip chip-muted" style="font-size:11.5px">' + propCount + ' proposals</span></td>' +
+        '<td><span class="status-badge ' + statusClass + '">' + st + '</span></td>' +
+        '<td style="color:var(--muted);font-size:13px">' + date + '</td>' +
+        '<td style="text-align:right"><button class="btn btn-sm btn-outline admin-view-btn" type="button" data-detail-type="job" data-detail-id="' + esc(j.id) + '">View Details</button></td>' +
+      '</tr>';
+    }).join('');
+
+    bindDetailClicks(tbody);
+  }
+
+  function renderAdminContractsTable(){
+    var tbody = $('#adminContractsTbody');
+    if (!tbody) return;
+
+    var filtered = adminData.contracts.filter(function(c){
+      var statusMatch = adminData.contractStatusFilter === 'ALL' || String(c.status || '').toUpperCase() === adminData.contractStatusFilter;
+      if (!statusMatch) return false;
+      if (!adminData.contractSearchQuery) return true;
+      var q = adminData.contractSearchQuery;
+      var title = String(c.title || (c.job && c.job.title) || '').toLowerCase();
+      var clientName = String((c.client && (c.client.fullName || c.client.email)) || '').toLowerCase();
+      var specName = String((c.specialist && (c.specialist.fullName || c.specialist.email)) || '').toLowerCase();
+      return title.indexOf(q) > -1 || clientName.indexOf(q) > -1 || specName.indexOf(q) > -1;
+    });
+
+    if (!filtered.length){
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">No contracts found matching criteria.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(function(c){
+      var st = String(c.status || 'ACTIVE').toUpperCase();
+      var statusClass = st === 'ACTIVE' ? 'status-verified' : (st === 'COMPLETED' ? 'status-completed' : (st === 'DISPUTED' ? 'status-open' : 'status-pending'));
+      var title = esc(c.title || (c.job && c.job.title) || 'Contract #' + String(c.id).slice(0, 8));
+      var clientName = esc((c.client && (c.client.fullName || c.client.email)) || 'Client');
+      var specName = esc((c.specialist && (c.specialist.fullName || c.specialist.email)) || 'Specialist');
+      var total = Number(c.totalAmount || c.amount || 0).toLocaleString();
+      var msList = Array.isArray(c.milestones) ? c.milestones : [];
+      var completedMs = msList.filter(function(m){ return m.status === 'COMPLETED' || m.status === 'RELEASED'; }).length;
+      var msInfo = msList.length ? (completedMs + '/' + msList.length + ' done') : 'Single Milestone';
+
+      return '<tr class="admin-clickable-row" data-detail-type="contract" data-detail-id="' + esc(c.id) + '">' +
+        '<td>' +
+          '<strong style="display:block;color:var(--ink)">' + title + '</strong>' +
+          '<code style="font-size:11px;color:var(--muted)">' + esc(String(c.id).slice(0, 12)) + '…</code>' +
+        '</td>' +
+        '<td><span style="font-weight:600;color:var(--ink)">' + clientName + '</span></td>' +
+        '<td><span style="font-weight:600;color:var(--ink)">' + specName + '</span></td>' +
+        '<td><strong>PKR ' + total + '</strong></td>' +
+        '<td><span class="chip chip-muted" style="font-size:11.5px">' + msInfo + '</span></td>' +
+        '<td><span class="status-badge ' + statusClass + '">' + st + '</span></td>' +
+        '<td style="text-align:right"><button class="btn btn-sm btn-outline admin-view-btn" type="button" data-detail-type="contract" data-detail-id="' + esc(c.id) + '">View Details</button></td>' +
+      '</tr>';
+    }).join('');
+
+    bindDetailClicks(tbody);
   }
 
   function renderAdminDisputesTable(){
     var tbody = $('#adminDisputesTbody');
     if (!tbody) return;
     if (!adminData.disputes.length){
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No active disputes on the platform. All contracts are healthy.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">No active disputes on the platform. All contracts are healthy.</td></tr>';
       return;
     }
     tbody.innerHTML = adminData.disputes.map(function(d){
       var statusClass = d.status === 'OPEN' ? 'status-open' : 'status-completed';
       var date = d.createdAt ? new Date(d.createdAt).toLocaleDateString() : '—';
-      return '<tr>' +
+      return '<tr class="admin-clickable-row" data-detail-type="dispute" data-detail-id="' + esc(d.id) + '">' +
         '<td><code style="font-size:11.5px">' + esc(String(d.id).slice(0, 8)) + '…</code></td>' +
         '<td><code style="font-size:11.5px">' + esc(String(d.contractId || d.contract_id || '—').slice(0, 8)) + '</code></td>' +
         '<td>' + esc(d.initiatorId || d.userId || 'User') + '</td>' +
         '<td>' + esc(d.reason || d.description || 'Dispute regarding deliverables') + '</td>' +
         '<td><span class="status-badge ' + statusClass + '">' + esc(d.status || 'OPEN') + '</span></td>' +
         '<td style="color:var(--muted)">' + date + '</td>' +
+        '<td style="text-align:right"><button class="btn btn-sm btn-outline admin-view-btn" type="button" data-detail-type="dispute" data-detail-id="' + esc(d.id) + '">Review Case</button></td>' +
       '</tr>';
     }).join('');
+
+    bindDetailClicks(tbody);
   }
 
   function renderAdminVerificationsTable(){
     var tbody = $('#adminVerifsTbody');
     if (!tbody) return;
-    if (!adminData.verifications.length){
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">No pending specialist verification requests in queue.</td></tr>';
+
+    var filtered = adminData.verifications.filter(function(v){
+      if (adminData.verifStatusFilter === 'ALL') return true;
+      return String(v.status || '').toUpperCase() === adminData.verifStatusFilter;
+    });
+
+    if (!filtered.length){
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No specialist verification requests matching filter.</td></tr>';
       return;
     }
-    tbody.innerHTML = adminData.verifications.map(function(v){
-      var statusClass = v.status === 'PENDING' ? 'status-pending' : 'status-verified';
+    tbody.innerHTML = filtered.map(function(v){
+      var st = String(v.status || 'PENDING').toUpperCase();
+      var statusClass = st === 'PENDING' ? 'status-pending' : (st === 'APPROVED' ? 'status-verified' : 'status-open');
       var date = v.createdAt ? new Date(v.createdAt).toLocaleDateString() : '—';
-      return '<tr>' +
+      var user = adminData.users.find(function(u){ return u.id === (v.userId || v.user_id); });
+      var userName = user ? esc(user.name || user.fullName || user.email) : esc(v.userId || v.user_id || 'Specialist');
+
+      return '<tr class="admin-clickable-row" data-detail-type="verification" data-detail-id="' + esc(v.id) + '">' +
         '<td><code style="font-size:11.5px">' + esc(String(v.id).slice(0, 8)) + '…</code></td>' +
-        '<td>' + esc(v.userId || v.user_id || 'Specialist') + '</td>' +
+        '<td><strong>' + userName + '</strong></td>' +
         '<td>' + esc(v.type || v.documentType || 'CNIC / Identity') + '</td>' +
-        '<td><span class="status-badge ' + statusClass + '">' + esc(v.status || 'PENDING') + '</span></td>' +
+        '<td><span class="status-badge ' + statusClass + '">' + st + '</span></td>' +
         '<td style="color:var(--muted)">' + date + '</td>' +
+        '<td style="text-align:right"><button class="btn btn-sm btn-outline admin-view-btn" type="button" data-detail-type="verification" data-detail-id="' + esc(v.id) + '">Review</button></td>' +
       '</tr>';
     }).join('');
+
+    bindDetailClicks(tbody);
   }
 
   function renderAdminWithdrawalsTable(){
@@ -3116,28 +3350,34 @@
       var statusClass = (w.status === 'COMPLETED' ? 'status-completed' : (w.status === 'FAILED' ? 'status-open' : 'status-pending'));
       var actions = '';
       if (isPending || isProcessing){
-        actions = '<div style="display:flex;gap:6px">' +
+        actions = '<div style="display:flex;gap:6px;justify-content:flex-end">' +
           '<button class="btn btn-sm btn-primary" style="padding:4px 8px;font-size:11.5px" data-process-withdrawal="' + esc(w.id) + '" data-action="COMPLETED">Approve</button>' +
           (isPending ? '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:11.5px" data-process-withdrawal="' + esc(w.id) + '" data-action="PROCESSING">Process</button>' : '') +
           '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:11.5px;color:#DC2626;border-color:#DC2626" data-process-withdrawal="' + esc(w.id) + '" data-action="FAILED">Reject</button>' +
         '</div>';
       } else {
-        actions = '<span style="color:var(--muted);font-size:12px">Processed</span>';
+        actions = '<div style="display:flex;gap:6px;justify-content:flex-end"><span style="color:var(--muted);font-size:12px;margin-right:6px">Processed</span><button class="btn btn-sm btn-outline admin-view-btn" type="button" data-detail-type="withdrawal" data-detail-id="' + esc(w.id) + '">View</button></div>';
       }
 
-      return '<tr>' +
+      var user = adminData.users.find(function(u){ return u.id === (w.specialistId || w.userId); });
+      var specName = user ? esc(user.name || user.fullName || user.email) : esc(w.specialistId || w.userId || 'Specialist');
+
+      return '<tr class="admin-clickable-row" data-detail-type="withdrawal" data-detail-id="' + esc(w.id) + '">' +
         '<td><code style="font-size:11.5px">' + esc(String(w.id).slice(0, 8)) + '…</code></td>' +
-        '<td>' + esc(w.specialistId || w.userId || 'Specialist') + '</td>' +
+        '<td><strong>' + specName + '</strong></td>' +
         '<td><strong>PKR ' + Number(w.amount || 0).toLocaleString() + '</strong></td>' +
         '<td>' + esc(w.channel || w.method || 'Bank Transfer') + '</td>' +
         '<td>' + esc(w.accountNumber || w.iban || w.phoneNumber || '—') + '</td>' +
         '<td><span class="status-badge ' + statusClass + '">' + esc(w.status) + '</span></td>' +
-        '<td>' + actions + '</td>' +
+        '<td style="text-align:right">' + actions + '</td>' +
       '</tr>';
     }).join('');
 
+    bindDetailClicks(tbody);
+
     tbody.querySelectorAll('[data-process-withdrawal]').forEach(function(btn){
-      btn.onclick = function(){
+      btn.onclick = function(e){
+        e.stopPropagation();
         var id = btn.getAttribute('data-process-withdrawal');
         var action = btn.getAttribute('data-action');
         var note = prompt('Enter admin note for ' + action + ' (optional):') || undefined;
@@ -3153,6 +3393,342 @@
           });
       };
     });
+  }
+
+  /* Universal Admin Record Detail Inspector Modal */
+  function openAdminRecordDetail(type, id){
+    var modal = $('#m-admin-detail');
+    if (!modal) return;
+
+    var badge = $('#adminDetailBadge');
+    var subBadge = $('#adminDetailSubBadge');
+    var title = $('#adminDetailTitle');
+    var content = $('#adminDetailContent');
+    var footer = $('#adminDetailFooter');
+
+    if (!badge || !title || !content) return;
+
+    // Open immediately with loading indicator
+    openModal('admin-detail');
+    badge.textContent = type.toUpperCase() + ' RECORD';
+    subBadge.textContent = 'ID: ' + id;
+    title.textContent = 'Loading record details...';
+    content.innerHTML = '<div style="text-align:center;padding:40px 10px;color:var(--muted)"><div style="display:inline-block;width:24px;height:24px;border:2px solid #12A56F;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:8px"></div><div>Fetching live platform data...</div></div>';
+    footer.innerHTML = '<button class="btn btn-outline" type="button" data-close>Close</button>';
+
+    if (type === 'user'){
+      var user = adminData.users.find(function(u){ return u.id === id; });
+      var fetchPromise = user ? Promise.resolve(user) : api('GET', '/admin/users/' + encodeURIComponent(id));
+      fetchPromise.then(function(u){
+        if (!u) throw new Error('User record not found');
+        badge.textContent = (String(u.role || 'USER')).toUpperCase() + ' ACCOUNT';
+        subBadge.textContent = 'User ID: ' + (u.id || id);
+        title.textContent = u.name || u.fullName || u.email || 'Platform User';
+
+        var r = String(u.role || 'SPECIALIST').toUpperCase();
+        var verified = u.isEmailVerified !== false;
+        var joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+        var rate = u.hourlyRate ? ('PKR ' + Number(u.hourlyRate).toLocaleString() + ' / hr') : 'Not specified';
+        var skillsHtml = Array.isArray(u.skills) && u.skills.length
+          ? u.skills.map(function(s){ return '<span class="admin-skill-pill">' + esc(s) + '</span>'; }).join('')
+          : '<span style="color:var(--muted)">No skills listed</span>';
+
+        content.innerHTML =
+          '<div class="admin-detail-meta-grid">' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Full Name</span><span class="admin-detail-meta-val">' + esc(u.name || u.fullName || '—') + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Email Address</span><span class="admin-detail-meta-val">' + esc(u.email || '—') + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Assigned Role</span><span class="admin-detail-meta-val"><span class="role-badge role-' + r.toLowerCase() + '">' + r + '</span></span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Email Verified</span><span class="admin-detail-meta-val">' + (verified ? '✓ Verified' : '⏳ Pending') + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Date Joined</span><span class="admin-detail-meta-val">' + joined + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Hourly Rate</span><span class="admin-detail-meta-val">' + rate + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Availability</span><span class="admin-detail-meta-val">' + esc(u.availability || 'AVAILABLE') + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Location</span><span class="admin-detail-meta-val">' + esc([u.city, u.country].filter(Boolean).join(', ') || 'Pakistan') + '</span></div>' +
+          '</div>' +
+          (u.headline ? '<div class="admin-detail-section"><h4>Professional Headline</h4><p style="margin:0;font-weight:600;color:var(--ink)">' + esc(u.headline) + '</p></div>' : '') +
+          (u.bio ? '<div class="admin-detail-section"><h4>About & Bio</h4><div class="admin-detail-body">' + esc(u.bio) + '</div></div>' : '') +
+          '<div class="admin-detail-section"><h4>Verified Skills</h4><div style="margin-top:6px">' + skillsHtml + '</div></div>';
+
+        footer.innerHTML =
+          (r === 'SPECIALIST' ? '<a class="btn btn-outline" href="#person?id=' + encodeURIComponent(u.id) + '" onclick="closeModals()">View Public Profile</a>' : '') +
+          '<button class="btn btn-outline" type="button" data-close>Close</button>';
+      }).catch(function(err){
+        content.innerHTML = '<div class="alert alert-danger" style="margin:20px 0">Failed to load user record: ' + esc(err.message || 'User not found') + '</div>';
+      });
+    }
+
+    else if (type === 'job'){
+      var job = adminData.jobs.find(function(j){ return j.id === id; });
+      var fetchJob = job ? Promise.resolve(job) : api('GET', '/jobs/' + encodeURIComponent(id));
+      fetchJob.then(function(j){
+        if (!j) throw new Error('Job post not found');
+        badge.textContent = 'JOB POSTING · ' + String(j.status || 'OPEN').toUpperCase();
+        subBadge.textContent = 'Job ID: ' + (j.id || id);
+        title.textContent = j.title || 'Marketplace Job Post';
+
+        var clientName = esc((j.client && (j.client.fullName || j.client.name)) || 'Platform Client');
+        var clientEmail = esc((j.client && j.client.email) || '—');
+        var budget = 'PKR ' + Number(j.budget || 0).toLocaleString();
+        var date = j.createdAt ? new Date(j.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+        var skillsHtml = Array.isArray(j.skills) && j.skills.length
+          ? j.skills.map(function(s){ return '<span class="admin-skill-pill">' + esc(s) + '</span>'; }).join('')
+          : '<span style="color:var(--muted)">No specific skills tagged</span>';
+
+        content.innerHTML =
+          '<div class="admin-detail-meta-grid">' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Budget</span><span class="admin-detail-meta-val" style="color:#0B3B2D;font-weight:700">' + budget + ' (' + esc(j.budgetType || 'FIXED') + ')</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Category</span><span class="admin-detail-meta-val">' + esc(j.category || 'General') + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Job Status</span><span class="admin-detail-meta-val">' + esc(j.status || 'OPEN') + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Posted Date</span><span class="admin-detail-meta-val">' + date + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Client Name</span><span class="admin-detail-meta-val">' + clientName + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Client Email</span><span class="admin-detail-meta-val">' + clientEmail + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Delivery Scope</span><span class="admin-detail-meta-val">' + esc(j.duration || 'Standard delivery') + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Proposals Received</span><span class="admin-detail-meta-val">' + (Array.isArray(j.Proposal) ? j.Proposal.length : (j._count && j._count.Proposal != null ? j._count.Proposal : 0)) + '</span></div>' +
+          '</div>' +
+          '<div class="admin-detail-section"><h4>Job Description</h4><div class="admin-detail-body" style="white-space:pre-wrap;background:#fff;padding:14px;border:1px solid var(--line);border-radius:8px">' + esc(j.description || 'No description provided.') + '</div></div>' +
+          '<div class="admin-detail-section"><h4>Required Skills</h4><div style="margin-top:6px">' + skillsHtml + '</div></div>';
+
+        footer.innerHTML =
+          '<a class="btn btn-primary" href="#job?id=' + encodeURIComponent(j.id) + '" onclick="closeModals()">View Live Job Post</a>' +
+          '<button class="btn btn-outline" type="button" id="adminDeleteJobBtn" style="color:#DC2626;border-color:#DC2626">Delete Job</button>' +
+          '<button class="btn btn-outline" type="button" data-close>Close</button>';
+
+        var deleteBtn = $('#adminDeleteJobBtn');
+        if (deleteBtn) {
+          deleteBtn.onclick = function(){
+            if (!confirm('Are you sure you want to delete this job posting from the platform? This cannot be undone.')) return;
+            deleteBtn.disabled = true;
+            api('DELETE', '/jobs/' + encodeURIComponent(j.id))
+              .then(function(){
+                toast('Job deleted successfully.');
+                closeModals();
+                loadAdminDashboardData(true);
+              })
+              .catch(function(err){
+                deleteBtn.disabled = false;
+                toast('Failed to delete job: ' + (err.message || 'Error'));
+              });
+          };
+        }
+      }).catch(function(err){
+        content.innerHTML = '<div class="alert alert-danger" style="margin:20px 0">Failed to load job post: ' + esc(err.message || 'Job not found') + '</div>';
+      });
+    }
+
+    else if (type === 'contract'){
+      var contract = adminData.contracts.find(function(c){ return c.id === id; });
+      var fetchContract = contract ? Promise.resolve(contract) : api('GET', '/contracts').then(function(list){
+        return Array.isArray(list) ? list.find(function(item){ return item.id === id; }) : null;
+      });
+      fetchContract.then(function(c){
+        if (!c) throw new Error('Contract not found');
+        badge.textContent = 'ESCROW CONTRACT · ' + String(c.status || 'ACTIVE').toUpperCase();
+        subBadge.textContent = 'Contract ID: ' + (c.id || id);
+        title.textContent = c.title || (c.job && c.job.title) || 'Protected Escrow Contract';
+
+        var clientName = esc((c.client && (c.client.fullName || c.client.name)) || 'Client');
+        var clientEmail = esc((c.client && c.client.email) || '—');
+        var specName = esc((c.specialist && (c.specialist.fullName || c.specialist.name)) || 'Specialist');
+        var specEmail = esc((c.specialist && c.specialist.email) || '—');
+        var total = 'PKR ' + Number(c.totalAmount || c.amount || 0).toLocaleString();
+        var date = c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+        var msList = Array.isArray(c.milestones) ? c.milestones : [];
+
+        var msMarkup = msList.length ? msList.map(function(m, idx){
+          var mStatus = String(m.status || 'PENDING').toUpperCase();
+          var mStatusClass = mStatus === 'RELEASED' || mStatus === 'COMPLETED' ? 'status-verified' : (mStatus === 'SUBMITTED' ? 'status-pending' : 'status-open');
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#fff;border:1px solid var(--line-2);border-radius:8px;margin-bottom:8px">' +
+            '<div>' +
+              '<strong style="display:block;color:var(--ink)">Milestone ' + (idx + 1) + ': ' + esc(m.title || 'Deliverable') + '</strong>' +
+              (m.description ? '<span style="font-size:12px;color:var(--muted)">' + esc(m.description) + '</span>' : '') +
+            '</div>' +
+            '<div style="text-align:right">' +
+              '<div style="font-weight:700;color:var(--ink)">PKR ' + Number(m.amount || 0).toLocaleString() + '</div>' +
+              '<span class="status-badge ' + mStatusClass + '" style="font-size:11px">' + mStatus + '</span>' +
+            '</div>' +
+          '</div>';
+        }).join('') : '<p class="muted">No individual milestones broken down.</p>';
+
+        content.innerHTML =
+          '<div class="admin-detail-meta-grid">' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Total Contract Value</span><span class="admin-detail-meta-val" style="color:#0B3B2D;font-weight:700">' + total + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Contract Status</span><span class="admin-detail-meta-val">' + esc(c.status || 'ACTIVE') + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Created Date</span><span class="admin-detail-meta-val">' + date + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">SafePay Escrow Status</span><span class="admin-detail-meta-val">' + (c.escrow ? (esc(c.escrow.status) + ' (PKR ' + Number(c.escrow.balance || 0).toLocaleString() + ')') : 'Funded') + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Client</span><span class="admin-detail-meta-val">' + clientName + '<br><small style="color:var(--muted)">' + clientEmail + '</small></span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Specialist</span><span class="admin-detail-meta-val">' + specName + '<br><small style="color:var(--muted)">' + specEmail + '</small></span></div>' +
+          '</div>' +
+          '<div class="admin-detail-section"><h4>Contract Milestones (' + msList.length + ')</h4>' + msMarkup + '</div>';
+
+        footer.innerHTML = '<button class="btn btn-outline" type="button" data-close>Close</button>';
+      }).catch(function(err){
+        content.innerHTML = '<div class="alert alert-danger" style="margin:20px 0">Failed to load contract details: ' + esc(err.message || 'Error') + '</div>';
+      });
+    }
+
+    else if (type === 'dispute'){
+      var dispute = adminData.disputes.find(function(d){ return d.id === id; });
+      var fetchDispute = dispute ? Promise.resolve(dispute) : api('GET', '/disputes/' + encodeURIComponent(id));
+      fetchDispute.then(function(d){
+        if (!d) throw new Error('Dispute record not found');
+        badge.textContent = 'DISPUTE CASE · ' + String(d.status || 'OPEN').toUpperCase();
+        subBadge.textContent = 'Dispute ID: ' + (d.id || id);
+        title.textContent = 'Contract Dispute Arbitration';
+
+        var status = String(d.status || 'OPEN').toUpperCase();
+        var date = d.createdAt ? new Date(d.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+
+        content.innerHTML =
+          '<div class="admin-detail-meta-grid">' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Contract ID</span><span class="admin-detail-meta-val"><code>' + esc(d.contractId || d.contract_id || '—') + '</code></span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Status</span><span class="admin-detail-meta-val">' + status + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Date Raised</span><span class="admin-detail-meta-val">' + date + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Initiator ID</span><span class="admin-detail-meta-val"><code>' + esc(d.initiatorId || d.userId || '—') + '</code></span></div>' +
+          '</div>' +
+          '<div class="admin-detail-section"><h4>Dispute Reason & Statement</h4><div class="admin-detail-body" style="background:#fff;padding:14px;border:1px solid var(--line);border-radius:8px">' + esc(d.reason || d.description || 'Deliverable scope mismatch') + '</div></div>' +
+          (status === 'OPEN' ?
+            '<div class="admin-detail-section">' +
+              '<h4>Admin Arbitration Action</h4>' +
+              '<div style="background:#f8fafc;padding:16px;border:1px solid var(--line);border-radius:8px">' +
+                '<div class="field" style="margin-bottom:12px">' +
+                  '<label for="adminDisputeOutcome" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Arbitration Outcome</label>' +
+                  '<select id="adminDisputeOutcome" class="select" style="width:100%">' +
+                    '<option value="REFUND_CLIENT">Refund Escrow to Client</option>' +
+                    '<option value="PAY_SPECIALIST">Release Escrow to Specialist</option>' +
+                    '<option value="SPLIT">Split Escrow 50/50</option>' +
+                  '</select>' +
+                '</div>' +
+                '<div class="field" style="margin-bottom:12px">' +
+                  '<label for="adminDisputeNotes" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Resolution Notes</label>' +
+                  '<textarea id="adminDisputeNotes" class="input" rows="3" style="width:100%;height:auto;padding:8px" placeholder="Enter findings and justification for the decision..."></textarea>' +
+                '</div>' +
+                '<button class="btn btn-primary" type="button" id="adminResolveDisputeBtn">Submit Resolution Decision</button>' +
+              '</div>' +
+            '</div>' : '');
+
+        footer.innerHTML = '<button class="btn btn-outline" type="button" data-close>Close</button>';
+
+        var resolveBtn = $('#adminResolveDisputeBtn');
+        if (resolveBtn) {
+          resolveBtn.onclick = function(){
+            var outcome = $('#adminDisputeOutcome').value;
+            var notes = $('#adminDisputeNotes').value;
+            resolveBtn.disabled = true;
+            api('PATCH', '/disputes/' + encodeURIComponent(d.id) + '/resolve', { outcome: outcome, notes: notes })
+              .then(function(){
+                toast('Dispute successfully resolved.');
+                closeModals();
+                loadAdminDashboardData(true);
+              })
+              .catch(function(err){
+                resolveBtn.disabled = false;
+                toast('Failed to resolve dispute: ' + (err.message || 'Error'));
+              });
+          };
+        }
+      }).catch(function(err){
+        content.innerHTML = '<div class="alert alert-danger" style="margin:20px 0">Failed to load dispute details: ' + esc(err.message || 'Error') + '</div>';
+      });
+    }
+
+    else if (type === 'verification'){
+      var verif = adminData.verifications.find(function(v){ return v.id === id; });
+      if (!verif){
+        content.innerHTML = '<div class="alert alert-danger" style="margin:20px 0">Verification record not found.</div>';
+        return;
+      }
+      var user = adminData.users.find(function(u){ return u.id === (verif.userId || verif.user_id); });
+      var userName = user ? esc(user.name || user.fullName || user.email) : 'Specialist';
+      var userEmail = user ? esc(user.email) : '—';
+      var st = String(verif.status || 'PENDING').toUpperCase();
+      var date = verif.createdAt ? new Date(verif.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+
+      badge.textContent = 'SPECIALIST VERIFICATION · ' + st;
+      subBadge.textContent = 'Verification ID: ' + (verif.id || id);
+      title.textContent = 'Identity & Skill Verification Review';
+
+      content.innerHTML =
+        '<div class="admin-detail-meta-grid">' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Specialist Name</span><span class="admin-detail-meta-val">' + userName + '</span></div>' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Specialist Email</span><span class="admin-detail-meta-val">' + userEmail + '</span></div>' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Document / Badge Type</span><span class="admin-detail-meta-val">' + esc(verif.type || verif.documentType || 'CNIC / National Identity') + '</span></div>' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Current Status</span><span class="admin-detail-meta-val">' + st + '</span></div>' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Submission Date</span><span class="admin-detail-meta-val">' + date + '</span></div>' +
+        '</div>' +
+        (verif.documentUrl ? '<div class="admin-detail-section"><h4>Submitted Verification Document</h4><p><a href="' + esc(verif.documentUrl) + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline">Open Document Preview ↗</a></p></div>' : '') +
+        (st === 'PENDING' ?
+          '<div class="admin-action-bar">' +
+            '<button class="btn btn-primary" type="button" id="adminApproveVerifBtn">Approve Specialist Badge</button>' +
+            '<button class="btn btn-outline" type="button" id="adminRejectVerifBtn" style="color:#DC2626;border-color:#DC2626">Reject Verification</button>' +
+          '</div>' : '');
+
+      footer.innerHTML = '<button class="btn btn-outline" type="button" data-close>Close</button>';
+
+      var targetUserId = verif.userId || verif.user_id;
+      var approveBtn = $('#adminApproveVerifBtn');
+      if (approveBtn) {
+        approveBtn.onclick = function(){
+          approveBtn.disabled = true;
+          api('PATCH', '/verification/' + encodeURIComponent(targetUserId) + '/review', { status: 'APPROVED' })
+            .then(function(){
+              toast('Specialist badge approved!');
+              closeModals();
+              loadAdminDashboardData(true);
+            })
+            .catch(function(err){
+              approveBtn.disabled = false;
+              toast('Failed to approve: ' + (err.message || 'Error'));
+            });
+        };
+      }
+
+      var rejectBtn = $('#adminRejectVerifBtn');
+      if (rejectBtn) {
+        rejectBtn.onclick = function(){
+          rejectBtn.disabled = true;
+          api('PATCH', '/verification/' + encodeURIComponent(targetUserId) + '/review', { status: 'REJECTED' })
+            .then(function(){
+              toast('Verification marked as rejected.');
+              closeModals();
+              loadAdminDashboardData(true);
+            })
+            .catch(function(err){
+              rejectBtn.disabled = false;
+              toast('Failed: ' + (err.message || 'Error'));
+            });
+        };
+      }
+    }
+
+    else if (type === 'withdrawal'){
+      var w = adminData.withdrawals.find(function(item){ return item.id === id; });
+      if (!w){
+        content.innerHTML = '<div class="alert alert-danger" style="margin:20px 0">Withdrawal record not found.</div>';
+        return;
+      }
+      var user = adminData.users.find(function(u){ return u.id === (w.specialistId || w.userId); });
+      var specName = user ? esc(user.name || user.fullName || user.email) : 'Specialist';
+      var specEmail = user ? esc(user.email) : '—';
+      var amount = 'PKR ' + Number(w.amount || 0).toLocaleString();
+      var date = w.createdAt ? new Date(w.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+
+      badge.textContent = 'PAYOUT REQUEST · ' + String(w.status || 'PENDING').toUpperCase();
+      subBadge.textContent = 'Request ID: ' + (w.id || id);
+      title.textContent = 'Specialist Withdrawal Payout';
+
+      content.innerHTML =
+        '<div class="admin-detail-meta-grid">' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Payout Amount</span><span class="admin-detail-meta-val" style="color:#0B3B2D;font-weight:700">' + amount + '</span></div>' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Payment Rail</span><span class="admin-detail-meta-val">' + esc(w.channel || w.method || 'Bank Transfer') + '</span></div>' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Account / IBAN / Phone</span><span class="admin-detail-meta-val">' + esc(w.accountNumber || w.iban || w.phoneNumber || '—') + '</span></div>' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Status</span><span class="admin-detail-meta-val">' + esc(w.status) + '</span></div>' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Requested Date</span><span class="admin-detail-meta-val">' + date + '</span></div>' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Specialist Name</span><span class="admin-detail-meta-val">' + specName + '</span></div>' +
+          '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Specialist Email</span><span class="admin-detail-meta-val">' + specEmail + '</span></div>' +
+        '</div>' +
+        (w.adminNote ? '<div class="admin-detail-section"><h4>Admin Notes</h4><p>' + esc(w.adminNote) + '</p></div>' : '');
+
+      footer.innerHTML = '<button class="btn btn-outline" type="button" data-close>Close</button>';
+    }
   }
 
 })();
