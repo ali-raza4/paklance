@@ -1180,6 +1180,8 @@
     var onDash = !$('[data-view="dashboard"]').hidden;
     if (onDash){ if (u) renderDashboard(); else go('home'); }
     if (!u && location.hash === '#profile') go('home');
+    var onJobDetail = !$('[data-view="job"]').hidden;
+    if (onJobDetail && currentJob) renderJobDetail();
   }
   function matchJobs(u){
     var groups = PaklanceAuth.skillGroups, cats = {};
