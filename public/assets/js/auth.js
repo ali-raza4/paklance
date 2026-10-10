@@ -273,13 +273,7 @@ window.PaklanceAuth = (function () {
     // Password reset: POST /api/auth/forgot-password
     requestPasswordReset: function (email) {
       return request('POST', '/auth/forgot-password', { email: email })
-        .then(function () { return { ok: true }; })
-        .catch(function () {
-          return Promise.reject(apiError(
-            'NOT_AVAILABLE',
-            'Password reset by email is not yet available. Please contact support@paklance.com to reset your password.'
-          ));
-        });
+        .then(function (res) { return res || { ok: true }; });
     },
 
     // PATCH /api/me  — saves fullName field (Express uses fullName, not name)

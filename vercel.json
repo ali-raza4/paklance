@@ -7,6 +7,10 @@
       "destination": "https://paklance-backend-updated.vercel.app/api/:path*"
     },
     {
+      "source": "/reset-password",
+      "destination": "/reset-password.html"
+    },
+    {
       "source": "/:path*",
       "destination": "/index.html"
     }
