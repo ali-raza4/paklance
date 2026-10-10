@@ -422,8 +422,8 @@
           var parts = name.trim().split(/\s+/).filter(Boolean);
           var init = ((parts[0]||'').charAt(0) + (parts.length>1?(parts[parts.length-1]||'').charAt(0):'')).toUpperCase() || 'SP';
           var avHtml = u.avatarUrl
-            ? '<img class="pc-av pc-av-md" src="' + esc(u.avatarUrl) + '" alt="' + esc(name) + '">'
-            : '<span class="pc-av pc-av-md pc-av-init" aria-hidden="true">' + esc(init) + '</span>';
+            ? '<img class="pc-av pc-av-md" src="' + esc(u.avatarUrl) + '" alt="' + esc(name) + '" style="width:44px;height:44px;min-width:44px;min-height:44px;border-radius:50%;object-fit:cover;flex-shrink:0">'
+            : '<span class="pc-av pc-av-md pc-av-init" aria-hidden="true" style="width:44px;height:44px;min-width:44px;min-height:44px;line-height:44px;text-align:center;border-radius:50%;flex-shrink:0">' + esc(init) + '</span>';
           var statusClass = p.status === 'ACCEPTED' ? 'chip-verified' : (p.status === 'REJECTED' ? 'chip-danger' : 'chip-muted');
           return '<article class="card proposal-card" style="padding:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px">' +
             '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
