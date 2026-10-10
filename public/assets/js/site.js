@@ -1405,7 +1405,7 @@
     },
     subscribe: function(email){ return api('POST', '/newsletter/subscribe', { email: email, source: 'blog' }); }
   });
-  renderJobs(); renderTalent();
+  renderJobs(); renderTalent(); route();
   CFG = { fees: { clientPercent: 3, specialistPercent: 10 }, googleClientId: PROD_GOOGLE_CLIENT_ID };
   (function(){
     function startApp(cfg){
