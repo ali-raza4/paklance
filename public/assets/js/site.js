@@ -1277,6 +1277,12 @@
     var el = e.target.closest('[data-open],[data-close],[data-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job],[data-post-job]');
     if (!el) return;
     if (el.hasAttribute('data-post-job')){
+      var m = $('#mobileMenu');
+      if (m && !m.hidden){
+        m.hidden = true;
+        var b = $('#burger');
+        if (b) b.setAttribute('aria-expanded', 'false');
+      }
       var specId = el.getAttribute('data-invite-specialist-id') || '';
       var specName = el.getAttribute('data-invite-specialist-name') || '';
       openPostJobModal(specId ? { id: specId, name: specName } : null);
@@ -1634,8 +1640,6 @@
   function updateHeader(u){
     document.body.classList.toggle('signed-in', !!u);
     var isClient = u && String(u.role || '').toLowerCase() === 'client';
-    var hdrPostBtn = $('#hdrPostJobBtn');
-    if (hdrPostBtn) hdrPostBtn.style.display = isClient ? 'inline-flex' : 'none';
     var mobPostBtn = $('#mobPostJobBtn');
     if (mobPostBtn) mobPostBtn.style.display = isClient ? 'block' : 'none';
     if (u){
