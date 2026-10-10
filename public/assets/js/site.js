@@ -177,11 +177,20 @@
               metaDescription: item.metaDescription,
               status: item.status
             };
-            if (!PaklanceBlog.articles.some(function(a){ return a.slug === mappedItem.slug; })){
-              PaklanceBlog.articles.unshift(mappedItem);
-              if (typeof PaklanceBlog.setArticles === 'function') {
-                PaklanceBlog.setArticles(PaklanceBlog.articles);
+            var existingIdx = -1;
+            for (var k = 0; k < PaklanceBlog.articles.length; k++) {
+              if (PaklanceBlog.articles[k].slug === mappedItem.slug) {
+                existingIdx = k;
+                break;
               }
+            }
+            if (existingIdx >= 0) {
+              PaklanceBlog.articles[existingIdx] = mappedItem;
+            } else {
+              PaklanceBlog.articles.unshift(mappedItem);
+            }
+            if (typeof PaklanceBlog.setArticles === 'function') {
+              PaklanceBlog.setArticles(PaklanceBlog.articles);
             }
             PaklanceBlog.renderArticle(blogSlug);
           } else {

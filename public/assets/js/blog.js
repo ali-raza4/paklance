@@ -393,7 +393,7 @@ window.PaklanceBlog = (function () {
   function plain(t) { return String(t).replace(/\*\*/g, ''); }
   function countWords(t) { return plain(t).split(/\s+/).filter(Boolean).length; }
   function slugify(t) { return String(t).toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-  function fmtDate(iso) { var p = iso.split('-'); return (+p[2]) + ' ' + MONTHS[+p[1] - 1] + ' ' + p[0]; }
+  function fmtDate(iso) { if (!iso || typeof iso !== 'string' || iso.indexOf('-') === -1) return 'Recently'; var p = iso.split('-'); return (+p[2] || '') + ' ' + (MONTHS[+p[1] - 1] || '') + ' ' + (p[0] || ''); }
   function ic(name, cls) { return '<svg class="ic' + (cls ? ' ' + cls : '') + '" aria-hidden="true"><use href="#i-' + name + '"/></svg>'; }
   function url(a) { return a ? SITE + '/blog/' + a.slug : SITE + '/blog'; }
   function href(a) { return '#blog/' + a.slug; }
@@ -639,7 +639,7 @@ window.PaklanceBlog = (function () {
     }).join('') + '</div>';
   }
   function TableOfContents(a, mobile) {
-    if (a.toc.length < 3) return '';
+    if (!a || !a.toc || a.toc.length < 3) return '';
     return '<details class="blog-toc' + (mobile ? ' blog-toc-mobile' : '') + '"' + (mobile ? '' : ' open') + '>' +
       '<summary>' + ic('list') + 'On this page' + (mobile ? '' : '<span class="blog-left" data-blog-left>' + a.readTime + ' min read</span>') + ic('chevron-down', 'chev') + '</summary>' +
       '<ol>' + a.toc.map(function (t) { return '<li><a href="' + href(a) + '" data-toc="' + t.id + '">' + esc(t.text) + '</a></li>'; }).join('') + '</ol>' +
