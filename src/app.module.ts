@@ -23,6 +23,7 @@ import { AdminModule } from './admin/admin.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PushModule } from './push/push.module';
 import { MeModule } from './me/me.module';
+import { BlogModule } from './blog/blog.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { MeModule } from './me/me.module';
     PaymentsModule,
     PushModule,
     MeModule,
+    BlogModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
