@@ -65,6 +65,7 @@
         <span class="badge-dot" id="notifDot"></span>
       </button>
       <a class="link-match" href="#match" data-nav="match">Paklance Match™</a>
+      <button class="btn btn-primary btn-sm hdr-post-job" type="button" id="hdrPostJobBtn" data-post-job style="display:none;">Post a Job</button>
       <button class="link-login" type="button" data-open="auth" data-when="out">Log in</button>
       <button class="btn btn-primary btn-sm hdr-start" type="button" data-open="auth" data-signup data-when="out">Get Started</button>
       <a class="user-pill" href="#dashboard" data-nav="dashboard" data-when="in"><span class="avatar sm" id="hdrAv">A</span><span id="hdrName">Account</span></a>
@@ -79,6 +80,7 @@
       <a href="#global">Global Hiring</a>
       <a href="#blog">Blog</a>
       <a href="#match">Paklance Match™</a>
+      <button type="button" class="btn btn-primary btn-sm" id="mobPostJobBtn" data-post-job style="display:none;margin:8px 0;width:100%;text-align:center;">Post a Job</button>
       <button type="button" data-open="auth" data-when="out">Log in</button>
       <button type="button" data-open="auth" data-signup data-when="out">Get Started</button>
       <a href="#dashboard" data-when="in">Dashboard</a>
@@ -631,9 +633,12 @@
       <div>
         <span class="eyebrow">Dashboard</span>
         <h1 id="dashHello">Welcome</h1>
-        <p>Your account is ready. Here's your profile and work that matches your skills.</p>
+        <p id="dashSub">Your account is ready. Here's your profile and work that matches your skills.</p>
       </div>
-      <button class="btn btn-outline" type="button" data-logout>Log out</button>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary" type="button" id="dashPostJobBtn" data-post-job style="display:none;">+ Post a Job</button>
+        <button class="btn btn-outline" type="button" data-logout>Log out</button>
+      </div>
     </div>
   </div>
   <!-- Profile completion tracker: filled by PaklanceProfile.mount() -->
@@ -1017,6 +1022,74 @@
       <p class="muted" style="font-size:14px;padding:24px 0;text-align:center">No notifications yet</p>
     </div>
     <button class="btn-text" type="button" id="markRead" style="margin-top:14px">Mark all as read</button>
+  </div>
+</div>
+
+<div class="modal" id="m-post-job" hidden role="dialog" aria-modal="true" aria-labelledby="postJobModalTitle">
+  <div class="modal-card wide" style="max-width:620px">
+    <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <span class="eyebrow">Client Workspace</span>
+    <h2 id="postJobModalTitle" style="font-size:22px;margin-top:4px">Post a Job</h2>
+    <p class="sub" style="margin-bottom:18px">Publish your project requirements to hire verified Pakistani specialists with protected SafePay milestones.</p>
+    
+    <div id="postJobSpecialistAlert" style="display:none;background:rgba(18,165,111,0.08);border:1px solid rgba(18,165,111,0.3);border-radius:8px;padding:12px;margin-bottom:16px;">
+      <div style="font-weight:600;color:var(--forest,#0b3b2d);font-size:14px;display:flex;align-items:center;gap:6px">
+        <svg class="ic ic-xs" style="color:var(--primary,#12a56f)" aria-hidden="true"><use href="#i-check"/></svg>
+        <span>Direct Invitation for:</span> <span id="postJobSpecialistName" style="color:var(--primary,#12a56f)"></span>
+      </div>
+      <p style="font-size:12px;color:var(--ink-2);margin:4px 0 0 0">Upon publishing, this specialist will receive an invitation to submit a proposal for your project.</p>
+      <input type="hidden" id="postJobSpecialistId" value="">
+    </div>
+
+    <form id="postJobForm" data-form="postJob">
+      <div class="form-grid">
+        <div class="field full">
+          <label for="postJobTitle">Job Title <span style="color:#d93025">*</span></label>
+          <input class="input" type="text" id="postJobTitle" placeholder="e.g. Full Stack Developer for Next.js Marketplace" required maxlength="120">
+        </div>
+        
+        <div class="field">
+          <label for="postJobCategory">Category <span style="color:#d93025">*</span></label>
+          <select class="input" id="postJobCategory" required>
+            <option value="Web & Software Development">Web & Software Development</option>
+            <option value="Mobile App Development">Mobile App Development</option>
+            <option value="UI/UX & Graphic Design">UI/UX & Graphic Design</option>
+            <option value="Digital Marketing & SEO">Digital Marketing & SEO</option>
+            <option value="Content Writing & Copywriting">Content Writing & Copywriting</option>
+            <option value="Video Editing & Animation">Video Editing & Animation</option>
+            <option value="AI & Machine Learning">AI & Machine Learning</option>
+            <option value="Virtual Assistant & Admin">Virtual Assistant & Admin</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="postJobBudget">Budget (PKR) <span style="color:#d93025">*</span></label>
+          <input class="input" type="number" id="postJobBudget" placeholder="e.g. 50000" min="500" step="500" required>
+        </div>
+
+        <div class="field">
+          <label for="postJobDays">Delivery Timeline (Days) <span style="color:#d93025">*</span></label>
+          <input class="input" type="number" id="postJobDays" min="1" max="365" value="14" required>
+        </div>
+
+        <div class="field">
+          <label for="postJobSkills">Required Skills <span style="color:#d93025">*</span></label>
+          <input class="input" type="text" id="postJobSkills" placeholder="e.g. React, NestJS, PostgreSQL" required>
+          <small class="help" style="font-size:11px;color:var(--ink-3)">Separate multiple skills with commas</small>
+        </div>
+
+        <div class="field full">
+          <label for="postJobDescription">Job Description <span style="color:#d93025">*</span></label>
+          <textarea class="input" id="postJobDescription" rows="5" style="height:auto;padding:10px;resize:vertical" placeholder="Describe the project scope, key deliverables, technical requirements, and expectations..." required minlength="20"></textarea>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn btn-outline" type="button" data-close style="flex:1">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="btnSubmitPostJob" style="flex:2">Publish Job</button>
+      </div>
+    </form>
   </div>
 </div>
 

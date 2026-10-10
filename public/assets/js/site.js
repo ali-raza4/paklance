@@ -808,6 +808,33 @@
   function keep(key, el){ if (el && SAMPLE[key] == null) SAMPLE[key] = el.innerHTML; return el; }
   function signedIn(){ return LIVE && !!PaklanceAuth.getUser(); }
 
+  function openPostJobModal(spec){
+    var u = PaklanceAuth.getUser();
+    if (!u){
+      toast('Please log in with a client account to post a job.');
+      PaklanceAuth.open('login');
+      return;
+    }
+    var isClient = String(u.role || '').toLowerCase() === 'client';
+    if (!isClient){
+      toast('Only client accounts can post jobs. Switch to or create a client account to hire talent.');
+      return;
+    }
+    var alertEl = $('#postJobSpecialistAlert');
+    var nameEl = $('#postJobSpecialistName');
+    var idEl = $('#postJobSpecialistId');
+    if (spec && spec.id){
+      if (idEl) idEl.value = spec.id;
+      if (nameEl) nameEl.textContent = spec.name || 'Specialist';
+      if (alertEl) alertEl.style.display = 'block';
+    } else {
+      if (idEl) idEl.value = '';
+      if (nameEl) nameEl.textContent = '';
+      if (alertEl) alertEl.style.display = 'none';
+    }
+    openModal('post-job');
+  }
+
   function onModalOpen(id){
     if (!LIVE) return;
     if (id === 'contract') loadContract();
@@ -819,6 +846,13 @@
       // Delegate to PaklanceMessages which handles auth check + render
       if (PaklanceAuth.getUser()) PaklanceMessages.open();
       else { closeModals(); PaklanceAuth.open('login'); }
+    } else if (id === 'post-job') {
+      var u = PaklanceAuth.getUser();
+      if (!u){
+        closeModals();
+        toast('Please log in with a client account to post a job.');
+        PaklanceAuth.open('login');
+      }
     }
   }
 
@@ -1202,11 +1236,7 @@
         if (pBtn){
           pBtn.onclick = function(){
             closeModals();
-            go('home');
-            setTimeout(function(){
-              var f = $('#heroForm') || $('#postJob');
-              if (f) f.scrollIntoView({ behavior:'smooth' });
-            }, 100);
+            openPostJobModal({ id: specId, name: specName });
           };
         }
       }
@@ -1244,8 +1274,14 @@
 
   /* ---------- clicks ---------- */
   document.addEventListener('click', function(e){
-    var el = e.target.closest('[data-open],[data-close],[data-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job]');
+    var el = e.target.closest('[data-open],[data-close],[data-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job],[data-post-job]');
     if (!el) return;
+    if (el.hasAttribute('data-post-job')){
+      var specId = el.getAttribute('data-invite-specialist-id') || '';
+      var specName = el.getAttribute('data-invite-specialist-name') || '';
+      openPostJobModal(specId ? { id: specId, name: specName } : null);
+      return;
+    }
     if (el.hasAttribute('data-hire-specialist')){ handleHireClick(el); return; }
     if (el.hasAttribute('data-show-contract')){ openContractById(el.getAttribute('data-show-contract')); return; }
     if (el.hasAttribute('data-view-contract-job')){
@@ -1366,6 +1402,72 @@
   }
 
   var FORMS = {
+    postJob: function(){
+      var u = PaklanceAuth.getUser();
+      if (!u) return needUser('Log in with your client account to post a job.');
+      var isClient = String(u.role || '').toLowerCase() === 'client';
+      if (!isClient){
+        toast('Only client accounts can post jobs. Switch to or create a client account to hire talent.');
+        return Promise.resolve();
+      }
+
+      var title = (v('postJobTitle') || '').trim();
+      var category = v('postJobCategory') || 'Web & Software Development';
+      var budget = Number(v('postJobBudget')) || 0;
+      var days = Number(v('postJobDays')) || 14;
+      var skills = (v('postJobSkills') || '').trim();
+      var desc = (v('postJobDescription') || '').trim();
+      var inviteSpecialistId = (v('postJobSpecialistId') || '').trim();
+
+      if (!title){ toast('Please provide a job title.'); return Promise.resolve(); }
+      if (!budget || budget < 500){ toast('Please specify a valid budget (minimum PKR 500).'); return Promise.resolve(); }
+      if (!days || days < 1){ toast('Please specify a valid delivery timeline.'); return Promise.resolve(); }
+      if (!skills){ toast('Please provide required skills.'); return Promise.resolve(); }
+      if (!desc || desc.length < 20){ toast('Please provide a detailed job description (at least 20 characters).'); return Promise.resolve(); }
+
+      var btn = $('#btnSubmitPostJob');
+      if (btn) btn.disabled = true;
+
+      var fullDescription = desc + '\n\nCategory: ' + category + '\nRequired Skills: ' + skills + '\nDelivery Timeline: ' + days + ' days';
+
+      var payload = {
+        title: title,
+        description: fullDescription,
+        budget: budget,
+        category: category,
+        skills: skills.split(',').map(function(s){ return s.trim(); }).filter(Boolean),
+        deliveryDays: days
+      };
+
+      return api('POST', '/jobs', payload).then(function(created){
+        closeModals();
+        toast('Job posted successfully! It is now live on the marketplace.');
+        var normalized = fromApiJob(created);
+        normalized.clientId = u.id;
+        normalized.clientEmail = u.email;
+        normalized.client = u.fullName || 'Client';
+        JOBS.unshift(normalized);
+
+        if (inviteSpecialistId && typeof PaklanceMessages !== 'undefined'){
+          var inviteMsg = 'Hello! I just posted a new project: "' + title + '" (Budget: ' + fmt(budget) + ') and would love to invite you to submit a proposal or discuss the project.';
+          PaklanceMessages.sendMessageTo(inviteSpecialistId, inviteMsg).then(function(){
+            toast('Job posted and direct invitation sent to specialist!');
+          }).catch(function(){});
+        }
+
+        var formEl = $('#postJobForm');
+        if (formEl) formEl.reset();
+        var alertEl = $('#postJobSpecialistAlert');
+        if (alertEl) alertEl.style.display = 'none';
+        var specIdInput = $('#postJobSpecialistId');
+        if (specIdInput) specIdInput.value = '';
+
+        renderDashboard();
+        renderJobs();
+      }).catch(handleError).finally(function(){
+        if (btn) btn.disabled = false;
+      });
+    },
     apply: function(){
       if (!PaklanceAuth.getUser()) return needUser('Log in to apply for this job.');
       var id = v('propJobId');
@@ -1531,6 +1633,11 @@
   }
   function updateHeader(u){
     document.body.classList.toggle('signed-in', !!u);
+    var isClient = u && String(u.role || '').toLowerCase() === 'client';
+    var hdrPostBtn = $('#hdrPostJobBtn');
+    if (hdrPostBtn) hdrPostBtn.style.display = isClient ? 'inline-flex' : 'none';
+    var mobPostBtn = $('#mobPostJobBtn');
+    if (mobPostBtn) mobPostBtn.style.display = isClient ? 'block' : 'none';
     if (u){
       $('#hdrAv').innerHTML = u.photo ? '<img src="' + esc(u.photo) + '" alt="">' : esc(initials(u.fullName || u.email));
       $('#hdrName').textContent = u.fullName ? u.fullName.split(' ')[0] : 'Account';
@@ -1555,7 +1662,15 @@
   function renderDashboard(){
     var u = PaklanceAuth.getUser(); if (!u) return;
     var isClient = String(u.role || '').toLowerCase() === 'client';
+    var dashPostBtn = $('#dashPostJobBtn');
+    if (dashPostBtn) dashPostBtn.style.display = isClient ? 'inline-flex' : 'none';
     $('#dashHello').textContent = 'Welcome, ' + (u.fullName ? u.fullName.split(' ')[0] : 'there');
+    var dashSub = $('#dashSub');
+    if (dashSub){
+      dashSub.textContent = isClient
+        ? 'Manage your posted projects, review received proposals, and track SafePay contracts.'
+        : "Your account is ready. Here's your profile and work that matches your skills.";
+    }
     $('#dashProfile').innerHTML =
       '<div class="t-head"><div class="pc-avwrap">' + PaklanceProfile.avatar(u, 'lg') +
         '<button type="button" class="pc-cam sm" data-pc-open="photo" aria-label="' + (u.photo ? 'Change profile photo' : 'Add a profile photo') + '"><svg class="pp-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3.2L9 6h6l1.8 2.5H20v10.5H4zM12 16.5a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6z"/></svg></button></div>' +
@@ -1564,7 +1679,8 @@
       '<div class="chip-row" style="margin-top:14px"><span class="chip chip-verified"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Email verified</span><span class="chip chip-muted">' + (u.provider === 'google' ? 'Signed in with Google' : 'Email & password') + '</span>' +
       (isClient ? '<span class="chip chip-muted">Client account</span>' : '') + '</div>' +
       (u.skills && u.skills.length ? ('<h4>Your skills</h4><div class="tags">' + u.skills.map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join('') + '</div>') : '') +
-      '<a class="btn btn-primary btn-block" href="#profile" style="margin-top:18px">View my profile</a>' +
+      (isClient ? '<button class="btn btn-primary btn-block" type="button" data-post-job style="margin-top:18px"><svg class="ic ic-sm" aria-hidden="true" style="margin-right:6px"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Post a New Job</button>' : '') +
+      '<a class="btn ' + (isClient ? 'btn-outline' : 'btn-primary') + ' btn-block" href="#profile" style="margin-top:' + (isClient ? '10px' : '18px') + '">View my profile</a>' +
       (!isClient ? '<button class="btn btn-outline btn-block" type="button" data-edit-skills style="margin-top:10px">Edit skills</button>' : '');
     $('#dashChecklist').innerHTML =
       '<li class="ok">Account created</li><li class="ok">Email verified</li><li class="ok">Full name added</li>' +
@@ -1572,6 +1688,17 @@
       (u.photo ? '<li class="ok">Profile photo added</li>' : '<li>Add a profile photo <button type="button" class="chip chip-muted pc-chip-btn" data-pc-open="photo">Add photo</button></li>') +
       '<li id="dashProfileStep">Complete your profile <span class="chip chip-muted">Next</span></li>';
     PaklanceProfile.mount($('#dashTracker'), { video: $('#dashVideo') });
+
+    var jobsCard = $('#dashJobs') ? $('#dashJobs').closest('.card') : null;
+    var jobsCardHead = jobsCard ? jobsCard.querySelector('.cc-top') : null;
+    if (jobsCardHead){
+      if (isClient){
+        jobsCardHead.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;width:100%"><h3 style="font-size:19px">Your Posted Jobs</h3><button class="btn btn-primary btn-sm" type="button" data-post-job>+ Post a Job</button></div>';
+      } else {
+        jobsCardHead.innerHTML = '<h3 style="font-size:19px">Jobs that match your skills</h3>';
+      }
+    }
+
     if (isClient){
       var clientJobs = JOBS.filter(function(j){
         return (j.clientId && j.clientId === u.id) ||
@@ -1584,7 +1711,7 @@
       if (clientJobs.length){
         $('#dashJobs').innerHTML = clientJobs.map(jobCard).join('');
       } else {
-        $('#dashJobs').innerHTML = '<div class="empty" style="padding:16px 0"><p class="muted">You haven’t posted any jobs yet.</p><div class="hero-ctas" style="margin-top:10px"><button class="btn btn-primary btn-sm" type="button" data-open="auth" data-signup>Post a Job</button></div></div>';
+        $('#dashJobs').innerHTML = '<div class="empty" style="padding:24px 0;text-align:center"><p class="muted" style="margin-bottom:12px">You haven’t posted any jobs yet. Create a job to receive proposals from top Pakistani talent.</p><button class="btn btn-primary" type="button" data-post-job>+ Post Your First Job</button></div>';
       }
       loadClientDashboardContracts();
       loadClientDashboardProposals();
