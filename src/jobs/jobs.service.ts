@@ -51,7 +51,15 @@ export class JobsService {
       where,
       include: {
         client: {
-          select: { id: true, email: true, name: true },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            city: true,
+            country: true,
+            isEmailVerified: true,
+            verification: { select: { status: true } },
+          },
         },
         _count: {
           select: { Proposal: true },
@@ -66,7 +74,15 @@ export class JobsService {
       where: { id },
       include: {
         client: {
-          select: { id: true, email: true, name: true },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            city: true,
+            country: true,
+            isEmailVerified: true,
+            verification: { select: { status: true } },
+          },
         },
         contracts: true,
         _count: {

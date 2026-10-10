@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JobsService } from './jobs.service';
+import { ProposalsService } from '../proposals/proposals.service';
 import { CreateJobDto, QueryJobDto, UpdateJobDto } from './dto/job.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -21,7 +22,32 @@ import { Role } from '@prisma/client';
 @ApiTags('Jobs')
 @Controller('jobs')
 export class JobsController {
-  constructor(private readonly jobsService: JobsService) {}
+  constructor(
+    private readonly jobsService: JobsService,
+    private readonly proposalsService: ProposalsService,
+  ) {}
+
+  @ApiOperation({ summary: 'Submit a proposal to a job (SPECIALIST only)' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SPECIALIST)
+  @Post(':id/proposals')
+  async submitProposal(
+    @CurrentUser('id') userId: string,
+    @Param('id') jobId: string,
+    @Body() body: any,
+  ) {
+    const job = await this.jobsService.findOne(jobId);
+    return this.proposalsService.submitProposal(userId, {
+      jobId,
+      coverLetter:
+        (body && body.coverLetter) ||
+        'I am interested in this project and ready to deliver quality work.',
+      bidAmount:
+        Number(body && body.bidAmount) || Number(job.budget) || 1000,
+      deliveryDays: Number(body && body.deliveryDays) || 7,
+    });
+  }
 
   @ApiOperation({ summary: 'Post a new job (CLIENT only)' })
   @ApiBearerAuth()
