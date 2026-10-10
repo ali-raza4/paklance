@@ -1,4 +1,12 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Query,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
@@ -7,6 +15,8 @@ import {
   VerifyEmailDto,
   ResendVerificationDto,
   GoogleAuthDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
 } from './dto/auth.dto';
 
 @ApiTags('Auth')
@@ -49,5 +59,26 @@ export class AuthController {
   googleAuth(@Body() body: GoogleAuthDto) {
     return this.authService.googleAuth(body);
   }
+
+  @ApiOperation({ summary: 'Request password reset email' })
+  @HttpCode(HttpStatus.OK)
+  @Post('forgot-password')
+  forgotPassword(@Body() body: ForgotPasswordDto) {
+    return this.authService.forgotPassword(body);
+  }
+
+  @ApiOperation({ summary: 'Verify validity of password reset token' })
+  @Get('verify-reset-token')
+  verifyResetToken(@Query('token') token: string) {
+    return this.authService.verifyResetToken(token);
+  }
+
+  @ApiOperation({ summary: 'Reset password using token' })
+  @HttpCode(HttpStatus.OK)
+  @Post('reset-password')
+  resetPassword(@Body() body: ResetPasswordDto) {
+    return this.authService.resetPassword(body);
+  }
 }
+
 

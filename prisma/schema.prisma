@@ -20,6 +20,9 @@ model User {
   emailVerifyOtp                 String?
   emailVerifyExpires             DateTime?
   emailVerifyLastSentAt         DateTime?
+  resetPasswordToken             String?
+  resetPasswordExpires           DateTime?
+  resetPasswordLastSentAt        DateTime?
   availability                   Availability        @default(AVAILABLE)
   avatarUrl                      String?
   bio                            String?

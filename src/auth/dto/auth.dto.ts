@@ -71,3 +71,30 @@ export class GoogleAuthDto {
   credential?: string;
 }
 
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail({}, { message: 'Must be a valid email' })
+  @IsNotEmpty()
+  email: string;
+}
+
+export class VerifyResetTokenDto {
+  @ApiProperty({ example: 'a1b2c3d4...', description: 'Reset token received in email link' })
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: 'a1b2c3d4...', description: 'Reset token received in email link' })
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+
+  @ApiProperty({ example: 'NewStrongPass123!' })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  newPassword: string;
+}
+

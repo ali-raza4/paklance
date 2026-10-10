@@ -88,6 +88,51 @@ export class EmailService {
   }
 
   /**
+   * Sends password reset email with time-limited single-use link.
+   */
+  async sendPasswordResetEmail(email: string, resetLink: string): Promise<void> {
+    const subject = 'Reset your Paklance account password';
+    const text = `You requested a password reset for your Paklance account.\n\nPlease open the link below to set a new password:\n${resetLink}\n\nThis link expires in 1 hour and can only be used once.\nIf you did not make this request, you can safely ignore this email. Your password will remain unchanged.`;
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f5; margin: 0; padding: 24px; }
+          .container { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2ece5; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+          .logo { text-align: center; margin-bottom: 20px; font-weight: 800; font-size: 22px; color: #01411c; letter-spacing: -0.5px; }
+          .title { font-size: 20px; font-weight: 700; color: #0b1f14; margin-bottom: 12px; text-align: center; }
+          .text { font-size: 14px; color: #4a5c50; line-height: 1.6; margin-bottom: 24px; text-align: center; }
+          .btn-box { text-align: center; margin: 30px 0; }
+          .btn { background-color: #00a859; color: #ffffff !important; font-weight: 700; font-size: 15px; text-decoration: none; padding: 14px 32px; border-radius: 8px; display: inline-block; box-shadow: 0 2px 6px rgba(0,168,89,0.25); }
+          .link-box { background: #f8faf9; border: 1px solid #e2ece5; border-radius: 8px; padding: 12px; word-break: break-all; font-size: 12px; color: #536b5d; margin: 20px 0; text-align: center; }
+          .footer { font-size: 12px; color: #829a8a; text-align: center; margin-top: 24px; border-top: 1px solid #edf3ef; padding-top: 16px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">&#9670; PAKLANCE</div>
+          <div class="title">Reset Your Password</div>
+          <div class="text">We received a request to reset the password for your Paklance account. Click the button below to choose a new password:</div>
+          <div class="btn-box">
+            <a href="${resetLink}" target="_blank" class="btn">Reset Password</a>
+          </div>
+          <div class="text" style="font-size: 13px; margin-bottom: 8px;">If the button above does not work, copy and paste this link into your browser:</div>
+          <div class="link-box">
+            <a href="${resetLink}" style="color: #00a859;">${resetLink}</a>
+          </div>
+          <div class="text" style="font-size: 12px; color: #6b8071;">This reset link is single-use and expires in <strong>1 hour</strong>. If you did not request this, please ignore this email—your account remains completely secure.</div>
+          <div class="footer">&copy; ${new Date().getFullYear()} Paklance Inc. SafePay Escrow & Freelance Marketplace</div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await this.sendMail({ to: email, subject, text, html });
+  }
+
+  /**
    * Dispatches email via the configured provider (Resend, SendGrid, Brevo, or SMTP).
    * Throws an explicit error if delivery fails.
    */
@@ -102,7 +147,7 @@ export class EmailService {
     const resendApiKey = process.env.RESEND_API_KEY;
     if (resendApiKey) {
       try {
-        const response = await fetch('https://api.resend.com/emails', {
+        let response = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${resendApiKey}`,
@@ -117,7 +162,35 @@ export class EmailService {
           }),
         });
 
-        const resData = await response.json();
+        let resData = await response.json();
+
+        // If custom domain unverified, automatically fall back to onboarding@resend.dev
+        if (!response.ok && !fromAddress.includes('onboarding@resend.dev')) {
+          this.logger.warn(`[Resend API Error with ${fromAddress}]: ${resData?.message || JSON.stringify(resData)}. Retrying with onboarding@resend.dev...`);
+          const fallbackRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${resendApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: 'Paklance <onboarding@resend.dev>',
+              to: [options.to],
+              subject: options.subject,
+              html: options.html,
+              text: options.text,
+            }),
+          });
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            this.logger.log(`[EmailService] Dispatched email via Resend fallback to ${options.to} (ID: ${fallbackData?.id})`);
+            return;
+          } else {
+            resData = await fallbackRes.json();
+            response = fallbackRes;
+          }
+        }
+
         if (!response.ok) {
           const errMsg = resData?.message || JSON.stringify(resData);
           this.logger.error(`[Resend API Error] HTTP ${response.status}: ${errMsg}`);
@@ -132,7 +205,7 @@ export class EmailService {
         if (err instanceof BadGatewayException) throw err;
         this.logger.error(`[Resend Dispatch Failed]: ${err?.message}`);
         throw new ServiceUnavailableException(
-          `Unable to deliver verification email via Resend: ${err?.message}`,
+          `Unable to deliver email via Resend: ${err?.message}`,
         );
       }
     }

@@ -5,6 +5,7 @@ import {
   BadRequestException,
   NotFoundException,
   ServiceUnavailableException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
@@ -16,6 +17,8 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -366,6 +369,159 @@ export class AuthService {
         updatedAt: user.updatedAt,
       },
       accessToken: token,
+    };
+  }
+
+  /**
+   * Generates a cryptographically secure password reset token, stores its SHA-256 hash
+   * in the database with a 1-hour expiration, and dispatches the reset email.
+   * Returns a generic response to prevent account enumeration.
+   */
+  async forgotPassword(data: { email: string }) {
+    const GENERIC_RESPONSE = {
+      message: 'If an account exists with this email, a password reset link has been sent.',
+    };
+
+    if (!data.email) {
+      return GENERIC_RESPONSE;
+    }
+
+    const email = data.email.toLowerCase().trim();
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      this.logger.log(`[ForgotPassword] Request for non-existent email: ${email}`);
+      return GENERIC_RESPONSE;
+    }
+
+    // Rate-limiting check: do not spam emails if requested within the last 60 seconds
+    if (user.resetPasswordLastSentAt) {
+      const msSinceLast = Date.now() - new Date(user.resetPasswordLastSentAt).getTime();
+      if (msSinceLast < 60 * 1000) {
+        this.logger.log(
+          `[ForgotPassword] Throttled request for ${email} (${Math.round(msSinceLast / 1000)}s since last)`,
+        );
+        return GENERIC_RESPONSE;
+      }
+    }
+
+    // Generate 32-byte secure token (64 hex characters)
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour validity
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken: tokenHash,
+        resetPasswordExpires: expiresAt,
+        resetPasswordLastSentAt: new Date(),
+      },
+    });
+
+    const frontendBaseUrl =
+      process.env.FRONTEND_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      'https://www.paklance.com';
+    const cleanBase = frontendBaseUrl.replace(/\/+$/, '');
+    const resetUrl = `${cleanBase}/reset-password?token=${rawToken}`;
+
+    try {
+      await this.emailService.sendPasswordResetEmail(user.email, resetUrl);
+      this.logger.log(`[ForgotPassword] Reset email sent to ${user.email}`);
+    } catch (err: any) {
+      this.logger.error(
+        `[ForgotPassword] Email dispatch failed for ${user.email}: ${err?.message}`,
+      );
+      throw err;
+    }
+
+    return GENERIC_RESPONSE;
+  }
+
+  /**
+   * Verifies if a reset token is valid and not expired.
+   */
+  async verifyResetToken(token: string) {
+    if (!token || typeof token !== 'string') {
+      throw new BadRequestException('Reset token is required.');
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetPasswordToken: tokenHash,
+        resetPasswordExpires: { gt: new Date() },
+      },
+      select: { id: true, email: true },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Password reset link is invalid or has expired.');
+    }
+
+    return {
+      valid: true,
+      email: user.email,
+    };
+  }
+
+  /**
+   * Resets the user's password using the token, hashes with bcrypt,
+   * invalidates the token, and updates passwordHash without touching other profile data.
+   */
+  async resetPassword(data: { token: string; newPassword: string }) {
+    if (!data.token || typeof data.token !== 'string') {
+      throw new BadRequestException('Reset token is required.');
+    }
+
+    if (!data.newPassword || data.newPassword.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters long.');
+    }
+
+    // Require both letters and numbers for password strength
+    const hasLetter = /[a-zA-Z]/.test(data.newPassword);
+    const hasNumber = /[0-9]/.test(data.newPassword);
+    if (!hasLetter || !hasNumber) {
+      throw new BadRequestException(
+        'Password must contain at least one letter and one number.',
+      );
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(data.token.trim()).digest('hex');
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetPasswordToken: tokenHash,
+        resetPasswordExpires: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Password reset link is invalid or has expired.');
+    }
+
+    const newPasswordHash = await bcrypt.hash(data.newPassword, 10);
+
+    // Atomically update password and invalidate reset token (single-use guarantee)
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: newPasswordHash,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+        isEmailVerified: true,
+      },
+    });
+
+    this.logger.log(
+      `[ResetPassword] Password successfully reset for user ${user.id} (${user.email})`,
+    );
+
+    return {
+      message:
+        'Your password has been successfully reset. You may now log in with your new password.',
     };
   }
 }
