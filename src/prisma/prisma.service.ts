@@ -168,7 +168,30 @@ export class PrismaService
         );`,
         `CREATE UNIQUE INDEX IF NOT EXISTS "Payment_referenceId_key" ON "Payment"("referenceId");`,
         `CREATE UNIQUE INDEX IF NOT EXISTS "WithdrawalRequest_referenceId_key" ON "WithdrawalRequest"("referenceId");`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS "PushSubscription_endpoint_key" ON "PushSubscription"("endpoint");`
+        `CREATE UNIQUE INDEX IF NOT EXISTS "PushSubscription_endpoint_key" ON "PushSubscription"("endpoint");`,
+        `DO $$ BEGIN CREATE TYPE "BlogStatus" AS ENUM ('DRAFT', 'PUBLISHED', 'ARCHIVED'); EXCEPTION WHEN duplicate_object THEN null; END $$;`,
+        `CREATE TABLE IF NOT EXISTS "BlogPost" (
+            "id" TEXT NOT NULL,
+            "title" TEXT NOT NULL,
+            "slug" TEXT NOT NULL,
+            "excerpt" TEXT,
+            "content" TEXT NOT NULL,
+            "coverImageUrl" TEXT,
+            "category" TEXT NOT NULL DEFAULT 'Freelancing',
+            "tags" TEXT[] NOT NULL DEFAULT '{}',
+            "authorName" TEXT NOT NULL DEFAULT 'Paklance Editorial Team',
+            "status" "BlogStatus" NOT NULL DEFAULT 'DRAFT',
+            "metaTitle" TEXT,
+            "metaDescription" TEXT,
+            "publishedAt" TIMESTAMP(3),
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT "BlogPost_pkey" PRIMARY KEY ("id")
+        );`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "BlogPost_slug_key" ON "BlogPost"("slug");`,
+        `CREATE INDEX IF NOT EXISTS "BlogPost_status_idx" ON "BlogPost"("status");`,
+        `CREATE INDEX IF NOT EXISTS "BlogPost_category_idx" ON "BlogPost"("category");`,
+        `CREATE INDEX IF NOT EXISTS "BlogPost_publishedAt_idx" ON "BlogPost"("publishedAt");`
       ];
       for (const q of sqlQueries) {
         try {

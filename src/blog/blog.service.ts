@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBlogDto } from './dto/create-blog.dto';
@@ -11,10 +12,15 @@ import { UpdateBlogDto } from './dto/update-blog.dto';
 import { BlogStatus } from '@prisma/client';
 
 @Injectable()
-export class BlogService {
+export class BlogService implements OnModuleInit {
   private readonly logger = new Logger(BlogService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit() {
+    await this.prisma.ensureSchemaMigrated();
+    await this.seedInitialBlogsIfEmpty();
+  }
 
   public generateSlug(text: string): string {
     return text
@@ -44,6 +50,7 @@ export class BlogService {
   }
 
   async createBlog(dto: CreateBlogDto) {
+    await this.prisma.ensureSchemaMigrated();
     const rawSlug = dto.slug ? this.generateSlug(dto.slug) : this.generateSlug(dto.title);
     const slug = await this.ensureUniqueSlug(rawSlug);
 
@@ -69,6 +76,7 @@ export class BlogService {
   }
 
   async updateBlog(id: string, dto: UpdateBlogDto) {
+    await this.prisma.ensureSchemaMigrated();
     const existing = await this.prisma.blogPost.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Blog post with ID '${id}' not found`);
@@ -109,6 +117,7 @@ export class BlogService {
   }
 
   async deleteBlog(id: string) {
+    await this.prisma.ensureSchemaMigrated();
     const existing = await this.prisma.blogPost.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Blog post with ID '${id}' not found`);
@@ -119,6 +128,7 @@ export class BlogService {
   }
 
   async getBlogById(id: string) {
+    await this.prisma.ensureSchemaMigrated();
     const post = await this.prisma.blogPost.findUnique({ where: { id } });
     if (!post) {
       throw new NotFoundException(`Blog post with ID '${id}' not found`);
@@ -127,6 +137,7 @@ export class BlogService {
   }
 
   async getBlogBySlug(slug: string, allowDraft = false) {
+    await this.prisma.ensureSchemaMigrated();
     const post = await this.prisma.blogPost.findUnique({ where: { slug } });
     if (!post) {
       throw new NotFoundException(`Blog post with slug '${slug}' not found`);
@@ -138,6 +149,7 @@ export class BlogService {
   }
 
   async getAllBlogsForAdmin(query?: { status?: string; search?: string; category?: string }) {
+    await this.prisma.ensureSchemaMigrated();
     const where: any = {};
     if (query?.status && query.status !== 'ALL') {
       where.status = query.status as BlogStatus;
@@ -162,6 +174,8 @@ export class BlogService {
   }
 
   async getPublishedBlogs(query?: { category?: string; search?: string; limit?: number; skip?: number }) {
+    await this.prisma.ensureSchemaMigrated();
+    await this.seedInitialBlogsIfEmpty();
     const where: any = {
       status: BlogStatus.PUBLISHED,
     };
