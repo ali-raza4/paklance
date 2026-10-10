@@ -189,6 +189,8 @@ export class PrismaService
             CONSTRAINT "BlogPost_pkey" PRIMARY KEY ("id")
         );`,
         `CREATE UNIQUE INDEX IF NOT EXISTS "BlogPost_slug_key" ON "BlogPost"("slug");`,
+        `ALTER TABLE IF EXISTS "BlogPost" ADD COLUMN IF NOT EXISTS "subtitle" TEXT;`,
+        `ALTER TABLE IF EXISTS "blogpost" ADD COLUMN IF NOT EXISTS "subtitle" TEXT;`,
         `CREATE INDEX IF NOT EXISTS "BlogPost_status_idx" ON "BlogPost"("status");`,
         `CREATE INDEX IF NOT EXISTS "BlogPost_category_idx" ON "BlogPost"("category");`,
         `CREATE INDEX IF NOT EXISTS "BlogPost_publishedAt_idx" ON "BlogPost"("publishedAt");`

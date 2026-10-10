@@ -60,6 +60,7 @@ export class BlogService implements OnModuleInit {
     return this.prisma.blogPost.create({
       data: {
         title: dto.title.trim(),
+        subtitle: dto.subtitle?.trim() || null,
         slug,
         excerpt: dto.excerpt?.trim() || null,
         content: dto.content,
@@ -92,6 +93,7 @@ export class BlogService implements OnModuleInit {
 
     const data: any = {};
     if (dto.title !== undefined) data.title = dto.title.trim();
+    if (dto.subtitle !== undefined) data.subtitle = dto.subtitle?.trim() || null;
     if (slug !== existing.slug) data.slug = slug;
     if (dto.excerpt !== undefined) data.excerpt = dto.excerpt?.trim() || null;
     if (dto.content !== undefined) data.content = dto.content;

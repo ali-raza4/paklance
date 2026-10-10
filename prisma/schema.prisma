@@ -433,6 +433,7 @@ enum BlogStatus {
 model BlogPost {
   id              String      @id @default(uuid())
   title           String
+  subtitle        String?     @db.Text
   slug            String      @unique
   excerpt         String?     @db.Text
   content         String      @db.Text

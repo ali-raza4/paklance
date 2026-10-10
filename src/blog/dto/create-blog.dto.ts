@@ -14,6 +14,11 @@ export class CreateBlogDto {
   @IsNotEmpty()
   title: string;
 
+  @ApiPropertyOptional({ description: 'Blog subtitle or deck' })
+  @IsString()
+  @IsOptional()
+  subtitle?: string;
+
   @ApiPropertyOptional({ description: 'Unique URL slug (auto-generated if omitted)' })
   @IsString()
   @IsOptional()
