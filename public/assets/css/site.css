@@ -1743,4 +1743,176 @@ a.pc-btn{display:inline-flex;align-items:center}
   border-radius: 10px;
 }
 
+/* =====================================================================
+   BLOG MANAGEMENT & RICH TEXT EDITOR STYLES
+   ===================================================================== */
+.admin-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  padding: 8px 10px;
+}
+.admin-editor-btn-group {
+  display: inline-flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.admin-editor-btn {
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--line);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  min-width: 32px;
+  height: 32px;
+}
+.admin-editor-btn:last-child {
+  border-right: none;
+}
+.admin-editor-btn:hover {
+  background: rgba(18, 165, 111, 0.12);
+  color: #12A56F;
+}
+.admin-editor-btn.active {
+  background: #12A56F;
+  color: #ffffff;
+}
+.admin-editor-separator {
+  width: 1px;
+  height: 22px;
+  background: var(--line);
+  margin: 0 4px;
+}
+.admin-rich-editor {
+  min-height: 260px;
+  max-height: 520px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 0 0 10px 10px;
+  padding: 16px 20px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #1e293b;
+  outline: none;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+}
+.admin-rich-editor:focus {
+  border-color: #12A56F;
+  box-shadow: 0 0 0 3px rgba(18, 165, 111, 0.15);
+}
+.admin-rich-editor:empty:before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  cursor: text;
+  pointer-events: none;
+}
+.admin-rich-editor h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 20px 0 10px 0;
+  color: #0f172a;
+}
+.admin-rich-editor h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 16px 0 8px 0;
+  color: #1e293b;
+}
+.admin-rich-editor p {
+  margin: 0 0 14px 0;
+}
+.admin-rich-editor ul, .admin-rich-editor ol {
+  margin: 0 0 14px 24px;
+}
+.admin-rich-editor li {
+  margin-bottom: 6px;
+}
+.admin-rich-editor blockquote {
+  border-left: 4px solid #12A56F;
+  padding: 10px 16px;
+  margin: 16px 0;
+  background: #f0fdf4;
+  color: #166534;
+  font-style: italic;
+  border-radius: 0 8px 8px 0;
+}
+.admin-rich-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 12px 0;
+  display: block;
+}
+.admin-rich-editor a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+/* Blog Table Thumbnail */
+.admin-blog-thumb {
+  width: 56px;
+  height: 38px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.admin-blog-title-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.admin-blog-title-cell strong {
+  font-size: 14px;
+  color: var(--ink);
+  display: block;
+}
+.admin-blog-title-cell p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 2px 0 0 0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Blog Status Badges */
+.status-badge.status-published {
+  background: rgba(18, 165, 111, 0.12);
+  color: #12A56F;
+  border: 1px solid rgba(18, 165, 111, 0.25);
+}
+.status-badge.status-draft {
+  background: rgba(245, 158, 11, 0.12);
+  color: #D97706;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+.status-badge.status-archived {
+  background: rgba(100, 116, 139, 0.12);
+  color: #64748B;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+
 

@@ -152,7 +152,48 @@
     var blogSlug = null;
     var jobParamId = null;
     var personParamId = null;
-    if (r.indexOf('blog/') === 0){ blogSlug = decodeURIComponent(r.slice(5)); r = PaklanceBlog.has(blogSlug) ? 'article' : 'blog'; }
+    if (r.indexOf('blog/') === 0){
+      blogSlug = decodeURIComponent(r.slice(5));
+      if (PaklanceBlog.has(blogSlug)){
+        r = 'article';
+      } else {
+        r = 'article';
+        var artRoot = $('#blogArticle');
+        if (artRoot) artRoot.innerHTML = '<div class="empty" style="padding:60px 20px;text-align:center"><h3>Loading article…</h3></div>';
+        api('GET', '/blog/articles/' + encodeURIComponent(blogSlug)).then(function(item){
+          if (item && item.id){
+            var mappedItem = {
+              id: item.id,
+              slug: item.slug,
+              title: item.title,
+              excerpt: item.excerpt || '',
+              content: item.content,
+              coverImageUrl: item.coverImageUrl,
+              category: item.category || 'Freelancing',
+              tags: Array.isArray(item.tags) ? item.tags : [],
+              authorName: item.authorName || 'Paklance Editorial Team',
+              date: item.publishedAt ? item.publishedAt.slice(0, 10) : item.createdAt.slice(0, 10),
+              metaTitle: item.metaTitle,
+              metaDescription: item.metaDescription,
+              status: item.status
+            };
+            if (!PaklanceBlog.articles.some(function(a){ return a.slug === mappedItem.slug; })){
+              PaklanceBlog.articles.unshift(mappedItem);
+              if (typeof PaklanceBlog.setArticles === 'function') {
+                PaklanceBlog.setArticles(PaklanceBlog.articles);
+              }
+            }
+            PaklanceBlog.renderArticle(blogSlug);
+          } else {
+            toast('Article not found.');
+            go('blog');
+          }
+        }).catch(function(){
+          toast('Article not found or not published.');
+          go('blog');
+        });
+      }
+    }
     else if (r === 'article') r = 'blog';
     else if (r.indexOf('job/') === 0){ jobParamId = decodeURIComponent(r.slice(4)); r = 'job'; }
     else if (r.indexOf('jobs/') === 0 && r.length > 5){ jobParamId = decodeURIComponent(r.slice(5)); r = 'job'; }
@@ -2292,8 +2333,30 @@
       api('GET', '/jobs').then(function(r){ var list = Array.isArray(r) ? r : (r.jobs || []); if (list.length) replace(JOBS, list.map(fromApiJob)); }).catch(noop),
       // Production: GET /api/profiles/search returns flat Profile[] array
       api('GET', '/profiles/search').then(function(r){ var list = Array.isArray(r) ? r : (r.talent || r.profiles || []); if (list.length) replace(TALENT, list.map(fromApiTalent)); }).catch(noop),
-      // Blog: no production endpoint. Articles are embedded in blog.js — skip silently.
-      Promise.resolve()
+      // Blog: fetch published articles from production API
+      api('GET', '/blog/articles').then(function(r){
+        var list = r && Array.isArray(r.articles) ? r.articles : (Array.isArray(r) ? r : []);
+        if (list.length && window.PaklanceBlog && typeof window.PaklanceBlog.setArticles === 'function'){
+          var mapped = list.map(function(item){
+            return {
+              id: item.id,
+              slug: item.slug,
+              title: item.title,
+              excerpt: item.excerpt || '',
+              content: item.content,
+              coverImageUrl: item.coverImageUrl,
+              category: item.category || 'Freelancing',
+              tags: Array.isArray(item.tags) ? item.tags : [],
+              authorName: item.authorName || 'Paklance Editorial Team',
+              date: item.publishedAt ? item.publishedAt.slice(0, 10) : item.createdAt.slice(0, 10),
+              metaTitle: item.metaTitle,
+              metaDescription: item.metaDescription,
+              status: item.status
+            };
+          });
+          PaklanceBlog.setArticles(mapped);
+        }
+      }).catch(noop)
     ]);
   }
   function loadGoogle(){
@@ -2893,6 +2956,7 @@
     disputes: [],
     verifications: [],
     withdrawals: [],
+    blogs: [],
     activeTab: 'users',
     roleFilter: 'ALL',
     searchQuery: '',
@@ -2901,6 +2965,9 @@
     contractSearchQuery: '',
     contractStatusFilter: 'ALL',
     verifStatusFilter: 'ALL',
+    blogSearchQuery: '',
+    blogStatusFilter: 'ALL',
+    blogCategoryFilter: 'ALL',
     loading: false
   };
 
@@ -3049,6 +3116,160 @@
           renderAdminVerificationsTable();
         };
       });
+
+      // Blog search input
+      var blogSearch = $('#adminBlogSearch');
+      if (blogSearch) {
+        blogSearch.oninput = function(){
+          adminData.blogSearchQuery = blogSearch.value.trim().toLowerCase();
+          renderAdminBlogsTable();
+        };
+      }
+
+      // Blog Status filter pills
+      var blogPills = adminView.querySelectorAll('[data-blog-status]');
+      blogPills.forEach(function(pill){
+        pill.onclick = function(){
+          blogPills.forEach(function(p){ p.classList.remove('active'); });
+          pill.classList.add('active');
+          adminData.blogStatusFilter = pill.getAttribute('data-blog-status');
+          renderAdminBlogsTable();
+        };
+      });
+
+      // Blog Category select
+      var blogCatSelect = $('#adminBlogCategorySelect');
+      if (blogCatSelect) {
+        blogCatSelect.onchange = function(){
+          adminData.blogCategoryFilter = blogCatSelect.value;
+          renderAdminBlogsTable();
+        };
+      }
+
+      // Create New Blog button
+      var createBlogBtn = $('#adminCreateBlogBtn');
+      if (createBlogBtn) {
+        createBlogBtn.onclick = function(){
+          openAdminBlogEditor();
+        };
+      }
+
+      // Auto-slug button
+      var autoSlugBtn = $('#blogBtnAutoSlug');
+      if (autoSlugBtn) {
+        autoSlugBtn.onclick = function(){
+          var titleVal = $('#blogFormTitle').value;
+          $('#blogFormSlug').value = slugifyText(titleVal);
+          updateSerpPreview();
+        };
+      }
+
+      // Title input auto-slug and preview
+      var titleInput = $('#blogFormTitle');
+      if (titleInput) {
+        titleInput.oninput = function(){
+          if (!$('#blogFormId').value) {
+            $('#blogFormSlug').value = slugifyText(titleInput.value);
+          }
+          updateSerpPreview();
+        };
+      }
+
+      // Slug, Meta, and Excerpt inputs update SERP preview
+      var slugInput = $('#blogFormSlug');
+      if (slugInput) slugInput.oninput = updateSerpPreview;
+      var metaTitleInp = $('#blogFormMetaTitle');
+      if (metaTitleInp) metaTitleInp.oninput = updateSerpPreview;
+      var metaDescInp = $('#blogFormMetaDesc');
+      if (metaDescInp) metaDescInp.oninput = updateSerpPreview;
+      var excerptInp = $('#blogFormExcerpt');
+      if (excerptInp) excerptInp.oninput = updateSerpPreview;
+
+      // Cover image URL and file upload
+      var coverUrlInp = $('#blogFormCoverUrl');
+      if (coverUrlInp) coverUrlInp.oninput = updateCoverPreview;
+
+      var uploadBtn = $('#blogFormUploadBtn');
+      var fileInp = $('#blogFormCoverFile');
+      if (uploadBtn && fileInp) {
+        uploadBtn.onclick = function(){ fileInp.click(); };
+        fileInp.onchange = function(){
+          var file = this.files[0];
+          if (!file) return;
+          var formData = new FormData();
+          formData.append('image', file);
+          toast('Uploading cover image...');
+          var userObj = PaklanceAuth.getUser();
+          var token = (userObj && (userObj.token || userObj.accessToken)) || localStorage.getItem('token');
+          fetch('https://paklance-backend-updated.vercel.app/api/admin/blogs/upload-image', {
+            method: 'POST',
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+            body: formData
+          }).then(function(r){
+            if (!r.ok) throw new Error('Upload failed (' + r.status + ')');
+            return r.json();
+          }).then(function(d){
+            if (d.url){
+              $('#blogFormCoverUrl').value = d.url;
+              updateCoverPreview();
+              toast('Cover image uploaded successfully!');
+            }
+          }).catch(function(e){
+            toast('Image upload failed: ' + (e.message || ''));
+          });
+        };
+      }
+
+      // Rich Text Toolbar
+      var toolbar = $('#blogEditorToolbar');
+      if (toolbar) {
+        toolbar.querySelectorAll('.admin-editor-btn[data-cmd]').forEach(function(btn){
+          btn.onmousedown = function(e){
+            e.preventDefault();
+            var cmd = btn.getAttribute('data-cmd');
+            var val = btn.getAttribute('data-val') || null;
+            document.execCommand(cmd, false, val);
+            var editor = $('#blogRichBody');
+            if (editor) editor.focus();
+          };
+        });
+
+        var linkBtn = $('#blogToolbarLinkBtn');
+        if (linkBtn) {
+          linkBtn.onmousedown = function(e){
+            e.preventDefault();
+            var url = prompt('Enter link URL (e.g. https://example.com):', 'https://');
+            if (url && url !== 'https://') {
+              document.execCommand('createLink', false, url);
+            }
+            var editor = $('#blogRichBody');
+            if (editor) editor.focus();
+          };
+        }
+
+        var imgBtn = $('#blogToolbarImageBtn');
+        if (imgBtn) {
+          imgBtn.onmousedown = function(e){
+            e.preventDefault();
+            var url = prompt('Enter image URL (e.g. https://...):');
+            if (url) {
+              document.execCommand('insertImage', false, url);
+            }
+            var editor = $('#blogRichBody');
+            if (editor) editor.focus();
+          };
+        }
+      }
+
+      // Save Draft & Save Publish buttons
+      var draftBtn = $('#blogBtnSaveDraft');
+      if (draftBtn) draftBtn.onclick = function(){ saveAdminBlogPost('DRAFT'); };
+      var pubBtn = $('#blogBtnSavePublish');
+      if (pubBtn) pubBtn.onclick = function(){ saveAdminBlogPost('PUBLISHED'); };
+
+      // Preview article button
+      var prevBtn = $('#blogBtnPreviewArticle');
+      if (prevBtn) prevBtn.onclick = function(){ openAdminBlogPreview(); };
     }
 
     loadAdminDashboardData();
@@ -3066,7 +3287,8 @@
       api('GET', '/contracts').catch(function(){ return []; }),
       api('GET', '/admin/disputes').catch(function(){ return []; }),
       api('GET', '/admin/verifications').catch(function(){ return []; }),
-      api('GET', '/admin/financials/withdrawals').catch(function(){ return []; })
+      api('GET', '/admin/financials/withdrawals').catch(function(){ return []; }),
+      api('GET', '/admin/blogs').catch(function(){ return []; })
     ]).then(function(results){
       adminData.loading = false;
       adminData.stats = results[0] || {};
@@ -3077,11 +3299,13 @@
       adminData.disputes = Array.isArray(results[5]) ? results[5] : [];
       adminData.verifications = Array.isArray(results[6]) ? results[6] : [];
       adminData.withdrawals = Array.isArray(results[7]) ? results[7] : [];
+      adminData.blogs = Array.isArray(results[8]) ? results[8] : [];
 
       updateAdminKpis();
       renderAdminUsersTable();
       renderAdminJobsTable();
       renderAdminContractsTable();
+      renderAdminBlogsTable();
       renderAdminDisputesTable();
       renderAdminVerificationsTable();
       renderAdminWithdrawalsTable();
@@ -3100,6 +3324,7 @@
     var pCount = s.totalProposals || 0;
     var dCount = s.openDisputes != null ? s.openDisputes : adminData.disputes.filter(function(d){ return d.status === 'OPEN'; }).length;
     var vCount = s.pendingVerifications != null ? s.pendingVerifications : adminData.verifications.filter(function(v){ return v.status === 'PENDING'; }).length;
+    var bCount = adminData.blogs.length;
 
     var elUsers = $('#adminStatUsers'); if (elUsers) elUsers.textContent = uCount.toLocaleString();
     var elJobs = $('#adminStatJobs'); if (elJobs) elJobs.textContent = jCount.toLocaleString();
@@ -3107,6 +3332,7 @@
     var elContractsSub = $('#adminStatContractsSub'); if (elContractsSub) elContractsSub.textContent = (pCount || 0) + ' active proposals';
     var elDisputes = $('#adminStatDisputes'); if (elDisputes) elDisputes.textContent = dCount.toLocaleString();
     var elVerifs = $('#adminStatVerifs'); if (elVerifs) elVerifs.textContent = vCount.toLocaleString();
+    var elBlogs = $('#adminStatBlogs'); if (elBlogs) elBlogs.textContent = bCount.toLocaleString();
 
     // Escrow held
     var escrowHeld = (f.escrows && f.escrows._sum && f.escrows._sum.balance) || 0;
@@ -3116,9 +3342,16 @@
     var tabU = $('#adminTabUsersCount'); if (tabU) tabU.textContent = uCount;
     var tabJ = $('#adminTabJobsCount'); if (tabJ) tabJ.textContent = jCount;
     var tabC = $('#adminTabContractsCount'); if (tabC) tabC.textContent = cCount;
+    var tabB = $('#adminTabBlogsCount'); if (tabB) tabB.textContent = bCount;
     var tabD = $('#adminTabDisputesCount'); if (tabD) tabD.textContent = adminData.disputes.length;
     var tabV = $('#adminTabVerifsCount'); if (tabV) tabV.textContent = adminData.verifications.length;
     var tabW = $('#adminTabWithdrawalsCount'); if (tabW) tabW.textContent = adminData.withdrawals.length;
+
+    // Blog status pill badges
+    var countAll = $('#adminBlogCountAll'); if (countAll) countAll.textContent = bCount;
+    var countPub = $('#adminBlogCountPublished'); if (countPub) countPub.textContent = adminData.blogs.filter(function(b){ return b.status === 'PUBLISHED'; }).length;
+    var countDraft = $('#adminBlogCountDraft'); if (countDraft) countDraft.textContent = adminData.blogs.filter(function(b){ return b.status === 'DRAFT'; }).length;
+    var countArch = $('#adminBlogCountArchived'); if (countArch) countArch.textContent = adminData.blogs.filter(function(b){ return b.status === 'ARCHIVED'; }).length;
   }
 
   function bindDetailClicks(container){
@@ -3278,6 +3511,354 @@
     }).join('');
 
     bindDetailClicks(tbody);
+  }
+
+  /* =====================================================================
+     ADMIN BLOG MANAGEMENT FUNCTIONS
+     ===================================================================== */
+  function slugifyText(text){
+    return String(text || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function updateSerpPreview(){
+    var title = ($('#blogFormMetaTitle') && $('#blogFormMetaTitle').value.trim()) || ($('#blogFormTitle') && $('#blogFormTitle').value.trim()) || 'Blog Article Title';
+    var slug = ($('#blogFormSlug') && $('#blogFormSlug').value.trim()) || 'article-slug';
+    var snippet = ($('#blogFormMetaDesc') && $('#blogFormMetaDesc').value.trim()) || ($('#blogFormExcerpt') && $('#blogFormExcerpt').value.trim()) || 'Article excerpt and description will appear here in search engine results.';
+
+    var elTitle = $('#serpTitleText'); if (elTitle) elTitle.textContent = title + ' | Paklance';
+    var elSlug = $('#serpSlugText'); if (elSlug) elSlug.textContent = slug;
+    var elSnippet = $('#serpSnippetText'); if (elSnippet) elSnippet.textContent = snippet;
+    var elSlugPrev = $('#blogSlugPreviewText'); if (elSlugPrev) elSlugPrev.textContent = slug;
+
+    var titleCount = $('#blogMetaTitleCount'); if (titleCount && $('#blogFormMetaTitle')) titleCount.textContent = ($('#blogFormMetaTitle').value.length) + ' / 60';
+    var descCount = $('#blogMetaDescCount'); if (descCount && $('#blogFormMetaDesc')) descCount.textContent = ($('#blogFormMetaDesc').value.length) + ' / 160';
+  }
+
+  function updateCoverPreview(){
+    var url = $('#blogFormCoverUrl') ? $('#blogFormCoverUrl').value.trim() : '';
+    var img = $('#blogCoverPreviewImg');
+    var placeholder = $('#blogCoverPreviewPlaceholder');
+    if (!img || !placeholder) return;
+    if (url){
+      img.src = url;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
+      img.onerror = function(){
+        img.style.display = 'none';
+        placeholder.style.display = 'block';
+        placeholder.textContent = 'Invalid URL';
+      };
+    } else {
+      img.style.display = 'none';
+      placeholder.style.display = 'block';
+      placeholder.textContent = 'No Image';
+    }
+  }
+
+  function renderAdminBlogsTable(){
+    var tbody = $('#adminBlogsTbody');
+    if (!tbody) return;
+
+    var filtered = adminData.blogs.filter(function(b){
+      var statusMatch = adminData.blogStatusFilter === 'ALL' || String(b.status || '').toUpperCase() === adminData.blogStatusFilter;
+      if (!statusMatch) return false;
+      var catMatch = adminData.blogCategoryFilter === 'ALL' || String(b.category || '') === adminData.blogCategoryFilter;
+      if (!catMatch) return false;
+      if (!adminData.blogSearchQuery) return true;
+      var q = adminData.blogSearchQuery;
+      var title = String(b.title || '').toLowerCase();
+      var slug = String(b.slug || '').toLowerCase();
+      var author = String(b.authorName || '').toLowerCase();
+      var tags = Array.isArray(b.tags) ? b.tags.join(' ').toLowerCase() : '';
+      return title.indexOf(q) > -1 || slug.indexOf(q) > -1 || author.indexOf(q) > -1 || tags.indexOf(q) > -1;
+    });
+
+    if (!filtered.length){
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">No blog articles found matching your criteria. Click "Create New Blog" to write an article.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(function(b){
+      var st = String(b.status || 'DRAFT').toUpperCase();
+      var statusClass = st === 'PUBLISHED' ? 'status-published' : (st === 'DRAFT' ? 'status-draft' : 'status-archived');
+      var dateStr = b.publishedAt ? new Date(b.publishedAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' })
+        : (b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' }) : '—');
+      var coverImg = b.coverImageUrl || b.coverImage;
+      var thumbHtml = coverImg
+        ? '<img class="admin-blog-thumb" src="' + esc(coverImg) + '" alt="' + esc(b.title) + '">'
+        : '<div class="admin-blog-thumb" style="display:flex;align-items:center;justify-content:center;background:var(--mint-2);color:var(--brand);font-size:10px;font-weight:700">BLOG</div>';
+      var tagPills = (Array.isArray(b.tags) && b.tags.length)
+        ? b.tags.slice(0, 3).map(function(t){ return '<span class="chip chip-muted" style="font-size:11px;padding:1px 6px;margin:2px 3px 2px 0">' + esc(t) + '</span>'; }).join('')
+        : '';
+
+      return '<tr>' +
+        '<td>' +
+          '<div class="admin-blog-title-cell">' +
+            thumbHtml +
+            '<div>' +
+              '<strong>' + esc(b.title) + '</strong>' +
+              '<p>' + esc(b.excerpt || 'No excerpt provided.') + '</p>' +
+            '</div>' +
+          '</div>' +
+        '</td>' +
+        '<td>' +
+          '<a href="#blog/' + encodeURIComponent(b.slug) + '" style="font-family:monospace;font-size:12px;color:#2563EB;text-decoration:none" title="Open public article">' +
+            '/' + esc(b.slug) +
+            ' <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>' +
+          '</a>' +
+        '</td>' +
+        '<td>' +
+          '<span class="badge" style="background:rgba(18,165,111,0.1);color:#12A56F;font-weight:600;font-size:11.5px">' + esc(b.category || 'Freelancing') + '</span>' +
+          (tagPills ? '<div style="margin-top:4px">' + tagPills + '</div>' : '') +
+        '</td>' +
+        '<td><span style="font-size:13px;font-weight:500;color:var(--ink)">' + esc(b.authorName || 'Paklance Team') + '</span></td>' +
+        '<td><span class="status-badge ' + statusClass + '">' + st + '</span></td>' +
+        '<td><span style="font-size:12.5px;color:var(--muted)">' + dateStr + '</span></td>' +
+        '<td style="text-align:right;white-space:nowrap">' +
+          '<button class="btn btn-sm btn-outline" type="button" data-edit-blog="' + esc(b.id) + '" style="padding:4px 10px;font-size:12px;margin-right:6px">Edit</button>' +
+          '<button class="btn btn-sm btn-outline" type="button" data-preview-blog="' + esc(b.id) + '" style="padding:4px 8px;font-size:12px;margin-right:6px" title="Preview article">View</button>' +
+          '<button class="btn btn-sm btn-outline" type="button" data-delete-blog="' + esc(b.id) + '" style="padding:4px 8px;font-size:12px;color:#DC2626;border-color:rgba(220,38,38,0.3)" title="Delete article">Delete</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    // Bind action handlers
+    tbody.querySelectorAll('[data-edit-blog]').forEach(function(btn){
+      btn.onclick = function(e){
+        e.stopPropagation();
+        var id = btn.getAttribute('data-edit-blog');
+        openAdminBlogEditor(id);
+      };
+    });
+    tbody.querySelectorAll('[data-preview-blog]').forEach(function(btn){
+      btn.onclick = function(e){
+        e.stopPropagation();
+        var id = btn.getAttribute('data-preview-blog');
+        var b = adminData.blogs.find(function(x){ return x.id === id; });
+        if (b) openAdminBlogPreview(b);
+      };
+    });
+    tbody.querySelectorAll('[data-delete-blog]').forEach(function(btn){
+      btn.onclick = function(e){
+        e.stopPropagation();
+        var id = btn.getAttribute('data-delete-blog');
+        var b = adminData.blogs.find(function(x){ return x.id === id; });
+        var title = b ? b.title : 'this article';
+        if (confirm('Are you sure you want to delete "' + title + '"? This action cannot be undone.')){
+          deleteAdminBlogPost(id);
+        }
+      };
+    });
+  }
+
+  function openAdminBlogEditor(blogId){
+    var modal = $('#m-admin-blog-editor');
+    if (!modal) return;
+
+    var titleH2 = $('#adminBlogEditorTitle');
+    var modeBadge = $('#blogEditorModeBadge');
+    var idInput = $('#blogFormId');
+    var titleInput = $('#blogFormTitle');
+    var slugInput = $('#blogFormSlug');
+    var catSelect = $('#blogFormCategory');
+    var authorInput = $('#blogFormAuthor');
+    var statusSelect = $('#blogFormStatus');
+    var excerptText = $('#blogFormExcerpt');
+    var coverUrlInput = $('#blogFormCoverUrl');
+    var tagsInput = $('#blogFormTags');
+    var richBody = $('#blogRichBody');
+    var metaTitleInput = $('#blogFormMetaTitle');
+    var metaDescText = $('#blogFormMetaDesc');
+
+    if (blogId){
+      var b = adminData.blogs.find(function(x){ return x.id === blogId; });
+      if (!b){
+        toast('Blog article not found');
+        return;
+      }
+      idInput.value = b.id;
+      titleH2.textContent = 'Edit Blog Article';
+      modeBadge.textContent = 'EDIT ARTICLE';
+      modeBadge.style.background = 'rgba(37,99,235,0.12)';
+      modeBadge.style.color = '#2563EB';
+
+      titleInput.value = b.title || '';
+      slugInput.value = b.slug || '';
+      catSelect.value = b.category || 'Freelancing';
+      authorInput.value = b.authorName || 'Paklance Editorial Team';
+      statusSelect.value = b.status || 'DRAFT';
+      excerptText.value = b.excerpt || '';
+      coverUrlInput.value = b.coverImageUrl || b.coverImage || '';
+      tagsInput.value = Array.isArray(b.tags) ? b.tags.join(', ') : (b.tags || '');
+      richBody.innerHTML = b.content || '';
+      metaTitleInput.value = b.metaTitle || '';
+      metaDescText.value = b.metaDescription || '';
+    } else {
+      idInput.value = '';
+      titleH2.textContent = 'Create Blog Article';
+      modeBadge.textContent = 'NEW ARTICLE';
+      modeBadge.style.background = 'rgba(18,165,111,0.12)';
+      modeBadge.style.color = '#12A56F';
+
+      titleInput.value = '';
+      slugInput.value = '';
+      catSelect.value = 'Freelancing';
+      authorInput.value = 'Paklance Editorial Team';
+      statusSelect.value = 'PUBLISHED';
+      excerptText.value = '';
+      coverUrlInput.value = '';
+      tagsInput.value = '';
+      richBody.innerHTML = '';
+      metaTitleInput.value = '';
+      metaDescText.value = '';
+    }
+
+    updateCoverPreview();
+    updateSerpPreview();
+    openModal('admin-blog-editor');
+  }
+
+  function saveAdminBlogPost(forceStatus){
+    var id = $('#blogFormId').value.trim();
+    var title = $('#blogFormTitle').value.trim();
+    var slug = $('#blogFormSlug').value.trim() || slugifyText(title);
+    var category = $('#blogFormCategory').value;
+    var authorName = $('#blogFormAuthor').value.trim() || 'Paklance Editorial Team';
+    var status = forceStatus || $('#blogFormStatus').value;
+    var excerpt = $('#blogFormExcerpt').value.trim();
+    var coverImageUrl = $('#blogFormCoverUrl').value.trim();
+    var rawTags = $('#blogFormTags').value.trim();
+    var tags = rawTags ? rawTags.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [];
+    var content = $('#blogRichBody').innerHTML.trim();
+    var metaTitle = $('#blogFormMetaTitle').value.trim() || null;
+    var metaDescription = $('#blogFormMetaDesc').value.trim() || null;
+
+    if (!title){
+      toast('Please enter a blog post title.');
+      $('#blogFormTitle').focus();
+      return;
+    }
+    if (!slug){
+      toast('Please provide a URL slug.');
+      $('#blogFormSlug').focus();
+      return;
+    }
+    if (!content || content === '<br>' || content === '<div><br></div>'){
+      toast('Please write some content for the article.');
+      $('#blogRichBody').focus();
+      return;
+    }
+
+    var payload = {
+      title: title,
+      slug: slug,
+      category: category,
+      authorName: authorName,
+      status: status,
+      excerpt: excerpt || null,
+      coverImageUrl: coverImageUrl || null,
+      tags: tags,
+      content: content,
+      metaTitle: metaTitle,
+      metaDescription: metaDescription
+    };
+
+    var method = id ? 'PUT' : 'POST';
+    var endpoint = id ? ('/admin/blogs/' + encodeURIComponent(id)) : '/admin/blogs';
+    var actionVerb = id ? 'Updating' : 'Creating';
+
+    toast(actionVerb + ' blog article...');
+
+    api(method, endpoint, payload).then(function(res){
+      toast('Blog article saved successfully (' + status + ')!');
+      closeModals();
+      loadAdminDashboardData(true);
+      loadData();
+    }).catch(function(err){
+      toast('Failed to save blog post: ' + (err.message || 'Unknown error'));
+    });
+  }
+
+  function deleteAdminBlogPost(blogId){
+    if (!blogId) return;
+    toast('Deleting article...');
+    api('DELETE', '/admin/blogs/' + encodeURIComponent(blogId)).then(function(){
+      toast('Article deleted successfully.');
+      loadAdminDashboardData(true);
+      loadData();
+    }).catch(function(err){
+      toast('Failed to delete blog post: ' + (err.message || 'Unknown error'));
+    });
+  }
+
+  function openAdminBlogPreview(customBlog){
+    var b = customBlog;
+    if (!b){
+      var title = $('#blogFormTitle').value.trim() || 'Untitled Article';
+      var slug = $('#blogFormSlug').value.trim() || 'untitled-article';
+      var category = $('#blogFormCategory').value;
+      var authorName = $('#blogFormAuthor').value.trim() || 'Paklance Editorial Team';
+      var excerpt = $('#blogFormExcerpt').value.trim() || '';
+      var coverImageUrl = $('#blogFormCoverUrl').value.trim();
+      var rawTags = $('#blogFormTags').value.trim();
+      var tags = rawTags ? rawTags.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [];
+      var content = $('#blogRichBody').innerHTML.trim() || '<p>No content written yet.</p>';
+      var status = $('#blogFormStatus').value;
+      b = {
+        title: title,
+        slug: slug,
+        category: category,
+        authorName: authorName,
+        excerpt: excerpt,
+        coverImageUrl: coverImageUrl,
+        tags: tags,
+        content: content,
+        status: status,
+        date: new Date().toISOString().slice(0, 10)
+      };
+    }
+
+    var container = $('#blogPreviewContainer');
+    var badge = $('#blogPreviewStatusBadge');
+    if (!container || !badge) return;
+
+    badge.textContent = String(b.status || 'DRAFT').toUpperCase();
+    badge.style.background = b.status === 'PUBLISHED' ? 'rgba(18,165,111,0.15)' : 'rgba(245,158,11,0.15)';
+    badge.style.color = b.status === 'PUBLISHED' ? '#12A56F' : '#D97706';
+
+    var coverHtml = (b.coverImageUrl || b.coverImage)
+      ? '<img src="' + esc(b.coverImageUrl || b.coverImage) + '" alt="' + esc(b.title) + '" style="width:100%;max-height:420px;object-fit:cover;border-radius:12px;margin:16px 0 24px 0">'
+      : '';
+
+    var tagPills = (Array.isArray(b.tags) && b.tags.length)
+      ? b.tags.map(function(t){ return '<span class="chip chip-muted" style="margin-right:6px">' + esc(t) + '</span>'; }).join('')
+      : '';
+
+    container.innerHTML =
+      '<div style="max-width:760px;margin:0 auto">' +
+        '<div style="margin-bottom:12px"><span class="badge" style="background:#12A56F;color:#fff;font-weight:700">' + esc(b.category || 'Freelancing') + '</span></div>' +
+        '<h1 style="font-size:32px;line-height:1.25;margin:0 0 12px 0;color:var(--ink)">' + esc(b.title) + '</h1>' +
+        (b.excerpt ? '<p class="sub" style="font-size:18px;line-height:1.5;color:var(--muted);margin-bottom:16px">' + esc(b.excerpt) + '</p>' : '') +
+        '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2);font-size:13px;color:var(--muted)">' +
+          '<span><b>Author:</b> ' + esc(b.authorName || 'Paklance Editorial Team') + '</span>' +
+          '<span>&bull;</span>' +
+          '<span><b>Published:</b> ' + (b.date || 'Today') + '</span>' +
+          '<span>&bull;</span>' +
+          '<span><b>Slug:</b> /#blog/' + esc(b.slug) + '</span>' +
+        '</div>' +
+        coverHtml +
+        '<div class="blog-prose" style="font-size:16px;line-height:1.8;color:var(--ink-2);margin-top:20px">' +
+          (b.content || '') +
+        '</div>' +
+        (tagPills ? '<div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--line-2)"><b>Tags:</b> ' + tagPills + '</div>' : '') +
+      '</div>';
+
+    openModal('admin-blog-preview');
   }
 
   function renderAdminDisputesTable(){

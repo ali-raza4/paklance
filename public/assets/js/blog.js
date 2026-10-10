@@ -402,24 +402,37 @@ window.PaklanceBlog = (function () {
   var BY_SLUG = {}, BY_DATE = [], FEATURED = null;
   // Builds the lookups (slug index, table of contents, read time). Runs again when the API sends articles.
   function index() {
-  BY_SLUG = {};
-  ARTICLES.forEach(function (a, i) {
-    a.idx = i;
-    BY_SLUG[a.slug] = a;
-    a.toc = [];
-    var n = countWords(a.title) + countWords(a.excerpt);
-    a.body.forEach(function (b) {
-      var k = b[0];
-      if (k === 'p' || k === 'h2' || k === 'h3' || k === 'quote' || k === 'img') n += countWords(b[1]);
-      if (k === 'ul' || k === 'ol') b[1].forEach(function (x) { n += countWords(x); });
-      if (k === 'tip') n += countWords(b[1]) + countWords(b[2]);
-      if (k === 'table') { n += countWords(b[1].join(' ')); b[2].forEach(function (r) { n += countWords(r.join(' ')); }); }
-      if (k === 'h2') { b.id = a.slug + '--' + slugify(b[1]); a.toc.push({ id: b.id, text: b[1] }); }
+    BY_SLUG = {};
+    ARTICLES.forEach(function (a, i) {
+      a.idx = i;
+      BY_SLUG[a.slug] = a;
+      a.toc = [];
+      var n = countWords(a.title) + countWords(a.excerpt || '');
+      if (a.content) {
+        var textOnly = String(a.content).replace(/<[^>]*>/g, ' ');
+        n += countWords(textOnly);
+        var h2Regex = /<h2[^>]*>(.*?)<\/h2>/gi;
+        var m;
+        while ((m = h2Regex.exec(a.content)) !== null) {
+          var h2Text = m[1].replace(/<[^>]*>/g, '').trim();
+          var h2Id = a.slug + '--' + slugify(h2Text);
+          a.toc.push({ id: h2Id, text: h2Text });
+        }
+      }
+      if (Array.isArray(a.body)) {
+        a.body.forEach(function (b) {
+          var k = b[0];
+          if (k === 'p' || k === 'h2' || k === 'h3' || k === 'quote' || k === 'img') n += countWords(b[1]);
+          if (k === 'ul' || k === 'ol') b[1].forEach(function (x) { n += countWords(x); });
+          if (k === 'tip') n += countWords(b[1]) + countWords(b[2]);
+          if (k === 'table') { n += countWords(b[1].join(' ')); b[2].forEach(function (r) { n += countWords(r.join(' ')); }); }
+          if (k === 'h2') { b.id = a.slug + '--' + slugify(b[1]); a.toc.push({ id: b.id, text: b[1] }); }
+        });
+      }
+      a.readTime = Math.max(1, Math.round(n / 200));
     });
-    a.readTime = Math.max(2, Math.round(n / 200));
-  });
-  BY_DATE = ARTICLES.slice().sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
-  FEATURED = ARTICLES.filter(function (a) { return a.featured; })[0] || BY_DATE[0] || null;
+    BY_DATE = ARTICLES.slice().sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+    FEATURED = ARTICLES.filter(function (a) { return a.featured; })[0] || BY_DATE[0] || null;
   }
   index();
   // Replace the built-in demo articles with articles from the API (same shape, plus demo: true|false).
@@ -447,6 +460,11 @@ window.PaklanceBlog = (function () {
   /* ---------------- components ---------------- */
   function Cover(a, o) {
     o = o || {};
+    var label = o.label || ('Illustration for “' + a.title + '”');
+    var coverImg = a.coverImageUrl || a.coverImage;
+    if (coverImg) {
+      return '<img src="' + esc(coverImg) + '" alt="' + esc(label) + '" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">';
+    }
     var st = CAT_STYLE[a.category] || CAT_STYLE['Freelancing'];
     var v = (a.idx + (o.variant || 0)) % 4;
     var pid = 'blogdots' + (++coverSeq);
@@ -454,7 +472,6 @@ window.PaklanceBlog = (function () {
     var small = [[90, 300, 70], [540, 70, 80], [120, 80, 60], [520, 300, 90]][v];
     var card = [[70, 110], [300, 120], [230, 90], [90, 150]][v];
     var medal = [[430, 150], [120, 150], [470, 120], [440, 110]][v];
-    var label = o.label || ('Illustration for “' + a.title + '”');
     return '<svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" role="img" aria-label="' + esc(label) + '">' +
       '<defs><pattern id="' + pid + '" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.6" fill="' + st.fg + '" fill-opacity="0.22"></circle></pattern></defs>' +
       '<rect width="640" height="360" fill="' + st.bg + '"></rect>' +
@@ -476,8 +493,10 @@ window.PaklanceBlog = (function () {
     '</svg>';
   }
   function Meta(a, withAuthor) {
+    var authorName = a.authorName || (a.author && a.author.name) || AUTHOR.name;
+    var authorInitials = authorName.split(' ').filter(Boolean).map(function(w){ return w[0]; }).slice(0, 2).join('').toUpperCase() || AUTHOR.initials;
     return '<div class="blog-meta">' +
-      (withAuthor ? '<span class="blog-by"><span class="blog-avatar" aria-hidden="true">' + AUTHOR.initials + '</span>' + esc(AUTHOR.name) + '</span>' : '') +
+      (withAuthor ? '<span class="blog-by"><span class="blog-avatar" aria-hidden="true">' + authorInitials + '</span>' + esc(authorName) + '</span>' : '') +
       '<span>' + ic('calendar') + '<time datetime="' + a.date + '">' + fmtDate(a.date) + '</time></span>' +
       '<span>' + ic('clock') + a.readTime + ' min read</span>' +
     '</div>';
@@ -580,12 +599,14 @@ window.PaklanceBlog = (function () {
     '</div>';
   }
   function ArticleHeader(a) {
+    var authorName = a.authorName || (a.author && a.author.name) || AUTHOR.name;
+    var authorInitials = authorName.split(' ').filter(Boolean).map(function(w){ return w[0]; }).slice(0, 2).join('').toUpperCase() || AUTHOR.initials;
     return '<header class="blog-article-head">' +
       '<div class="blog-row"><span class="blog-cat">' + esc(a.category) + '</span></div>' +
       '<h1>' + esc(a.title) + '</h1>' +
-      '<p class="blog-subtitle">' + esc(a.excerpt) + '</p>' +
-      '<div class="blog-byline"><span class="avatar" aria-hidden="true">' + AUTHOR.initials + '</span><div>' +
-        '<strong>' + esc(AUTHOR.name) + '</strong>' +
+      '<p class="blog-subtitle">' + esc(a.excerpt || '') + '</p>' +
+      '<div class="blog-byline"><span class="avatar" aria-hidden="true">' + authorInitials + '</span><div>' +
+        '<strong>' + esc(authorName) + '</strong>' +
         '<div class="blog-meta"><span>' + ic('calendar') + 'Published <time datetime="' + a.date + '">' + fmtDate(a.date) + '</time></span>' +
           (a.updated ? '<span>Updated <time datetime="' + a.updated + '">' + fmtDate(a.updated) + '</time></span>' : '') +
           '<span>' + ic('clock') + a.readTime + ' min read</span></div>' +
@@ -595,6 +616,10 @@ window.PaklanceBlog = (function () {
   }
   var ckSeq = 0;
   function ArticleContent(a) {
+    if (a.content) {
+      return '<div class="blog-prose">' + a.content + '</div>';
+    }
+    if (!a.body || !Array.isArray(a.body)) return '';
     return '<div class="blog-prose">' + a.body.map(function (b) {
       switch (b[0]) {
         case 'p': return '<p>' + inline(b[1]) + '</p>';
@@ -756,7 +781,14 @@ window.PaklanceBlog = (function () {
         '<div class="blog-section">' + NewsletterSignup('art') + '</div>' +
       '</div>' +
     '</article>';
-    applySeo({ title: a.title + ' | Paklance Blog', description: a.excerpt, url: url(a), image: SITE + '/blog/images/' + a.slug + '.png', type: 'article', article: a });
+    applySeo({
+      title: (a.metaTitle || (a.title + ' | Paklance Blog')),
+      description: (a.metaDescription || a.excerpt || ''),
+      url: url(a),
+      image: (a.coverImageUrl || a.coverImage || (SITE + '/blog/images/' + a.slug + '.png')),
+      type: 'article',
+      article: a
+    });
     setTimeout(updateProgress, 0);
     return true;
   }
@@ -774,24 +806,25 @@ window.PaklanceBlog = (function () {
   function applySeo(o) {
     clearSeo(); seoOn = true;
     document.title = o.title;
-    setMeta('name', 'description', o.description);
+    setMeta('name', 'description', o.description || '');
     var link = document.createElement('link'); link.rel = 'canonical'; link.href = o.url; link.setAttribute('data-blog-seo', ''); document.head.appendChild(link);
     setMeta('property', 'og:site_name', 'Paklance');
     setMeta('property', 'og:type', o.type);
     setMeta('property', 'og:title', o.title);
-    setMeta('property', 'og:description', o.description);
+    setMeta('property', 'og:description', o.description || '');
     setMeta('property', 'og:url', o.url);
-    setMeta('property', 'og:image', o.image);
+    if (o.image) setMeta('property', 'og:image', o.image);
     setMeta('name', 'twitter:card', 'summary_large_image');
     if (o.article) {
       var a = o.article;
+      var auth = a.authorName || (a.author && a.author.name) || AUTHOR.name;
       setMeta('property', 'article:published_time', a.date);
       if (a.updated) setMeta('property', 'article:modified_time', a.updated);
-      setMeta('property', 'article:author', AUTHOR.name);
+      setMeta('property', 'article:author', auth);
       setMeta('property', 'article:section', a.category);
-      setMeta('name', 'author', AUTHOR.name);
+      setMeta('name', 'author', auth);
       var ld = document.createElement('script'); ld.type = 'application/ld+json'; ld.setAttribute('data-blog-seo', '');
-      ld.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'BlogPosting', headline: a.title, description: a.excerpt, image: o.image, datePublished: a.date, dateModified: a.updated || a.date, author: { '@type': 'Organization', name: AUTHOR.name }, publisher: { '@type': 'Organization', name: 'Paklance' }, mainEntityOfPage: o.url, articleSection: a.category, keywords: a.tags.join(', ') });
+      ld.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'BlogPosting', headline: a.title, description: a.metaDescription || a.excerpt, image: o.image, datePublished: a.date, dateModified: a.updated || a.date, author: { '@type': 'Person', name: auth }, publisher: { '@type': 'Organization', name: 'Paklance' }, mainEntityOfPage: o.url, articleSection: a.category, keywords: (a.tags || []).join(', ') });
       document.head.appendChild(ld);
     }
   }
