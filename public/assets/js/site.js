@@ -388,9 +388,10 @@
         '<p class="help" style="margin-top:12px">Your name and skills are shared with the client when you apply.</p>' +
       '</div></aside>';
 
+    var hasToken = !!_siteGetToken();
     if (isOwner){
       loadJobProposals(j.id);
-    } else if (curUser){
+    } else if (curUser || hasToken){
       checkMyProposalForJob(j.id);
     }
   }
@@ -435,7 +436,7 @@
               '</div>' +
               '<div style="display:flex;align-items:center;gap:8px">' +
                 '<span class="chip ' + statusClass + '">' + esc(p.status || 'PENDING') + '</span>' +
-                '<strong style="font-size:17px;color:var(--primary)">PKR ' + fmt(p.bidAmount) + '</strong>' +
+                '<strong style="font-size:17px;color:var(--primary)">' + fmt(p.bidAmount) + '</strong>' +
                 '<span class="muted" style="font-size:13px">(' + p.deliveryDays + ' days)</span>' +
               '</div>' +
             '</div>' +
@@ -473,7 +474,7 @@
         '</div>' +
         '<div style="background:var(--bg-2);border-radius:8px;padding:12px;margin-top:8px;font-size:13px;line-height:1.5">' +
           '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
-            '<span class="muted">Your Bid:</span><strong>PKR ' + fmt(myProp.bidAmount) + '</strong>' +
+            '<span class="muted">Your Bid:</span><strong>' + fmt(myProp.bidAmount) + '</strong>' +
           '</div>' +
           '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
             '<span class="muted">Timeline:</span><strong>' + myProp.deliveryDays + ' days</strong>' +
@@ -1274,7 +1275,7 @@
                 '<span class="muted" style="font-size:13px">Applied for <strong>' + esc(jobTitle) + '</strong></span>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:8px">' +
-                '<strong style="color:var(--primary);font-size:15px">PKR ' + fmt(p.bidAmount) + '</strong>' +
+                '<strong style="color:var(--primary);font-size:15px">' + fmt(p.bidAmount) + '</strong>' +
                 '<span class="chip chip-muted">' + esc(p.status || 'PENDING') + '</span>' +
               '</div>' +
             '</div>' +
