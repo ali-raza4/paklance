@@ -245,7 +245,10 @@
     if (r === 'person' && !currentPerson) r = 'talent';
     if (r === 'admin'){
       var curAdminUser = PaklanceAuth.getUser();
-      if (!curAdminUser){ r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0); }
+      if (!curAdminUser){
+        if (_siteGetToken()) return;
+        r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0);
+      }
       else if (String(curAdminUser.role || '').toUpperCase() !== 'ADMIN'){
         toast('Access restricted to platform administrators.');
         go('dashboard');
@@ -256,7 +259,10 @@
     }
     if (r === 'dashboard'){
       var curDashUser = PaklanceAuth.getUser();
-      if (!curDashUser){ r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0); }
+      if (!curDashUser){
+        if (_siteGetToken()) return;
+        r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0);
+      }
       else if (String(curDashUser.role || '').toUpperCase() === 'ADMIN'){
         go('admin');
         return;
@@ -264,7 +270,10 @@
         renderDashboard();
       }
     }
-    if (r === 'profile' && !PaklanceAuth.getUser()){ r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0); }
+    if (r === 'profile' && !PaklanceAuth.getUser()){
+      if (_siteGetToken()) return;
+      r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0);
+    }
     var own = r === 'profile'; if (own) r = 'person';          // my own profile uses the same page, with edit buttons
     $$('.view').forEach(function(v){ v.hidden = v.getAttribute('data-view') !== r; });
     var navKey = r === 'job' ? 'jobs' : (r === 'person' ? (own ? 'dashboard' : 'talent') : (r === 'article' ? 'blog' : r));

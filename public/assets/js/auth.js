@@ -46,9 +46,11 @@ window.PaklanceAuth = (function () {
      ===================================================================== */
   /* ---------- JWT token storage (production NestJS uses Bearer tokens) ---------- */
   var TOKEN_KEY = 'pk_access_token';
+  var USER_KEY = 'pk_user';
   function getToken() { try { return localStorage.getItem(TOKEN_KEY) || null; } catch (e) { return null; } }
   function setToken(t) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
-  function clearToken() { setToken(null); }
+  function clearToken() { setToken(null); try { localStorage.removeItem(USER_KEY); } catch (e) {} }
+  function getCachedUser() { try { var raw = localStorage.getItem(USER_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
 
   /* ---------- normalise a user object (Express backend shape) to the shape the UI expects ---------- */
   function normaliseUser(u) {
@@ -574,7 +576,7 @@ window.PaklanceAuth = (function () {
   /* =====================================================================
      UI
      ===================================================================== */
-  var root, opts = {}, user = null, listeners = [];
+  var root, opts = {}, user = getCachedUser(), listeners = [];
   var state = { screen: null, stack: [], email: '', onboarding: false, mode: 'onboard', skills: [], items: [], active: -1, verifying: false, googleRun: 0, cooldown: 0, timer: null, lastFocus: null };
   var BACKABLE = { email: 1, google: 1, forgot: 1, 'forgot-sent': 1, skills: 1 };
   var MILESTONE = { signing: 1, verify: 1, name: 1, done: 1 };  // screens that reset back-history
@@ -586,7 +588,7 @@ window.PaklanceAuth = (function () {
   function $$(s) { return Array.prototype.slice.call(root.querySelectorAll(s)); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function notify(msg) { if (opts.notify) opts.notify(msg); }
-  function setUser(u) { user = u; listeners.forEach(function (fn) { fn(u); }); }
+  function setUser(u) { user = u; try { if (u) localStorage.setItem(USER_KEY, JSON.stringify(u)); else localStorage.removeItem(USER_KEY); } catch(e){} listeners.forEach(function (fn) { fn(u); }); }
   function isClientUser(u) {
     if (!u) return false;
     var r = String(u.role || '').toLowerCase();
