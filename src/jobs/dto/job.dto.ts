@@ -27,6 +27,21 @@ export class CreateJobDto {
   @IsNumber()
   @IsPositive()
   budget: number;
+
+  @ApiPropertyOptional({ example: ['React', 'NestJS'] })
+  @IsOptional()
+  skills?: any;
+
+  @ApiPropertyOptional({ example: 'Web Development' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({ example: 14 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  deliveryDays?: number;
 }
 
 export class QueryJobDto {

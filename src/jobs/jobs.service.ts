@@ -12,16 +12,30 @@ export class JobsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(clientId: string, dto: CreateJobDto) {
+    let description = (dto.description || '').trim();
+    if (dto.category && !description.toLowerCase().includes('category:')) {
+      description += `\n\nCategory: ${dto.category}`;
+    }
+    if (dto.skills && !description.toLowerCase().includes('skills:')) {
+      const skillsStr = Array.isArray(dto.skills) ? dto.skills.join(', ') : String(dto.skills);
+      if (skillsStr.trim()) {
+        description += `\nRequired Skills: ${skillsStr.trim()}`;
+      }
+    }
+    if (dto.deliveryDays && !description.toLowerCase().includes('timeline:') && !description.toLowerCase().includes('delivery:')) {
+      description += `\nDelivery Timeline: ${dto.deliveryDays} days`;
+    }
+
     return this.prisma.job.create({
       data: {
         title: dto.title,
-        description: dto.description,
+        description,
         budget: dto.budget,
         clientId,
       },
       include: {
         client: {
-          select: { id: true, email: true, role: true },
+          select: { id: true, email: true, name: true, role: true },
         },
       },
     });
