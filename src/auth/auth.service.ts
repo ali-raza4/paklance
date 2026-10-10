@@ -526,6 +526,12 @@ export class AuthService {
   }
 
   async getDbStatus() {
+    let dbHost = 'unknown';
+    try {
+      if (process.env.DATABASE_URL) {
+        dbHost = new URL(process.env.DATABASE_URL).host;
+      }
+    } catch {}
     const dbInfo: any = await this.prisma.$queryRawUnsafe(`
       SELECT current_database() as db, inet_server_addr() as ip, version() as ver
     `);
@@ -541,7 +547,7 @@ export class AuthService {
         resetPasswordToken: true,
       },
     });
-    return { dbInfo, userCount, sampleUsers };
+    return { dbHost, dbInfo, userCount, sampleUsers };
   }
 }
 
