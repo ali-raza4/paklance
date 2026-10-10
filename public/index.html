@@ -1020,6 +1020,28 @@
   </div>
 </div>
 
+<div class="modal" id="m-apply" hidden role="dialog" aria-modal="true" aria-labelledby="applyModalTitle">
+  <div class="modal-card">
+    <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <span class="eyebrow">Submit Proposal</span>
+    <h2 id="applyModalTitle" style="font-size:20px;margin-top:4px">Apply for Job</h2>
+    <p class="sub" style="margin-bottom:18px">The client will review your proposal, profile details, and verified skills.</p>
+    <form id="applyJobForm" data-form="apply">
+      <input type="hidden" id="propJobId">
+      <div class="form-grid">
+        <div class="field"><label for="propBid">Your Bid (PKR)</label><input class="input" type="number" id="propBid" min="500" required></div>
+        <div class="field"><label for="propDays">Delivery Time (Days)</label><input class="input" type="number" id="propDays" min="1" max="180" value="7" required></div>
+        <div class="field full"><label for="propCoverLetter">Cover Letter</label><textarea class="input" id="propCoverLetter" rows="4" style="height:auto;padding:10px;resize:vertical" placeholder="Describe your relevant experience, proposed approach, and why you are the best fit for this job..." required></textarea></div>
+      </div>
+      <p class="help" style="margin-top:10px;font-size:12px;color:var(--ink-3)">Your name and skills will be shared with the client upon submission.</p>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-outline" type="button" data-close style="flex:1">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="btnSubmitProposal" style="flex:2">Submit Application</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <!-- ===================== MESSAGES MODAL ===================== -->

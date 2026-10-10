@@ -85,9 +85,10 @@
       ? j.milestones.map(function(m){ return [m.title, Number(m.amount)]; })
       : [['Project milestone', Number(j.budget) || 0]];
     return {
-      id:        String(j.id),
-      clientId:  j.clientId || j.client_id || (j.client && (j.client.id || j.client.userId)) || null,
-      title:     j.title || 'Untitled Job',
+      id:          String(j.id),
+      clientId:    j.clientId || j.client_id || (j.client && (j.client.id || j.client.userId)) || null,
+      clientEmail: (j.client && j.client.email) || null,
+      title:       j.title || 'Untitled Job',
       client:    clientName,
       city:      clientCity,
       cat:       cat,
@@ -323,6 +324,47 @@
     var j = currentJob; if (!j) return;
     var real = j.sample === false;
     var proposalCountText = j.proposals === 1 ? '1 proposal' : (j.proposals + ' proposals');
+
+    var curUser = (PaklanceAuth && PaklanceAuth.getUser) ? PaklanceAuth.getUser() : null;
+    var isClientRole = curUser && (String(curUser.role || '').toLowerCase() === 'client');
+    var isAdmin = curUser && (String(curUser.role || '').toUpperCase() === 'ADMIN');
+    var isOwner = !!(curUser && (
+      (j.clientId && curUser.id === j.clientId) ||
+      (j.clientEmail && curUser.email && j.clientEmail.toLowerCase() === curUser.email.toLowerCase()) ||
+      isAdmin ||
+      (isClientRole && j.clientId === curUser.id)
+    ));
+
+    var asideActionHtml = '';
+    if (isOwner){
+      asideActionHtml =
+        '<div class="chip chip-verified" style="display:block;text-align:center;padding:10px;margin-bottom:8px;font-weight:600">' +
+          '<svg class="ic ic-xs" aria-hidden="true" style="margin-right:6px"><use href="#i-check"/></svg>Your Posted Job' +
+        '</div>' +
+        '<button class="btn btn-primary btn-block" type="button" data-scroll-proposals>View Proposals (' + esc(proposalCountText) + ')</button>';
+    } else {
+      asideActionHtml =
+        '<div id="jobApplyActionWrap">' +
+          '<button class="btn btn-primary btn-block" type="button" data-apply="' + esc(j.id) + '">Apply for this job</button>' +
+        '</div>';
+    }
+
+    var proposalsSectionHtml = '';
+    if (isOwner){
+      proposalsSectionHtml =
+        '<section id="jobProposalsSection" class="job-proposals-wrap" style="margin-top:28px;border-top:1px solid var(--line);padding-top:24px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
+            '<h3 style="margin:0;display:flex;align-items:center;gap:8px">' +
+              'Proposals Received' +
+              '<span class="chip chip-muted" id="jobProposalsBadge">' + (j.proposals || 0) + '</span>' +
+            '</h3>' +
+          '</div>' +
+          '<div id="jobProposalsList">' +
+            '<div class="pk-loading-proposals" style="padding:24px;text-align:center;color:var(--ink-3)">Loading proposals...</div>' +
+          '</div>' +
+        '</section>';
+    }
+
     $('#jobDetail').innerHTML =
       '<article class="card">' +
         '<div class="job-top"><div><span class="eyebrow">' + esc(j.cat) + '</span><h2 style="margin-top:6px">' + esc(j.title) + '</h2></div>' + sampleChip(j) + '</div>' +
@@ -333,6 +375,7 @@
           return '<li class="ms"><span class="ms-no">' + (i + 1) + '</span><div><strong>' + esc(m[0]) + '</strong><span class="ms-sub">' + fmt(m[1]) + '</span></div>' +
             (j.safepay ? '<span class="chip chip-safe">SafePay</span>' : '<span class="chip chip-muted">Direct</span>') + '</li>';
         }).join('') + '</ol>' +
+        proposalsSectionHtml +
       '</article>' +
       '<aside class="side"><div class="card">' +
         '<div class="kv"><span>Budget</span><strong>' + fmt(j.budget) + '</strong></div>' +
@@ -340,36 +383,144 @@
         '<div class="kv"><span>Milestones</span><strong>' + j.ms.length + '</strong></div>' +
         '<div class="kv"><span>Payment</span><strong>' + (j.safepay ? 'SafePay protected' : 'Agreed directly') + '</strong></div>' +
         '<div class="kv"><span>Proposals</span><strong>' + esc(proposalCountText) + '</strong></div>' +
-        '<button class="btn btn-primary btn-block" type="button" data-apply="' + esc(j.id) + '">Apply for this job</button>' +
+        asideActionHtml +
         (j.clientId ? '<button class="btn btn-outline btn-block pk-contact-btn" style="margin-top:8px" type="button" data-msg-user-id="' + esc(j.clientId) + '" data-msg-user-name="' + esc(j.client || 'Client') + '" data-msg-user-role="Client">Message Client</button>' : '') +
         '<p class="help" style="margin-top:12px">Your name and skills are shared with the client when you apply.</p>' +
       '</div></aside>';
+
+    if (isOwner){
+      loadJobProposals(j.id);
+    } else if (curUser){
+      checkMyProposalForJob(j.id);
+    }
   }
+
+  function loadJobProposals(jobId){
+    var listEl = $('#jobProposalsList');
+    if (!listEl) return;
+    api('GET', '/jobs/' + encodeURIComponent(jobId) + '/proposals').catch(function(err){
+      return api('GET', '/proposals/job/' + encodeURIComponent(jobId));
+    }).then(function(proposals){
+      if (!Array.isArray(proposals)) proposals = [];
+      var badge = $('#jobProposalsBadge');
+      if (badge) badge.textContent = proposals.length;
+      if (currentJob && String(currentJob.id) === String(jobId)) {
+        currentJob.proposals = proposals.length;
+      }
+      if (!proposals.length){
+        listEl.innerHTML = '<div class="empty" style="padding:24px 0;text-align:center"><p class="muted">No proposals submitted for this job yet.</p></div>';
+        return;
+      }
+      listEl.innerHTML = '<div class="proposals-cards" style="display:flex;flex-direction:column;gap:16px">' +
+        proposals.map(function(p){
+          var u = p.User || {};
+          var name = u.name || u.fullName || 'Specialist';
+          var role = u.headline || 'Specialist';
+          var city = u.city ? (u.city + (u.country ? ', ' + u.country : '')) : (u.country || 'Pakistan');
+          var skills = Array.isArray(u.skills) ? u.skills : [];
+          var parts = name.trim().split(/\s+/).filter(Boolean);
+          var init = ((parts[0]||'').charAt(0) + (parts.length>1?(parts[parts.length-1]||'').charAt(0):'')).toUpperCase() || 'SP';
+          var avHtml = u.avatarUrl
+            ? '<img class="pc-av pc-av-md" src="' + esc(u.avatarUrl) + '" alt="' + esc(name) + '">'
+            : '<span class="pc-av pc-av-md pc-av-init" aria-hidden="true">' + esc(init) + '</span>';
+          var statusClass = p.status === 'ACCEPTED' ? 'chip-verified' : (p.status === 'REJECTED' ? 'chip-danger' : 'chip-muted');
+          return '<article class="card proposal-card" style="padding:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px">' +
+            '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+              '<div style="display:flex;align-items:center;gap:12px">' +
+                avHtml +
+                '<div>' +
+                  '<strong style="font-size:16px;display:block">' + esc(name) + '</strong>' +
+                  '<span class="muted" style="font-size:13px">' + esc(role) + ' · ' + esc(city) + '</span>' +
+                '</div>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+                '<span class="chip ' + statusClass + '">' + esc(p.status || 'PENDING') + '</span>' +
+                '<strong style="font-size:17px;color:var(--primary)">PKR ' + fmt(p.bidAmount) + '</strong>' +
+                '<span class="muted" style="font-size:13px">(' + p.deliveryDays + ' days)</span>' +
+              '</div>' +
+            '</div>' +
+            (skills.length ? ('<div class="tags" style="margin-top:12px">' + tagsHtml(skills) + '</div>') : '') +
+            '<div class="pk-proposal-cover" style="margin-top:14px;padding:12px 14px;background:var(--bg-2);border-radius:8px;border-left:3px solid var(--teal, #00a699);font-size:14px;line-height:1.6;color:var(--ink-2)">' +
+              '<strong style="display:block;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-3);margin-bottom:4px">Cover Letter</strong>' +
+              '<div style="white-space:pre-wrap">' + esc(p.coverLetter) + '</div>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);flex-wrap:wrap;gap:10px">' +
+              '<span class="muted" style="font-size:12px">Applied ' + (p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'recently') + '</span>' +
+              '<div style="display:flex;gap:8px">' +
+                (p.freelancerId ? '<button class="btn btn-outline btn-sm pk-contact-btn" type="button" data-msg-user-id="' + esc(p.freelancerId) + '" data-msg-user-name="' + esc(name) + '" data-msg-user-role="Specialist">Message Specialist</button>' : '') +
+                (p.status === 'PENDING' ? '<button class="btn btn-primary btn-sm" type="button" data-accept-proposal="' + esc(p.id) + '">Accept Proposal</button>' : '') +
+              '</div>' +
+            '</div>' +
+          '</article>';
+        }).join('') +
+      '</div>';
+    }).catch(function(err){
+      listEl.innerHTML = '<div class="empty" style="padding:16px 0"><p class="muted">Could not load proposals: ' + esc(err.message || 'Error') + '</p></div>';
+    });
+  }
+
+  function checkMyProposalForJob(jobId){
+    api('GET', '/proposals/me').then(function(list){
+      if (!Array.isArray(list)) return;
+      var myProp = list.filter(function(p){ return String(p.jobId) === String(jobId); })[0];
+      if (!myProp) return;
+      var wrap = $('#jobApplyActionWrap');
+      if (!wrap) return;
+      var statusClass = myProp.status === 'ACCEPTED' ? 'chip-verified' : (myProp.status === 'REJECTED' ? 'chip-danger' : 'chip-muted');
+      wrap.innerHTML =
+        '<div class="chip chip-verified" style="display:block;text-align:center;padding:10px;margin-bottom:8px;font-weight:600">' +
+          '<svg class="ic ic-xs" aria-hidden="true" style="margin-right:6px"><use href="#i-check"/></svg>Application Sent' +
+        '</div>' +
+        '<div style="background:var(--bg-2);border-radius:8px;padding:12px;margin-top:8px;font-size:13px;line-height:1.5">' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
+            '<span class="muted">Your Bid:</span><strong>PKR ' + fmt(myProp.bidAmount) + '</strong>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
+            '<span class="muted">Timeline:</span><strong>' + myProp.deliveryDays + ' days</strong>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+            '<span class="muted">Status:</span><span class="chip ' + statusClass + '">' + esc(myProp.status || 'PENDING') + '</span>' +
+          '</div>' +
+          (myProp.coverLetter ? ('<div style="border-top:1px solid var(--line);padding-top:6px"><strong style="display:block;font-size:11px;color:var(--ink-3);margin-bottom:2px">Cover Letter:</strong><p style="margin:0;color:var(--ink-2);font-size:12px;white-space:pre-wrap">' + esc(myProp.coverLetter) + '</p></div>') : '') +
+        '</div>';
+    }).catch(noop);
+  }
+
   function applyToJob(id){
     if (!PaklanceAuth.getUser()){ PaklanceAuth.open('signup'); toast('Create an account or log in to apply.'); return; }
     var j = currentJob || JOBS.filter(function(x){ return String(x.id) === String(id); })[0];
-    var bid = j ? j.budget : 1000;
-    var payload = {
-      jobId: String(id),
-      coverLetter: 'I am interested in this project and ready to deliver quality work.',
-      bidAmount: bid,
-      deliveryDays: 7
-    };
-    api('POST', '/jobs/' + encodeURIComponent(id) + '/proposals', payload).then(function(){
-      toast('Application sent. The client can now see your name and skills.');
-      if (j) j.proposals = (j.proposals || 0) + 1;
-      if (currentJob && String(currentJob.id) === String(id)) renderJobDetail();
-    }).catch(function(err){
-      if (err && (err.code === 'SERVER_ERROR' || err.status === 404)) {
-        api('POST', '/proposals', payload).then(function(){
-          toast('Application sent. The client can now see your name and skills.');
-          if (j) j.proposals = (j.proposals || 0) + 1;
-          if (currentJob && String(currentJob.id) === String(id)) renderJobDetail();
-        }).catch(handleError);
-      } else {
-        handleError(err);
-      }
-    });
+    if (!j){ toast('Job not found.'); return; }
+    var applyModal = $('#m-apply');
+    if (applyModal){
+      $('#propJobId').value = String(id);
+      $('#applyModalTitle').textContent = 'Apply for "' + j.title + '"';
+      $('#propBid').value = j.budget || 1000;
+      $('#propDays').value = 7;
+      $('#propCoverLetter').value = 'I am interested in this project and ready to deliver quality work.';
+      openModal('apply');
+    } else {
+      var payload = {
+        jobId: String(id),
+        coverLetter: 'I am interested in this project and ready to deliver quality work.',
+        bidAmount: j.budget || 1000,
+        deliveryDays: 7
+      };
+      api('POST', '/jobs/' + encodeURIComponent(id) + '/proposals', payload).then(function(){
+        toast('Application sent. The client can now see your name and skills.');
+        if (j) j.proposals = (j.proposals || 0) + 1;
+        if (currentJob && String(currentJob.id) === String(id)) renderJobDetail();
+      }).catch(function(err){
+        if (err && (err.code === 'SERVER_ERROR' || err.status === 404)) {
+          api('POST', '/proposals', payload).then(function(){
+            toast('Application sent. The client can now see your name and skills.');
+            if (j) j.proposals = (j.proposals || 0) + 1;
+            if (currentJob && String(currentJob.id) === String(id)) renderJobDetail();
+          }).catch(handleError);
+        } else {
+          handleError(err);
+        }
+      });
+    }
   }
 
   /* ---------- talent ---------- */
@@ -787,6 +938,23 @@
     if (el.hasAttribute('data-open')){ openModal(el.getAttribute('data-open')); return; }
     if (el.hasAttribute('data-close')){ closeModals(); return; }
     if (el.hasAttribute('data-apply')){ applyToJob(el.getAttribute('data-apply')); return; }
+    if (el.hasAttribute('data-scroll-proposals')){
+      var sec = $('#jobProposalsSection');
+      if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    if (el.hasAttribute('data-accept-proposal')){
+      var propId = el.getAttribute('data-accept-proposal');
+      if (!propId) return;
+      el.disabled = true;
+      api('PATCH', '/proposals/' + encodeURIComponent(propId) + '/accept').then(function(){
+        toast('Proposal accepted! Contract has been initiated.');
+        if (currentJob) loadJobProposals(currentJob.id);
+      }).catch(handleError).finally(function(){
+        el.disabled = false;
+      });
+      return;
+    }
     if (el.hasAttribute('data-approve')){
       var ms = CONTRACT && CONTRACT.milestones.filter(function(m){ return String(m.id) === el.getAttribute('data-approve'); })[0];
       if (ms && window.confirm('Approve “' + ms.title + '” and release ' + fmt(ms.amount) + ' to ' + CONTRACT.freelancer.name + '?')) milestoneAction(ms.id + '/approve', 'Milestone approved. Payment released.');
@@ -839,6 +1007,36 @@
   }
 
   var FORMS = {
+    apply: function(){
+      if (!PaklanceAuth.getUser()) return needUser('Log in to apply for this job.');
+      var id = v('propJobId');
+      var bid = Number(v('propBid')) || 1000;
+      var days = Number(v('propDays')) || 7;
+      var cover = (v('propCoverLetter') || '').trim();
+      if (!cover){ toast('Please write a cover letter.'); return Promise.resolve(); }
+      var btn = $('#btnSubmitProposal');
+      if (btn) btn.disabled = true;
+      var payload = {
+        jobId: String(id),
+        bidAmount: bid,
+        deliveryDays: days,
+        coverLetter: cover
+      };
+      return api('POST', '/jobs/' + encodeURIComponent(id) + '/proposals', payload).catch(function(err){
+        if (err && (err.code === 'SERVER_ERROR' || err.status === 404)){
+          return api('POST', '/proposals', payload);
+        }
+        throw err;
+      }).then(function(){
+        closeModals();
+        toast('Application sent. The client can now see your name and skills.');
+        var j = currentJob || JOBS.filter(function(x){ return String(x.id) === String(id); })[0];
+        if (j) j.proposals = (j.proposals || 0) + 1;
+        if (currentJob && String(currentJob.id) === String(id)) renderJobDetail();
+      }).catch(handleError).finally(function(){
+        if (btn) btn.disabled = false;
+      });
+    },
     // Paklance Match: production backend has no /match-requests endpoint.
     // Show an honest local shortlist from the existing talent data.
     match: function(){
@@ -1013,9 +1211,81 @@
       (u.photo ? '<li class="ok">Profile photo added</li>' : '<li>Add a profile photo <button type="button" class="chip chip-muted pc-chip-btn" data-pc-open="photo">Add photo</button></li>') +
       '<li id="dashProfileStep">Complete your profile <span class="chip chip-muted">Next</span></li>';
     PaklanceProfile.mount($('#dashTracker'), { video: $('#dashVideo') });
-    var matches = matchJobs(u), shown = matches.length ? matches : JOBS.slice(0, 3);
-    $('#dashJobsNote').textContent = matches.length ? 'Based on the skills you picked.' : (JOBS.length ? 'No close matches yet, so here are the newest jobs.' : 'Post your profile and skills to see matching jobs here.');
-    $('#dashJobs').innerHTML = shown.length ? shown.map(jobCard).join('') : '<p class="muted" style="font-size:14px;margin-top:8px">No jobs available right now. Check back soon.</p>';
+    if (isClient){
+      var clientJobs = JOBS.filter(function(j){
+        return (j.clientId && j.clientId === u.id) ||
+               (j.clientEmail && u.email && j.clientEmail.toLowerCase() === u.email.toLowerCase()) ||
+               (j.client === u.fullName);
+      });
+      $('#dashJobsNote').textContent = clientJobs.length
+        ? 'Here are your posted jobs and received proposals.'
+        : 'Jobs posted by your client account will appear here along with received proposals.';
+      if (clientJobs.length){
+        $('#dashJobs').innerHTML = clientJobs.map(jobCard).join('');
+      } else {
+        $('#dashJobs').innerHTML = '<div class="empty" style="padding:16px 0"><p class="muted">You haven’t posted any jobs yet.</p><div class="hero-ctas" style="margin-top:10px"><button class="btn btn-primary btn-sm" type="button" data-open="auth" data-signup>Post a Job</button></div></div>';
+      }
+      loadClientDashboardProposals();
+    } else {
+      var matches = matchJobs(u), shown = matches.length ? matches : JOBS.slice(0, 3);
+      $('#dashJobsNote').textContent = matches.length ? 'Based on the skills you picked.' : (JOBS.length ? 'No close matches yet, so here are the newest jobs.' : 'Post your profile and skills to see matching jobs here.');
+      $('#dashJobs').innerHTML = shown.length ? shown.map(jobCard).join('') : '<p class="muted" style="font-size:14px;margin-top:8px">No jobs available right now. Check back soon.</p>';
+    }
+  }
+
+  function loadClientDashboardProposals(){
+    var container = $('#dashClientProposals');
+    if (!container){
+      var dashMain = $('.dash-main');
+      if (dashMain){
+        var card = document.createElement('div');
+        card.className = 'card';
+        card.id = 'dashClientProposals';
+        card.style.marginTop = '16px';
+        card.innerHTML =
+          '<div class="cc-top"><h3 style="font-size:19px">Proposals Received for Your Jobs</h3></div>' +
+          '<div id="dashClientProposalsList" style="margin-top:12px"><p class="muted" style="font-size:14px">Loading received proposals...</p></div>';
+        dashMain.appendChild(card);
+        container = card;
+      }
+    }
+    var listEl = $('#dashClientProposalsList');
+    if (!listEl) return;
+    api('GET', '/proposals/client').catch(function(){
+      return [];
+    }).then(function(proposals){
+      if (!Array.isArray(proposals)) proposals = [];
+      if (!proposals.length){
+        listEl.innerHTML = '<p class="muted" style="font-size:14px">No proposals received yet across your jobs.</p>';
+        return;
+      }
+      listEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px">' +
+        proposals.map(function(p){
+          var jobTitle = (p.job && p.job.title) || 'Job';
+          var u = p.User || {};
+          var name = u.name || u.fullName || 'Specialist';
+          var skills = Array.isArray(u.skills) ? u.skills : [];
+          return '<div style="padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface)">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">' +
+              '<div>' +
+                '<strong style="font-size:15px;display:block">' + esc(name) + '</strong>' +
+                '<span class="muted" style="font-size:13px">Applied for <strong>' + esc(jobTitle) + '</strong></span>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+                '<strong style="color:var(--primary);font-size:15px">PKR ' + fmt(p.bidAmount) + '</strong>' +
+                '<span class="chip chip-muted">' + esc(p.status || 'PENDING') + '</span>' +
+              '</div>' +
+            '</div>' +
+            (skills.length ? ('<div class="tags" style="margin-top:8px">' + tagsHtml(skills.slice(0, 4)) + '</div>') : '') +
+            (p.coverLetter ? ('<div style="margin-top:8px;font-size:13px;color:var(--ink-2);background:var(--bg-2);padding:8px 10px;border-radius:6px;white-space:pre-wrap;border-left:2px solid var(--teal)">' + esc(p.coverLetter) + '</div>') : '') +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">' +
+              '<span class="muted" style="font-size:12px">' + (p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '') + '</span>' +
+              '<button class="btn btn-outline btn-sm" type="button" data-job="' + esc(p.jobId) + '">View Job &amp; Proposal</button>' +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    });
   }
 
   /* ---------- payment methods spotlight (homepage strip) ---------- */
