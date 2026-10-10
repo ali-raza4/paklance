@@ -166,6 +166,7 @@
               id: item.id,
               slug: item.slug,
               title: item.title,
+              subtitle: item.subtitle || '',
               excerpt: item.excerpt || '',
               content: item.content,
               coverImageUrl: item.coverImageUrl,

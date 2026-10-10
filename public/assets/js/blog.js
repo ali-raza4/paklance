@@ -441,6 +441,10 @@ window.PaklanceBlog = (function () {
     (list || []).forEach(function (a) { ARTICLES.push(a); });
     index();
     renderHome();   // refresh the homepage 'From the blog' section with the API articles
+    var blogView = document.querySelector('[data-view="blog"]');
+    if (blogView && !blogView.hidden) {
+      renderIndex();
+    }
   }
 
   function related(a) {
