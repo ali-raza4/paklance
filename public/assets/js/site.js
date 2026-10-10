@@ -17,7 +17,7 @@
   var JOBS = [];
   var TALENT = [];
 
-  var currentJob = null, currentPerson = null;
+  var currentJob = null, currentPerson = null, profileReturnContext = null;
 
   /* ---------- API ---------- */
   // Read JWT token stored by auth.js (same localStorage key)
@@ -151,15 +151,24 @@
     var r = (location.hash || '#home').slice(1);
     var blogSlug = null;
     var jobParamId = null;
+    var personParamId = null;
     if (r.indexOf('blog/') === 0){ blogSlug = decodeURIComponent(r.slice(5)); r = PaklanceBlog.has(blogSlug) ? 'article' : 'blog'; }
     else if (r === 'article') r = 'blog';
     else if (r.indexOf('job/') === 0){ jobParamId = decodeURIComponent(r.slice(4)); r = 'job'; }
     else if (r.indexOf('jobs/') === 0 && r.length > 5){ jobParamId = decodeURIComponent(r.slice(5)); r = 'job'; }
+    else if (r.indexOf('person/') === 0){ personParamId = decodeURIComponent(r.slice(7)); r = 'person'; }
+    else if (r.indexOf('talent/') === 0 && r.length > 7){ personParamId = decodeURIComponent(r.slice(7)); r = 'person'; }
 
     if (VIEWS.indexOf(r) < 0) r = 'home';
     if (jobParamId){
       var matched = JOBS.filter(function(j){ return String(j.id) === String(jobParamId); })[0];
       if (matched) currentJob = matched;
+    }
+    if (personParamId){
+      if (!currentPerson || (String(currentPerson.id) !== String(personParamId) && String(currentPerson.userId) !== String(personParamId))){
+        var matchedPerson = TALENT.filter(function(t){ return String(t.id) === String(personParamId) || String(t.userId) === String(personParamId); })[0];
+        currentPerson = matchedPerson || { id: personParamId, userId: personParamId };
+      }
     }
     if (r === 'job' && !currentJob){
       if (jobParamId){
@@ -424,13 +433,29 @@
           var avHtml = u.avatarUrl
             ? '<img class="pc-av pc-av-md" src="' + esc(u.avatarUrl) + '" alt="' + esc(name) + '" style="width:44px;height:44px;min-width:44px;min-height:44px;border-radius:50%;object-fit:cover;flex-shrink:0">'
             : '<span class="pc-av pc-av-md pc-av-init" aria-hidden="true" style="width:44px;height:44px;min-width:44px;min-height:44px;line-height:44px;text-align:center;border-radius:50%;flex-shrink:0">' + esc(init) + '</span>';
+          var specId = p.freelancerId || u.id;
+          var avWrap = specId
+            ? '<button type="button" class="btn-clean" data-person="' + esc(specId) + '" title="View ' + esc(name) + '’s complete profile" style="cursor:pointer;background:none;border:none;padding:0;display:flex;align-items:center;border-radius:50%">' + avHtml + '</button>'
+            : avHtml;
+          var nameWrap = specId
+            ? '<button type="button" class="btn-clean" data-person="' + esc(specId) + '" title="View ' + esc(name) + '’s complete profile" style="cursor:pointer;background:none;border:none;padding:0;text-align:left"><strong style="font-size:16px;display:block;color:var(--ink);text-decoration:underline;text-decoration-color:transparent;transition:all 0.2s">' + esc(name) + '</strong></button>'
+            : '<strong style="font-size:16px;display:block">' + esc(name) + '</strong>';
           var statusClass = p.status === 'ACCEPTED' ? 'chip-verified' : (p.status === 'REJECTED' ? 'chip-danger' : 'chip-muted');
+          var isAccepted = p.status === 'ACCEPTED';
+          var isPending = p.status === 'PENDING';
+          var actionsHtml = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+            (specId ? '<button class="btn btn-outline btn-sm" type="button" data-person="' + esc(specId) + '">View Profile</button>' : '') +
+            (specId ? '<button class="btn btn-outline btn-sm pk-contact-btn" type="button" data-msg-user-id="' + esc(specId) + '" data-msg-user-name="' + esc(name) + '" data-msg-user-role="Specialist">Message Specialist</button>' : '') +
+            (isPending ? '<button class="btn btn-primary btn-sm" type="button" data-accept-proposal="' + esc(p.id) + '">Accept Proposal</button>' : '') +
+            (isAccepted ? '<span class="chip chip-verified" style="display:inline-flex;align-items:center;gap:4px"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Accepted</span>' : '') +
+          '</div>';
+
           return '<article class="card proposal-card" style="padding:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px">' +
             '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
               '<div style="display:flex;align-items:center;gap:12px">' +
-                avHtml +
+                avWrap +
                 '<div>' +
-                  '<strong style="font-size:16px;display:block">' + esc(name) + '</strong>' +
+                  nameWrap +
                   '<span class="muted" style="font-size:13px">' + esc(role) + ' · ' + esc(city) + '</span>' +
                 '</div>' +
               '</div>' +
@@ -447,10 +472,7 @@
             '</div>' +
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);flex-wrap:wrap;gap:10px">' +
               '<span class="muted" style="font-size:12px">Applied ' + (p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'recently') + '</span>' +
-              '<div style="display:flex;gap:8px">' +
-                (p.freelancerId ? '<button class="btn btn-outline btn-sm pk-contact-btn" type="button" data-msg-user-id="' + esc(p.freelancerId) + '" data-msg-user-name="' + esc(name) + '" data-msg-user-role="Specialist">Message Specialist</button>' : '') +
-                (p.status === 'PENDING' ? '<button class="btn btn-primary btn-sm" type="button" data-accept-proposal="' + esc(p.id) + '">Accept Proposal</button>' : '') +
-              '</div>' +
+              actionsHtml +
             '</div>' +
           '</article>';
         }).join('') +
@@ -678,22 +700,33 @@
   function setBack(href, label){ var a = $('[data-view="person"] .back'); if (a){ a.setAttribute('href', href); a.textContent = '← ' + label; } }
   function renderPerson(){
     var t = currentPerson; if (!t) return;
-    setBack('#talent', 'Back to talent');
+    if (profileReturnContext){
+      setBack(profileReturnContext.href, profileReturnContext.label);
+    } else if (currentJob && currentJob.id){
+      setBack('#job/' + encodeURIComponent(currentJob.id), 'Back to job proposals');
+    } else {
+      setBack('#talent', 'Back to talent');
+    }
     var el = $('#personDetail');
     if (LIVE){
       el.innerHTML = '<div class="card pp-loading" aria-busy="true">Loading profile…</div>';
-      api('GET', '/talent/' + encodeURIComponent(t.id)).then(function(r){
-        if (currentPerson === t) {
-          if (r.page) {
-            PaklanceProfile.renderPage(el, apiPersonModel(r.talent, r.page));
-          } else {
-            var model = personModel(t);
-            if (r.talent && r.talent.userId) model.userId = r.talent.userId;
-            PaklanceProfile.renderPage(el, model);
-          }
+      var targetId = t.userId || t.id;
+      api('GET', '/talent/' + encodeURIComponent(targetId)).catch(function(){
+        return api('GET', '/profiles/' + encodeURIComponent(targetId));
+      }).then(function(r){
+        if (currentPerson === t || (currentPerson && (String(currentPerson.id) === String(targetId) || String(currentPerson.userId) === String(targetId)))) {
+          var talentData = (r && (r.talent || r.profile)) || r || {};
+          var pageData = (r && r.page) || {};
+          PaklanceProfile.renderPage(el, apiPersonModel(talentData, pageData));
         }
       }).catch(function(err){
-        if (currentPerson === t) PaklanceProfile.renderPage(el, personModel(t));
+        if (currentPerson === t || (currentPerson && (String(currentPerson.id) === String(targetId) || String(currentPerson.userId) === String(targetId)))) {
+          if (PROFILE_EXTRA[t.id]){
+            PaklanceProfile.renderPage(el, personModel(t));
+          } else {
+            PaklanceProfile.renderPage(el, apiPersonModel(t, {}));
+          }
+        }
       });
       return;
     }
@@ -701,12 +734,49 @@
   }
   // A real specialist's profile page from GET /api/talent/:id (same model as the talent cards).
   function apiPersonModel(t, p){
+    t = t || {};
     p = p || {};
-    return { name: t.name, initials: t.initials, photo: p.photo || t.photo || null, headline: t.headline, city: t.city, rate: t.hourlyRate,
-      availability: t.availability, bio: t.bio, skills: t.skills, verified: !!t.verified, sample: false, memberSince: p.memberSince,
-      video: PaklanceVideo.fromSaved(p.video), items: p.items || [], rating: p.rating, reviews: p.reviews || [],
-      seller: p.seller || {}, buyer: p.buyer || {}, delivery: p.delivery || null,
-      userId: t.userId || t.id || null };
+    var name = t.name || t.fullName || 'Specialist';
+    var parts = String(name).trim().split(/\s+/).filter(Boolean);
+    var init = t.initials || ((parts[0]||'').charAt(0) + (parts.length>1?(parts[parts.length-1]||'').charAt(0):'')).toUpperCase() || 'SP';
+    var photo = p.photo || t.avatarUrl || t.photo || null;
+    var rate = t.hourlyRate != null ? Number(t.hourlyRate) : (t.rate != null ? Number(t.rate) : null);
+    var avail = t.availability || '';
+    if (avail === 'AVAILABLE') avail = 'Available now';
+    else if (avail === 'BUSY') avail = 'Busy';
+    else if (avail === 'NOT_AVAILABLE') avail = 'Not available';
+
+    var vid = p.video || t.video;
+    var parsedVideo = null;
+    if (vid && typeof PaklanceVideo !== 'undefined') {
+      parsedVideo = PaklanceVideo.fromSaved(vid);
+    }
+
+    var items = p.items || t.portfolioItems || [];
+    if (!Array.isArray(items)) items = [];
+
+    return {
+      name: name,
+      initials: init,
+      photo: photo,
+      headline: t.headline || '',
+      city: t.city ? (t.city + (t.country ? ', ' + t.country : '')) : (t.country || ''),
+      rate: rate,
+      availability: avail,
+      bio: t.bio || '',
+      skills: Array.isArray(t.skills) ? t.skills : [],
+      verified: !!(t.isEmailVerified || t.verified || t.verification),
+      sample: false,
+      memberSince: p.memberSince || t.createdAt || null,
+      video: parsedVideo,
+      items: items,
+      rating: p.rating || { count: 0, avg: 0, dist: [0, 0, 0, 0, 0] },
+      reviews: Array.isArray(p.reviews) ? p.reviews : [],
+      seller: p.seller || {},
+      buyer: p.buyer || {},
+      delivery: p.delivery || null,
+      userId: t.userId || t.id || null
+    };
   }
   function renderMyProfile(){
     setBack('#dashboard', 'Back to dashboard');
@@ -926,7 +996,7 @@
 
   /* ---------- clicks ---------- */
   document.addEventListener('click', function(e){
-    var el = e.target.closest('[data-open],[data-close],[data-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms]');
+    var el = e.target.closest('[data-open],[data-close],[data-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals]');
     if (!el) return;
     if (el.hasAttribute('data-logout')){ PaklanceAuth.logOut().then(function(){ toast('You’ve logged out.'); go('home'); }); return; }
     if (el.hasAttribute('data-edit-skills')){ PaklanceAuth.editSkills(); return; }
@@ -946,13 +1016,23 @@
     }
     if (el.hasAttribute('data-accept-proposal')){
       var propId = el.getAttribute('data-accept-proposal');
-      if (!propId) return;
+      if (!propId || el.disabled) return;
+      if (!window.confirm('Accept this proposal? This will initiate the project contract and notify the specialist.')) return;
       el.disabled = true;
-      api('PATCH', '/proposals/' + encodeURIComponent(propId) + '/accept').then(function(){
+      var origText = el.textContent;
+      el.textContent = 'Accepting…';
+      api('PATCH', '/proposals/' + encodeURIComponent(propId) + '/accept').catch(function(err){
+        if (currentJob && currentJob.id && (err.status === 404 || err.code === 'NOT_FOUND')){
+          return api('PATCH', '/jobs/' + encodeURIComponent(currentJob.id) + '/proposals/' + encodeURIComponent(propId) + '/accept');
+        }
+        throw err;
+      }).then(function(){
         toast('Proposal accepted! Contract has been initiated.');
         if (currentJob) loadJobProposals(currentJob.id);
-      }).catch(handleError).finally(function(){
+      }).catch(function(err){
+        handleError(err);
         el.disabled = false;
+        el.textContent = origText;
       });
       return;
     }
@@ -971,7 +1051,20 @@
     }
     if (el.hasAttribute('data-person')){
       var pid = el.getAttribute('data-person');
-      currentPerson = TALENT.filter(function(t){ return t.id === pid; })[0] || null; go('person'); return;
+      if (!pid) return;
+      if (currentJob && currentJob.id){
+        profileReturnContext = {
+          href: '#job/' + encodeURIComponent(currentJob.id),
+          label: 'Back to job proposals',
+          jobId: currentJob.id
+        };
+      } else {
+        profileReturnContext = null;
+      }
+      var matchedPerson = TALENT.filter(function(t){ return String(t.id) === String(pid) || String(t.userId) === String(pid); })[0];
+      currentPerson = matchedPerson || { id: pid, userId: pid };
+      go('person/' + encodeURIComponent(pid));
+      return;
     }
     if (el.hasAttribute('data-clear-filters')){ clearFilters(); return; }
     if (el.hasAttribute('data-cat')){ $('#tSearch').value = el.getAttribute('data-cat'); renderTalent(); go('talent'); return; }
