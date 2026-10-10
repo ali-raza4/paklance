@@ -74,11 +74,21 @@ export class ContractsService {
   async fundContract(contractId: string, clientId: string, amount: number) {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
-      include: { escrow: true },
+      include: { escrow: true, client: true },
     });
 
     if (!contract) throw new NotFoundException('Contract not found');
-    if (contract.clientId !== clientId)
+    const user = await this.prisma.user.findUnique({ where: { id: clientId } });
+    const isClient =
+      contract.clientId === clientId ||
+      (contract.client &&
+        user &&
+        contract.client.email &&
+        user.email &&
+        contract.client.email.toLowerCase() === user.email.toLowerCase()) ||
+      (user && user.role === 'ADMIN');
+
+    if (!isClient)
       throw new ForbiddenException('Only client can fund this contract');
 
     return this.prisma.$transaction(async (tx) => {
@@ -99,6 +109,17 @@ export class ContractsService {
         },
       });
 
+      const firstPendingMilestone = await tx.milestone.findFirst({
+        where: { contractId, status: MilestoneStatus.PENDING },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (firstPendingMilestone) {
+        await tx.milestone.update({
+          where: { id: firstPendingMilestone.id },
+          data: { status: MilestoneStatus.FUNDED },
+        });
+      }
+
       const updatedContract = await tx.contract.update({
         where: { id: contractId },
         data: { status: ContractStatus.FUNDED },
@@ -112,11 +133,22 @@ export class ContractsService {
   async releaseMilestone(milestoneId: string, clientId: string) {
     const milestone = await this.prisma.milestone.findUnique({
       where: { id: milestoneId },
-      include: { contract: { include: { escrow: true } } },
+      include: { contract: { include: { escrow: true, client: true } } },
     });
 
     if (!milestone) throw new NotFoundException('Milestone not found');
-    if (milestone.contract.clientId !== clientId)
+    const user = await this.prisma.user.findUnique({ where: { id: clientId } });
+    const isClient =
+      milestone.contract.clientId === clientId ||
+      (milestone.contract.client &&
+        user &&
+        milestone.contract.client.email &&
+        user.email &&
+        milestone.contract.client.email.toLowerCase() ===
+          user.email.toLowerCase()) ||
+      (user && user.role === 'ADMIN');
+
+    if (!isClient)
       throw new ForbiddenException('Only client can release milestone funds');
 
     const escrow = milestone.contract.escrow;
@@ -174,6 +206,21 @@ export class ContractsService {
         data: { status: MilestoneStatus.RELEASED },
       });
 
+      // 6. Check if all milestones are released -> COMPLETED
+      const remainingUnreleased = await tx.milestone.count({
+        where: {
+          contractId: milestone.contractId,
+          id: { not: milestoneId },
+          status: { not: MilestoneStatus.RELEASED },
+        },
+      });
+      if (remainingUnreleased === 0) {
+        await tx.contract.update({
+          where: { id: milestone.contractId },
+          data: { status: ContractStatus.COMPLETED },
+        });
+      }
+
       return {
         milestone: updatedMilestone,
         remainingEscrowBalance: updatedEscrow.balance,
@@ -181,13 +228,76 @@ export class ContractsService {
     });
   }
 
+  async submitMilestone(
+    contractId: string,
+    milestoneId: string,
+    specialistId: string,
+  ) {
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: { contract: { include: { specialist: true } } },
+    });
+    if (!milestone) throw new NotFoundException('Milestone not found');
+    const user = await this.prisma.user.findUnique({
+      where: { id: specialistId },
+    });
+    const isSpec =
+      milestone.contract.specialistId === specialistId ||
+      (milestone.contract.specialist &&
+        user &&
+        milestone.contract.specialist.email &&
+        user.email &&
+        milestone.contract.specialist.email.toLowerCase() ===
+          user.email.toLowerCase()) ||
+      (user && user.role === 'ADMIN');
+
+    if (!isSpec) {
+      throw new ForbiddenException(
+        'Only the assigned specialist can submit milestone work',
+      );
+    }
+
+    await this.prisma.contract.update({
+      where: { id: milestone.contractId },
+      data: { status: ContractStatus.IN_PROGRESS },
+    });
+
+    return milestone;
+  }
+
+  async approveMilestone(
+    contractId: string,
+    milestoneId: string,
+    clientId: string,
+  ) {
+    return this.releaseMilestone(milestoneId, clientId);
+  }
+
   async findUserContracts(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const isAdmin = user && user.role === 'ADMIN';
+
+    const whereClause: any = isAdmin
+      ? {}
+      : {
+          OR: [
+            { clientId: userId },
+            { specialistId: userId },
+            user?.email ? { client: { email: user.email } } : undefined,
+            user?.email ? { specialist: { email: user.email } } : undefined,
+          ].filter(Boolean),
+        };
+
     const contracts = await this.prisma.contract.findMany({
-      where: {
-        OR: [{ clientId: userId }, { specialistId: userId }],
-      },
+      where: whereClause,
       include: {
-        job: true,
+        job: {
+          include: {
+            Proposal: {
+              where: { status: 'ACCEPTED' },
+            },
+          },
+        },
         client: {
           select: {
             id: true,
@@ -207,7 +317,7 @@ export class ContractsService {
             avatarUrl: true,
           },
         },
-        milestones: true,
+        milestones: { orderBy: { createdAt: 'asc' } },
         escrow: true,
         files: {
           include: {

@@ -49,13 +49,45 @@ export class ContractsController {
   @ApiOperation({
     summary: 'Release Milestone funds to Specialist (CLIENT only)',
   })
-  @Roles(Role.CLIENT)
+  @Roles(Role.CLIENT, Role.ADMIN)
   @Patch('milestones/:milestoneId/release')
   releaseMilestone(
     @Param('milestoneId') milestoneId: string,
     @CurrentUser('id') clientId: string,
   ) {
     return this.contractsService.releaseMilestone(milestoneId, clientId);
+  }
+
+  @ApiOperation({ summary: 'Submit milestone work (SPECIALIST only)' })
+  @Roles(Role.SPECIALIST)
+  @Post(':id/milestones/:milestoneId/submit')
+  submitMilestone(
+    @Param('id') contractId: string,
+    @Param('milestoneId') milestoneId: string,
+    @CurrentUser('id') specialistId: string,
+  ) {
+    return this.contractsService.submitMilestone(
+      contractId,
+      milestoneId,
+      specialistId,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Approve milestone and release funds (CLIENT only)',
+  })
+  @Roles(Role.CLIENT, Role.ADMIN)
+  @Post(':id/milestones/:milestoneId/approve')
+  approveMilestone(
+    @Param('id') contractId: string,
+    @Param('milestoneId') milestoneId: string,
+    @CurrentUser('id') clientId: string,
+  ) {
+    return this.contractsService.approveMilestone(
+      contractId,
+      milestoneId,
+      clientId,
+    );
   }
 
   @ApiOperation({ summary: 'Get all user contracts (Client or Specialist)' })
