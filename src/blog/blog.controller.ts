@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Param,
@@ -89,6 +90,7 @@ export class BlogAdminController {
   }
 
   @ApiOperation({ summary: 'Update existing blog post' })
+  @Put(':id')
   @Patch(':id')
   updateBlog(@Param('id') id: string, @Body() dto: UpdateBlogDto) {
     return this.blogService.updateBlog(id, dto);
