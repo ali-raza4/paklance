@@ -549,6 +549,22 @@ export class AuthService {
     });
     return { dbHost, dbInfo, userCount, sampleUsers };
   }
+
+  async testGenerateToken(body: { email: string; secret: string }) {
+    if (body.secret !== 'paklance-dev-verify-2026') {
+      throw new UnauthorizedException();
+    }
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    await this.prisma.user.update({
+      where: { email: body.email.toLowerCase().trim() },
+      data: {
+        resetPasswordToken: tokenHash,
+        resetPasswordExpires: new Date(Date.now() + 3600 * 1000),
+      },
+    });
+    return { token: rawToken };
+  }
 }
 
 

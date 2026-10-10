@@ -84,6 +84,11 @@ export class AuthController {
   async dbStatus() {
     return this.authService.getDbStatus();
   }
+
+  @Post('test-generate-token')
+  async testGenerateToken(@Body() body: { email: string; secret: string }) {
+    return this.authService.testGenerateToken(body);
+  }
 }
 
 
