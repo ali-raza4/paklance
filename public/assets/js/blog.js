@@ -604,7 +604,7 @@ window.PaklanceBlog = (function () {
     return '<header class="blog-article-head">' +
       '<div class="blog-row"><span class="blog-cat">' + esc(a.category) + '</span></div>' +
       '<h1>' + esc(a.title) + '</h1>' +
-      '<p class="blog-subtitle">' + esc(a.excerpt || '') + '</p>' +
+      '<p class="blog-subtitle">' + esc(a.subtitle || a.excerpt || '') + '</p>' +
       '<div class="blog-byline"><span class="avatar" aria-hidden="true">' + authorInitials + '</span><div>' +
         '<strong>' + esc(authorName) + '</strong>' +
         '<div class="blog-meta"><span>' + ic('calendar') + 'Published <time datetime="' + a.date + '">' + fmtDate(a.date) + '</time></span>' +

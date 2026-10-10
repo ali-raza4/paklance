@@ -2368,6 +2368,7 @@
               id: item.id,
               slug: item.slug,
               title: item.title,
+              subtitle: item.subtitle || '',
               excerpt: item.excerpt || '',
               content: item.content,
               coverImageUrl: item.coverImageUrl,
@@ -3227,6 +3228,18 @@
         };
       }
 
+      // Mobile Side Navigation Toggle
+      var sideNavToggle = $('#adminSideNavToggle');
+      if (sideNavToggle) {
+        sideNavToggle.onclick = function(){
+          var sidePanel = $('#adminSidePanel');
+          if (sidePanel) {
+            var isCollapsed = sidePanel.classList.toggle('collapsed');
+            sideNavToggle.setAttribute('aria-expanded', String(!isCollapsed));
+          }
+        };
+      }
+
       // Auto-slug button
       var autoSlugBtn = $('#blogBtnAutoSlug');
       if (autoSlugBtn) {
@@ -3379,6 +3392,60 @@
               toast('Image upload failed: ' + (e.message || ''));
             });
             this.value = '';
+          };
+        }
+
+        // Comparison Table Toolbar Button
+        var tableBtn = $('#blogToolbarTableBtn');
+        if (tableBtn) {
+          tableBtn.onmousedown = function(e){
+            e.preventDefault();
+            var editor = $('#blogRichBody');
+            if (!editor) return;
+            editor.focus();
+            var tblHtml = '<div class="blog-table-wrap">' +
+              '<table class="blog-table">' +
+              '<thead><tr><th>Feature</th><th>Paklance</th><th>Traditional Platforms</th></tr></thead>' +
+              '<tbody>' +
+              '<tr><th>SafePay Escrow</th><td>Direct PKR milestone protection via local banks</td><td>High foreign conversion &amp; withdrawal delays</td></tr>' +
+              '<tr><th>Commission Fees</th><td>Low, transparent platform fee (no cuts)</td><td>Up to 20% commission on specialist earnings</td></tr>' +
+              '<tr><th>Specialist Vetting</th><td>Verified top 3% Pakistani professionals</td><td>Uncurated spam proposals</td></tr>' +
+              '<tr><th>Local Payouts</th><td>Instant via Raast, EasyPaisa, JazzCash</td><td>Payoneer/Wire with intermediate bank charges</td></tr>' +
+              '</tbody></table></div><p><br></p>';
+            document.execCommand('insertHTML', false, tblHtml);
+          };
+        }
+
+        // Highlighted Quote Toolbar Button
+        var quoteBtn = $('#blogToolbarQuoteBtn');
+        if (quoteBtn) {
+          quoteBtn.onmousedown = function(e){
+            e.preventDefault();
+            var editor = $('#blogRichBody');
+            if (!editor) return;
+            editor.focus();
+            var qHtml = '<blockquote class="blog-quote">' +
+              '<p>"Paklance was engineered from day one to give Pakistani specialists equal global footing with zero FX friction and guaranteed payment milestones."</p>' +
+              '<cite>Paklance Editorial Team</cite>' +
+              '</blockquote><p><br></p>';
+            document.execCommand('insertHTML', false, qHtml);
+          };
+        }
+
+        // Callout Tip Toolbar Button
+        var tipBtn = $('#blogToolbarTipBtn');
+        if (tipBtn) {
+          tipBtn.onmousedown = function(e){
+            e.preventDefault();
+            var editor = $('#blogRichBody');
+            if (!editor) return;
+            editor.focus();
+            var tipHtml = '<aside class="blog-tip">' +
+              '<svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-3);flex-shrink:0;margin-top:2px"><path d="M9 18h6m-4 4h2M12 2a7 7 0 0 0-7 7c0 3 2 5 2 7h10c0-2 2-4 2-7a7 7 0 0 0-7-7z"/></svg>' +
+              '<div><strong>Pro Tip: SafePay Escrow Milestone Protection</strong>' +
+              '<p>Always verify milestone funding is confirmed before beginning deliverables to guarantee your payment.</p>' +
+              '</div></aside><p><br></p>';
+            document.execCommand('insertHTML', false, tipHtml);
           };
         }
       }
@@ -3808,6 +3875,7 @@
     var modeBadge = $('#blogEditorModeBadge');
     var idInput = $('#blogFormId');
     var titleInput = $('#blogFormTitle');
+    var subtitleInput = $('#blogFormSubtitle');
     var slugInput = $('#blogFormSlug');
     var catSelect = $('#blogFormCategory');
     var authorInput = $('#blogFormAuthor');
@@ -3832,6 +3900,7 @@
       modeBadge.style.color = '#2563EB';
 
       titleInput.value = b.title || '';
+      if (subtitleInput) subtitleInput.value = b.subtitle || '';
       slugInput.value = b.slug || '';
       catSelect.value = b.category || 'Freelancing';
       authorInput.value = b.authorName || 'Paklance Editorial Team';
@@ -3850,6 +3919,7 @@
       modeBadge.style.color = '#12A56F';
 
       titleInput.value = '';
+      if (subtitleInput) subtitleInput.value = '';
       slugInput.value = '';
       catSelect.value = 'Freelancing';
       authorInput.value = 'Paklance Editorial Team';
@@ -3870,6 +3940,7 @@
   function saveAdminBlogPost(forceStatus){
     var id = $('#blogFormId').value.trim();
     var title = $('#blogFormTitle').value.trim();
+    var subtitle = ($('#blogFormSubtitle') ? $('#blogFormSubtitle').value.trim() : '') || null;
     var slug = $('#blogFormSlug').value.trim() || slugifyText(title);
     var category = $('#blogFormCategory').value;
     var authorName = $('#blogFormAuthor').value.trim() || 'Paklance Editorial Team';
@@ -3900,6 +3971,7 @@
 
     var payload = {
       title: title,
+      subtitle: subtitle,
       slug: slug,
       category: category,
       authorName: authorName,
@@ -3944,6 +4016,7 @@
     var b = customBlog;
     if (!b){
       var title = $('#blogFormTitle').value.trim() || 'Untitled Article';
+      var subtitle = ($('#blogFormSubtitle') ? $('#blogFormSubtitle').value.trim() : '') || '';
       var slug = $('#blogFormSlug').value.trim() || 'untitled-article';
       var category = $('#blogFormCategory').value;
       var authorName = $('#blogFormAuthor').value.trim() || 'Paklance Editorial Team';
@@ -3955,6 +4028,7 @@
       var status = $('#blogFormStatus').value;
       b = {
         title: title,
+        subtitle: subtitle,
         slug: slug,
         category: category,
         authorName: authorName,
@@ -3986,8 +4060,9 @@
     container.innerHTML =
       '<div style="max-width:760px;margin:0 auto">' +
         '<div style="margin-bottom:12px"><span class="badge" style="background:#12A56F;color:#fff;font-weight:700">' + esc(b.category || 'Freelancing') + '</span></div>' +
-        '<h1 style="font-size:32px;line-height:1.25;margin:0 0 12px 0;color:var(--ink)">' + esc(b.title) + '</h1>' +
-        (b.excerpt ? '<p class="sub" style="font-size:18px;line-height:1.5;color:var(--muted);margin-bottom:16px">' + esc(b.excerpt) + '</p>' : '') +
+        '<h1 style="font-size:32px;line-height:1.25;margin:0 0 8px 0;color:var(--ink)">' + esc(b.title) + '</h1>' +
+        (b.subtitle ? '<p class="sub" style="font-size:18px;line-height:1.45;color:var(--brand-2);font-weight:500;margin-bottom:12px">' + esc(b.subtitle) + '</p>' : '') +
+        (b.excerpt ? '<p class="sub" style="font-size:16px;line-height:1.5;color:var(--muted);margin-bottom:16px">' + esc(b.excerpt) + '</p>' : '') +
         '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2);font-size:13px;color:var(--muted)">' +
           '<span><b>Author:</b> ' + esc(b.authorName || 'Paklance Editorial Team') + '</span>' +
           '<span>&bull;</span>' +
