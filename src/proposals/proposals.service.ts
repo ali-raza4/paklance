@@ -134,13 +134,35 @@ export class ProposalsService {
     });
   }
 
+  private async verifyJobOwner(userId: string, job: any): Promise<boolean> {
+    if (!job) return false;
+    if (job.clientId === userId) return true;
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return false;
+    if (user.role === 'ADMIN') return true;
+    if (
+      job.client &&
+      job.client.email &&
+      user.email &&
+      job.client.email.toLowerCase() === user.email.toLowerCase()
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   async acceptProposal(userId: string, proposalId: string) {
     const proposal = await this.prisma.proposal.findUnique({
       where: { id: proposalId },
-      include: { job: true, User: true },
+      include: {
+        job: { include: { client: { select: { id: true, email: true } } } },
+        User: true,
+      },
     });
     if (!proposal) throw new NotFoundException('Proposal not found');
-    if (proposal.job.clientId !== userId) {
+
+    const isOwner = await this.verifyJobOwner(userId, proposal.job);
+    if (!isOwner) {
       throw new ForbiddenException(
         'Only the job owner can accept proposals',
       );
@@ -201,11 +223,13 @@ export class ProposalsService {
         },
       });
 
+      const effectiveClientId = proposal.job.clientId || userId;
+
       if (!existingContract) {
         const newContract = await tx.contract.create({
           data: {
             jobId: proposal.jobId,
-            clientId: userId,
+            clientId: effectiveClientId,
             specialistId: proposal.freelancerId,
             status: 'DRAFT',
             milestones: {
@@ -223,7 +247,7 @@ export class ProposalsService {
         await tx.escrow.create({
           data: {
             contractId: newContract.id,
-            userId,
+            userId: effectiveClientId,
             balance: 0,
           },
         });
@@ -236,10 +260,14 @@ export class ProposalsService {
   async rejectProposal(userId: string, proposalId: string) {
     const proposal = await this.prisma.proposal.findUnique({
       where: { id: proposalId },
-      include: { job: true },
+      include: {
+        job: { include: { client: { select: { id: true, email: true } } } },
+      },
     });
     if (!proposal) throw new NotFoundException('Proposal not found');
-    if (proposal.job.clientId !== userId) {
+
+    const isOwner = await this.verifyJobOwner(userId, proposal.job);
+    if (!isOwner) {
       throw new ForbiddenException(
         'Only the job owner can reject proposals',
       );
@@ -265,10 +293,14 @@ export class ProposalsService {
 
     const proposal = await this.prisma.proposal.findUnique({
       where: { id: proposalId },
-      include: { job: true },
+      include: {
+        job: { include: { client: { select: { id: true, email: true } } } },
+      },
     });
     if (!proposal) throw new NotFoundException('Proposal not found');
-    if (proposal.job.clientId !== userId) {
+
+    const isOwner = await this.verifyJobOwner(userId, proposal.job);
+    if (!isOwner) {
       throw new ForbiddenException(
         'Only the job owner can update proposal status',
       );

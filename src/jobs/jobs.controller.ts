@@ -60,6 +60,18 @@ export class JobsController {
     return this.proposalsService.getProposalsByJob(userId, jobId);
   }
 
+  @ApiOperation({ summary: 'Accept proposal on a job (Owner CLIENT or ADMIN)' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.CLIENT, Role.ADMIN)
+  @Patch(':jobId/proposals/:proposalId/accept')
+  async acceptJobProposal(
+    @CurrentUser('id') userId: string,
+    @Param('proposalId') proposalId: string,
+  ) {
+    return this.proposalsService.acceptProposal(userId, proposalId);
+  }
+
   @ApiOperation({ summary: 'Post a new job (CLIENT only)' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
