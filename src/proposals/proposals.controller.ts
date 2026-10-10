@@ -43,6 +43,14 @@ export class ProposalsController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get('client')
+  getClientProposals(@Req() req: Request) {
+    const userId = (req as any).user.id;
+    return this.proposalsService.getClientProposals(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get('job/:jobId')
   getProposalsByJob(@Req() req: Request, @Param('jobId') jobId: string) {
     const userId = (req as any).user.id;

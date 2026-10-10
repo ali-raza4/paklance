@@ -36,17 +36,73 @@ export class ProposalsService {
   }
 
   async getProposalsByJob(userId: string, jobId: string) {
-    const job = await this.prisma.job.findUnique({ where: { id: jobId } });
+    const job = await this.prisma.job.findUnique({
+      where: { id: jobId },
+      include: { client: { select: { id: true, email: true } } },
+    });
     if (!job) throw new NotFoundException('Job not found');
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const isAdmin = user && user.role === 'ADMIN';
-    if (job.clientId !== userId && !isAdmin) {
+    const isOwner =
+      job.clientId === userId ||
+      (job.client &&
+        user &&
+        job.client.email &&
+        user.email &&
+        job.client.email.toLowerCase() === user.email.toLowerCase());
+    if (!isOwner && !isAdmin) {
       throw new ForbiddenException('Only the job owner can view proposals');
     }
 
     return this.prisma.proposal.findMany({
       where: { jobId },
       include: {
+        User: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            headline: true,
+            city: true,
+            country: true,
+            avatarUrl: true,
+            skills: true,
+            hourlyRate: true,
+            availability: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getClientProposals(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    const isAdmin = user && user.role === 'ADMIN';
+
+    const whereClause: any = isAdmin
+      ? {}
+      : {
+          OR: [
+            { job: { clientId: userId } },
+            user.email
+              ? { job: { client: { email: user.email } } }
+              : { job: { clientId: userId } },
+          ],
+        };
+
+    return this.prisma.proposal.findMany({
+      where: whereClause,
+      include: {
+        job: {
+          select: {
+            id: true,
+            title: true,
+            budget: true,
+            clientId: true,
+          },
+        },
         User: {
           select: {
             id: true,
