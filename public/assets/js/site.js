@@ -40,29 +40,66 @@
       var e = new Error('Can’t reach Paklance right now. Check your connection and try again.'); e.code = 'NETWORK'; throw e;
     });
   }
+  function inferCategory(title, desc){
+    var text = ((title || '') + ' ' + (desc || '')).toLowerCase();
+    if (/copywrit|content|paper|article|proofread|translat|blog|writer|writing/i.test(text)) return 'Writing';
+    if (/design|ui|ux|graphic|logo|figma|brand|illustrat/i.test(text)) return 'Design';
+    if (/develop|software|code|engineer|react|node|python|web|full.?stack|frontend|backend|api|database|app/i.test(text)) return 'Development';
+    if (/market|seo|social.?media|ads|growth|campaign|sem/i.test(text)) return 'Marketing';
+    if (/video|animat|motion|editing|audio/i.test(text)) return 'Video';
+    if (/ai|data|machine.?learning|deep.?learning|analyst/i.test(text)) return 'AI & Data';
+    return 'Other';
+  }
+
+  function extractSkills(j){
+    if (Array.isArray(j.skills) && j.skills.length) return j.skills;
+    var skills = [];
+    var desc = j.description || j.desc || '';
+    var m = desc.match(/(?:required skills|skills required|skills|technologies)\s*:\s*([^\n\r*]+)/i);
+    if (m){
+      skills = m[1].split(/[,•|/]+/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 1; });
+    }
+    if (!skills.length){
+      var cat = inferCategory(j.title || '', desc);
+      if (cat === 'Writing') skills = ['Writing', 'Content', 'Research'];
+      else if (cat === 'Development') skills = ['Web Development', 'Software'];
+      else if (cat === 'Design') skills = ['UI/UX', 'Design'];
+      else if (cat === 'Marketing') skills = ['Digital Marketing', 'SEO'];
+      else if (cat === 'Video') skills = ['Video Editing'];
+      else skills = ['Specialist'];
+    }
+    return skills;
+  }
+
   // Normalise NestJS Job entity to the shape the UI templates expect.
   // NestJS returns flat Job[] array; old frontend expected { jobs, clientLabel, safepay, category, isSample, milestones[] }
   function fromApiJob(j){
-    var clientName = (j.client && (j.client.name || j.client.email)) || 'Client';
-    // Milestones may be absent on the list endpoint — produce a single placeholder if missing
+    var clientName = (j.client && (j.client.name || (j.client.email ? j.client.email.split('@')[0] : null))) || 'Client';
+    var clientCity = (j.client && j.client.city) || j.city || 'Pakistan';
+    var isClientVerified = !!(j.clientVerified || (j.client && (j.client.isVerified || j.client.isEmailVerified || (j.client.verification && j.client.verification.status === 'APPROVED'))));
+    var cat = j.category || inferCategory(j.title, j.description);
+    var skills = extractSkills(j);
+    var proposalsCount = (j._count && typeof j._count.Proposal === 'number') ? j._count.Proposal : (Number(j.proposals) || 0);
+
     var ms = Array.isArray(j.milestones) && j.milestones.length
       ? j.milestones.map(function(m){ return [m.title, Number(m.amount)]; })
-      : [['Project', Number(j.budget) || 0]];
+      : [['Project milestone', Number(j.budget) || 0]];
     return {
-      id:       j.id,
-      clientId: j.clientId || j.client_id || (j.client && (j.client.id || j.client.userId)) || null,
-      title:    j.title,
-      client:   clientName,
-      city:     j.city || 'Pakistan',
-      cat:      j.category || 'Other',
-      budget:   Number(j.budget) || 0,
-      type:     j.type || 'Fixed price',
-      verified: !!(j.clientVerified || (j.client && j.client.isVerified)),
-      safepay:  !!(j.safepay !== undefined ? j.safepay : true),
-      skills:   Array.isArray(j.skills) ? j.skills : [],
-      desc:     j.description || '',
-      ms:       ms,
-      sample:   j.isSample === false ? false : undefined
+      id:        String(j.id),
+      clientId:  j.clientId || j.client_id || (j.client && (j.client.id || j.client.userId)) || null,
+      title:     j.title || 'Untitled Job',
+      client:    clientName,
+      city:      clientCity,
+      cat:       cat,
+      budget:    Number(j.budget) || 0,
+      type:      j.type || 'Fixed price',
+      verified:  isClientVerified,
+      safepay:   !!(j.safepay !== undefined ? j.safepay : true),
+      skills:    skills,
+      desc:      j.description || j.desc || '',
+      ms:        ms,
+      proposals: proposalsCount,
+      sample:    j.isSample === false ? false : undefined
     };
   }
   // Normalise Profile/User entity to the shape the talent card templates expect.
@@ -112,10 +149,39 @@
   function route(){
     var r = (location.hash || '#home').slice(1);
     var blogSlug = null;
+    var jobParamId = null;
     if (r.indexOf('blog/') === 0){ blogSlug = decodeURIComponent(r.slice(5)); r = PaklanceBlog.has(blogSlug) ? 'article' : 'blog'; }
     else if (r === 'article') r = 'blog';
+    else if (r.indexOf('job/') === 0){ jobParamId = decodeURIComponent(r.slice(4)); r = 'job'; }
+    else if (r.indexOf('jobs/') === 0 && r.length > 5){ jobParamId = decodeURIComponent(r.slice(5)); r = 'job'; }
+
     if (VIEWS.indexOf(r) < 0) r = 'home';
-    if (r === 'job' && !currentJob) r = 'jobs';
+    if (jobParamId){
+      var matched = JOBS.filter(function(j){ return String(j.id) === String(jobParamId); })[0];
+      if (matched) currentJob = matched;
+    }
+    if (r === 'job' && !currentJob){
+      if (jobParamId){
+        var jd = $('#jobDetail');
+        if (jd) jd.innerHTML = '<div class="empty"><h3>Loading job details…</h3></div>';
+        api('GET', '/jobs/' + encodeURIComponent(jobParamId)).then(function(res){
+          if (res && res.id){
+            var norm = fromApiJob(res);
+            currentJob = norm;
+            if (!JOBS.some(function(x){ return String(x.id) === String(norm.id); })) JOBS.push(norm);
+            renderJobDetail();
+          } else {
+            toast('Job not found.');
+            go('jobs');
+          }
+        }).catch(function(){
+          toast('Job not found.');
+          go('jobs');
+        });
+      } else {
+        r = 'jobs';
+      }
+    }
     if (r === 'person' && !currentPerson) r = 'talent';
     if (r === 'dashboard' && !PaklanceAuth.getUser()){ r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0); }
     if (r === 'dashboard') renderDashboard();
@@ -126,7 +192,7 @@
     $$('[data-nav]').forEach(function(a){ a.classList.toggle('active', a.getAttribute('data-nav') === navKey); });
     var bnKey = (navKey === 'jobs' || navKey === 'talent') ? 'find' : navKey;
     $$('[data-bn]').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-bn') === bnKey); });
-    if (r === 'job') renderJobDetail();
+    if (r === 'job' && currentJob) renderJobDetail();
     if (r === 'person'){ if (own) renderMyProfile(); else renderPerson(); }
     if (r === 'blog') PaklanceBlog.renderIndex(); else if (r === 'article') PaklanceBlog.renderArticle(blogSlug); else PaklanceBlog.leave();
     $('#mobileMenu').hidden = true; $('#burger').setAttribute('aria-expanded','false');
@@ -136,28 +202,36 @@
   function go(r){ if (location.hash === '#' + r) route(); else location.hash = r; }
   window.addEventListener('hashchange', route);
 
-  // /pricing, /blog/<slug> … (links from search engines and shares) open the matching hash page.
+  // /pricing, /jobs/<id>, /blog/<slug> … (links from search engines and shares) open the matching hash page.
   function pathToHash(){
     var p = location.pathname.replace(/\/+$/, '');
     if (!p || location.hash) return;
-    var m = p.match(/^\/(jobs|talent|how|global|match|trust|pricing|dashboard|blog)(?:\/([^\/]+))?$/);
-    if (m) history.replaceState(null, '', '/#' + m[1] + (m[1] === 'blog' && m[2] ? '/' + m[2] : ''));
+    var m = p.match(/^\/(jobs|job|talent|person|how|global|match|trust|pricing|dashboard|blog)(?:\/([^\/]+))?$/);
+    if (m){
+      if ((m[1] === 'job' || m[1] === 'jobs') && m[2]){
+        history.replaceState(null, '', '/#job/' + m[2]);
+      } else if (m[1] === 'blog' && m[2]){
+        history.replaceState(null, '', '/#blog/' + m[2]);
+      } else {
+        history.replaceState(null, '', '/#' + m[1]);
+      }
+    }
   }
 
   /* ---------- jobs ---------- */
   // sampleChip: only show for explicitly sample-flagged items (isSample !== false means from built-in fallback)
   function sampleChip(x, label){ return x.sample === false ? '' : ''; }
-  function tagsHtml(list){ return list.map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join(''); }
+  function tagsHtml(list){ return (list || []).map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join(''); }
   function jobCard(j){
     return '<article class="job-card">' +
-      '<div class="job-top"><h3>' + esc(j.title) + '</h3>' + sampleChip(j) + '</div>' +
+      '<div class="job-top"><h3 style="cursor:pointer" data-job="' + esc(j.id) + '">' + esc(j.title) + '</h3>' + sampleChip(j) + '</div>' +
       '<div class="job-meta"><span>' + esc(j.client) + ' · ' + esc(j.city) + '</span><span>' + esc(j.cat) + '</span>' +
         (j.verified ? '<span class="ok"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Verified client</span>' : '<span>Client not yet verified</span>') + '</div>' +
       '<p>' + esc(j.desc) + '</p>' +
       '<div class="tags">' + tagsHtml(j.skills) + '</div>' +
       '<div class="job-foot"><div class="budget"><span>Budget</span><strong>' + fmt(j.budget) + '</strong></div>' +
         (j.safepay ? '<span class="chip chip-safe"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-shield"/></svg>SafePay</span>' : '') +
-        '<button class="btn btn-outline btn-sm" type="button" data-job="' + j.id + '">View job</button></div>' +
+        '<button class="btn btn-outline btn-sm" type="button" data-job="' + esc(j.id) + '">View job</button></div>' +
     '</article>';
   }
   /* ---------- price range slider (Find work filters) ----------
@@ -248,11 +322,12 @@
   function renderJobDetail(){
     var j = currentJob; if (!j) return;
     var real = j.sample === false;
+    var proposalCountText = j.proposals === 1 ? '1 proposal' : (j.proposals + ' proposals');
     $('#jobDetail').innerHTML =
       '<article class="card">' +
         '<div class="job-top"><div><span class="eyebrow">' + esc(j.cat) + '</span><h2 style="margin-top:6px">' + esc(j.title) + '</h2></div>' + sampleChip(j) + '</div>' +
         '<div class="job-meta" style="margin-top:10px"><span>' + esc(j.client) + ' · ' + esc(j.city) + '</span>' + (j.verified ? '<span class="ok"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Verified client</span>' : '<span>Client not yet verified</span>') + '</div>' +
-        '<p>' + esc(j.desc) + '</p>' +
+        '<div class="job-description" style="margin-top:14px;white-space:pre-line;line-height:1.6;color:var(--ink-2)">' + esc(j.desc) + '</div>' +
         '<h4>Skills</h4><div class="tags">' + tagsHtml(j.skills) + '</div>' +
         '<h4>Milestones</h4><ol class="milestones" style="margin-top:0">' + j.ms.map(function(m, i){
           return '<li class="ms"><span class="ms-no">' + (i + 1) + '</span><div><strong>' + esc(m[0]) + '</strong><span class="ms-sub">' + fmt(m[1]) + '</span></div>' +
@@ -264,16 +339,37 @@
         '<div class="kv"><span>Type</span><strong>' + esc(j.type) + '</strong></div>' +
         '<div class="kv"><span>Milestones</span><strong>' + j.ms.length + '</strong></div>' +
         '<div class="kv"><span>Payment</span><strong>' + (j.safepay ? 'SafePay protected' : 'Agreed directly') + '</strong></div>' +
-        '<button class="btn btn-primary btn-block" type="button" data-apply="' + j.id + '">Apply for this job</button>' +
+        '<div class="kv"><span>Proposals</span><strong>' + esc(proposalCountText) + '</strong></div>' +
+        '<button class="btn btn-primary btn-block" type="button" data-apply="' + esc(j.id) + '">Apply for this job</button>' +
         (j.clientId ? '<button class="btn btn-outline btn-block pk-contact-btn" style="margin-top:8px" type="button" data-msg-user-id="' + esc(j.clientId) + '" data-msg-user-name="' + esc(j.client || 'Client') + '" data-msg-user-role="Client">Message Client</button>' : '') +
         '<p class="help" style="margin-top:12px">Your name and skills are shared with the client when you apply.</p>' +
       '</div></aside>';
   }
   function applyToJob(id){
     if (!PaklanceAuth.getUser()){ PaklanceAuth.open('signup'); toast('Create an account or log in to apply.'); return; }
-    api('POST', '/jobs/' + id + '/proposals', {}).then(function(){
+    var j = currentJob || JOBS.filter(function(x){ return String(x.id) === String(id); })[0];
+    var bid = j ? j.budget : 1000;
+    var payload = {
+      jobId: String(id),
+      coverLetter: 'I am interested in this project and ready to deliver quality work.',
+      bidAmount: bid,
+      deliveryDays: 7
+    };
+    api('POST', '/jobs/' + encodeURIComponent(id) + '/proposals', payload).then(function(){
       toast('Application sent. The client can now see your name and skills.');
-    }).catch(handleError);
+      if (j) j.proposals = (j.proposals || 0) + 1;
+      if (currentJob && String(currentJob.id) === String(id)) renderJobDetail();
+    }).catch(function(err){
+      if (err && (err.code === 'SERVER_ERROR' || err.status === 404)) {
+        api('POST', '/proposals', payload).then(function(){
+          toast('Application sent. The client can now see your name and skills.');
+          if (j) j.proposals = (j.proposals || 0) + 1;
+          if (currentJob && String(currentJob.id) === String(id)) renderJobDetail();
+        }).catch(handleError);
+      } else {
+        handleError(err);
+      }
+    });
   }
 
   /* ---------- talent ---------- */
@@ -690,7 +786,7 @@
     }
     if (el.hasAttribute('data-open')){ openModal(el.getAttribute('data-open')); return; }
     if (el.hasAttribute('data-close')){ closeModals(); return; }
-    if (el.hasAttribute('data-apply')){ applyToJob(+el.getAttribute('data-apply')); return; }
+    if (el.hasAttribute('data-apply')){ applyToJob(el.getAttribute('data-apply')); return; }
     if (el.hasAttribute('data-approve')){
       var ms = CONTRACT && CONTRACT.milestones.filter(function(m){ return String(m.id) === el.getAttribute('data-approve'); })[0];
       if (ms && window.confirm('Approve “' + ms.title + '” and release ' + fmt(ms.amount) + ' to ' + CONTRACT.freelancer.name + '?')) milestoneAction(ms.id + '/approve', 'Milestone approved. Payment released.');
@@ -698,8 +794,11 @@
     }
     if (el.hasAttribute('data-submit-ms')){ milestoneAction(el.getAttribute('data-submit-ms') + '/submit', 'Work submitted. The client has been notified.'); return; }
     if (el.hasAttribute('data-job')){
-      var id = +el.getAttribute('data-job');
-      currentJob = JOBS.filter(function(j){ return j.id === id; })[0] || null; go('job'); return;
+      var id = el.getAttribute('data-job');
+      var matched = JOBS.filter(function(j){ return String(j.id) === String(id); })[0] || null;
+      if (matched) currentJob = matched;
+      go('job/' + encodeURIComponent(id));
+      return;
     }
     if (el.hasAttribute('data-person')){
       var pid = el.getAttribute('data-person');
