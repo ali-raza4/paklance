@@ -524,47 +524,7 @@ export class AuthService {
         'Your password has been successfully reset. You may now log in with your new password.',
     };
   }
-
-  async getDbStatus() {
-    let dbHost = 'unknown';
-    try {
-      if (process.env.DATABASE_URL) {
-        dbHost = new URL(process.env.DATABASE_URL).host;
-      }
-    } catch {}
-    const dbInfo: any = await this.prisma.$queryRawUnsafe(`
-      SELECT current_database() as db, inet_server_addr() as ip, version() as ver
-    `);
-    const userCount = await this.prisma.user.count();
-    const sampleUsers = await this.prisma.user.findMany({
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        isEmailVerified: true,
-        resetPasswordToken: true,
-      },
-    });
-    return { dbHost, dbInfo, userCount, sampleUsers };
-  }
-
-  async testGenerateToken(body: { email: string; secret: string }) {
-    if (body.secret !== 'paklance-dev-verify-2026') {
-      throw new UnauthorizedException();
-    }
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-    await this.prisma.user.update({
-      where: { email: body.email.toLowerCase().trim() },
-      data: {
-        resetPasswordToken: tokenHash,
-        resetPasswordExpires: new Date(Date.now() + 3600 * 1000),
-      },
-    });
-    return { token: rawToken };
-  }
 }
+
 
 
