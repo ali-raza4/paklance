@@ -37,7 +37,9 @@ export class AdminService {
       select: {
         id: true,
         email: true,
+        name: true,
         role: true,
+        isEmailVerified: true,
         createdAt: true,
         headline: true,
         availability: true,
