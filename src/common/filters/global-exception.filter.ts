@@ -52,7 +52,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       message,
-      ...(process.env.NODE_ENV !== 'production' ? { errorDetail: errMsg } : {}),
+      errorDetail: errMsg,
     });
   }
 }

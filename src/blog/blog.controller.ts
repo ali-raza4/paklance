@@ -26,20 +26,16 @@ import { StorageService } from '../storage/storage.service';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
 
-@ApiTags('Blog & Content Management')
-@Controller()
-export class BlogController {
-  constructor(
-    private readonly blogService: BlogService,
-    private readonly storageService: StorageService,
-  ) {}
+/* =========================================================================
+   PUBLIC BLOG CONTROLLER (/api/blog/...)
+   ========================================================================= */
+@ApiTags('Blog Public')
+@Controller('blog')
+export class BlogPublicController {
+  constructor(private readonly blogService: BlogService) {}
 
-  /* =========================================================================
-     PUBLIC ENDPOINTS (For Public Website)
-     ========================================================================= */
-
-  @ApiOperation({ summary: 'Get published blog posts with optional filters' })
-  @Get(['blog/articles', 'blog'])
+  @ApiOperation({ summary: 'Get published blog posts' })
+  @Get('articles')
   getPublishedBlogs(
     @Query('category') category?: string,
     @Query('search') search?: string,
@@ -49,22 +45,30 @@ export class BlogController {
     return this.blogService.getPublishedBlogs({ category, search, limit, skip });
   }
 
-  @ApiOperation({ summary: 'Get published blog post by URL slug' })
-  @Get(['blog/articles/:slug', 'blog/:slug'])
+  @ApiOperation({ summary: 'Get published blog post by slug' })
+  @Get('articles/:slug')
   getBlogBySlug(@Param('slug') slug: string) {
     return this.blogService.getBlogBySlug(slug, false);
   }
+}
 
-  /* =========================================================================
-     ADMIN ENDPOINTS (Protected: Admin Only)
-     ========================================================================= */
+/* =========================================================================
+   ADMIN BLOG CONTROLLER (/api/admin/blogs/...)
+   ========================================================================= */
+@ApiTags('Blog Admin')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
+@Controller('admin/blogs')
+export class BlogAdminController {
+  constructor(
+    private readonly blogService: BlogService,
+    private readonly storageService: StorageService,
+  ) {}
 
-  @ApiOperation({ summary: 'Get all blogs (Drafts, Published, Archived) for Admin' })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Get('admin/blogs')
-  getAllBlogsForAdmin(
+  @ApiOperation({ summary: 'Get all blogs for Admin' })
+  @Get()
+  getAllBlogs(
     @Query('status') status?: string,
     @Query('search') search?: string,
     @Query('category') category?: string,
@@ -72,64 +76,39 @@ export class BlogController {
     return this.blogService.getAllBlogsForAdmin({ status, search, category });
   }
 
-  @ApiOperation({ summary: 'Get single blog post by ID (Admin preview/edit)' })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Get('admin/blogs/:id')
-  getAdminBlogById(@Param('id') id: string) {
+  @ApiOperation({ summary: 'Get single blog post by ID' })
+  @Get(':id')
+  getBlogById(@Param('id') id: string) {
     return this.blogService.getBlogById(id);
   }
 
-  @ApiOperation({ summary: 'Create new blog post (Admin only)' })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Post('admin/blogs')
+  @ApiOperation({ summary: 'Create new blog post' })
+  @Post()
   createBlog(@Body() dto: CreateBlogDto) {
     return this.blogService.createBlog(dto);
   }
 
-  @ApiOperation({ summary: 'Update existing blog post (Admin only)' })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Patch('admin/blogs/:id')
+  @ApiOperation({ summary: 'Update existing blog post' })
+  @Patch(':id')
   updateBlog(@Param('id') id: string, @Body() dto: UpdateBlogDto) {
     return this.blogService.updateBlog(id, dto);
   }
 
-  @ApiOperation({ summary: 'Delete blog post (Admin only)' })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Delete('admin/blogs/:id')
+  @ApiOperation({ summary: 'Delete blog post' })
+  @Delete(':id')
   deleteBlog(@Param('id') id: string) {
     return this.blogService.deleteBlog(id);
   }
 
   @ApiOperation({ summary: 'Upload blog cover or in-content image' })
-  @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Post('admin/blogs/upload-image')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: MAX_IMAGE_SIZE },
-    }),
-  )
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_SIZE } }))
   async uploadBlogImage(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('Image file is required');
-    }
-
+    if (!file) throw new BadRequestException('Image file is required');
     if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      throw new BadRequestException(
-        'Invalid image format. Supported formats: JPEG, PNG, WebP, GIF, SVG',
-      );
+      throw new BadRequestException('Invalid image format. Supported formats: JPEG, PNG, WebP, GIF, SVG');
     }
-
     const url = await this.storageService.uploadFile(file);
     return { url };
   }

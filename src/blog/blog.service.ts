@@ -162,8 +162,6 @@ export class BlogService {
   }
 
   async getPublishedBlogs(query?: { category?: string; search?: string; limit?: number; skip?: number }) {
-    await this.seedInitialBlogsIfEmpty();
-
     const where: any = {
       status: BlogStatus.PUBLISHED,
     };
@@ -177,16 +175,18 @@ export class BlogService {
         { title: { contains: q, mode: 'insensitive' } },
         { excerpt: { contains: q, mode: 'insensitive' } },
         { content: { contains: q, mode: 'insensitive' } },
-        { tags: { has: q } },
       ];
     }
+
+    const take = query?.limit ? parseInt(String(query.limit), 10) : 50;
+    const skip = query?.skip ? parseInt(String(query.skip), 10) : 0;
 
     const [articles, total] = await Promise.all([
       this.prisma.blogPost.findMany({
         where,
         orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
-        take: query?.limit ? Number(query.limit) : 50,
-        skip: query?.skip ? Number(query.skip) : 0,
+        take: isNaN(take) ? 50 : Math.min(take, 100),
+        skip: isNaN(skip) ? 0 : skip,
       }),
       this.prisma.blogPost.count({ where }),
     ]);
