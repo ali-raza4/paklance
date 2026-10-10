@@ -447,7 +447,7 @@
             (specId ? '<button class="btn btn-outline btn-sm" type="button" data-person="' + esc(specId) + '">View Profile</button>' : '') +
             (specId ? '<button class="btn btn-outline btn-sm pk-contact-btn" type="button" data-msg-user-id="' + esc(specId) + '" data-msg-user-name="' + esc(name) + '" data-msg-user-role="Specialist">Message Specialist</button>' : '') +
             (isPending ? '<button class="btn btn-primary btn-sm" type="button" data-accept-proposal="' + esc(p.id) + '">Accept Proposal</button>' : '') +
-            (isAccepted ? '<span class="chip chip-verified" style="display:inline-flex;align-items:center;gap:4px"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Accepted</span>' : '') +
+            (isAccepted ? '<span class="chip chip-verified" style="display:inline-flex;align-items:center;gap:4px"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Accepted</span><button class="btn btn-primary btn-sm" type="button" data-view-contract-job="' + esc(p.jobId) + '">View Contract / Start Project</button>' : '') +
           '</div>';
 
           return '<article class="card proposal-card" style="padding:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px">' +
@@ -505,6 +505,7 @@
             '<span class="muted">Status:</span><span class="chip ' + statusClass + '">' + esc(myProp.status || 'PENDING') + '</span>' +
           '</div>' +
           (myProp.coverLetter ? ('<div style="border-top:1px solid var(--line);padding-top:6px"><strong style="display:block;font-size:11px;color:var(--ink-3);margin-bottom:2px">Cover Letter:</strong><p style="margin:0;color:var(--ink-2);font-size:12px;white-space:pre-wrap">' + esc(myProp.coverLetter) + '</p></div>') : '') +
+          (myProp.status === 'ACCEPTED' ? ('<button class="btn btn-primary btn-block" style="margin-top:10px" type="button" data-view-contract-job="' + esc(myProp.jobId) + '">View Contract / Project Status</button>') : '') +
         '</div>';
     }).catch(noop);
   }
@@ -834,31 +835,157 @@
   function firstMs(c, states){ return c.milestones.filter(function(m){ return states.indexOf(m.status) > -1; })[0] || null; }
   function fundTarget(c){ return firstMs(c, ['funding_pending', 'unfunded']); }
 
+  function fromApiContract(c, myId){
+    if (!c) return null;
+    var user = PaklanceAuth.getUser() || {};
+    var currentUserId = myId || user.id || '';
+    var currentUserEmail = (user.email || '').toLowerCase();
+    
+    var isClient = (c.clientId && c.clientId === currentUserId) ||
+                   (c.client && c.client.id === currentUserId) ||
+                   (c.client && c.client.email && c.client.email.toLowerCase() === currentUserEmail) ||
+                   (String(user.role || '').toLowerCase() === 'client');
+                   
+    var role = isClient ? 'client' : 'freelancer';
+    var clientName = (c.client && (c.client.name || c.client.fullName)) || 'Client';
+    var specName = (c.specialist && (c.specialist.name || c.specialist.fullName)) || 'Specialist';
+    var jobTitle = (c.job && c.job.title) || c.title || 'Project Contract';
+    
+    // Find accepted proposal details if attached
+    var prop = (c.job && c.job.Proposal && c.job.Proposal[0]) || null;
+    var scope = (prop && prop.coverLetter) || c.description || (c.job && c.job.description) || '';
+    var deliveryDays = (prop && prop.deliveryDays) || 7;
+    var totalValue = Number(c.totalAmount || (prop && prop.bidAmount) || (c.job && c.job.budget) || 0);
+    
+    var rawMilestones = Array.isArray(c.milestones) ? c.milestones : [];
+    if (!rawMilestones.length && totalValue > 0){
+      rawMilestones = [{
+        id: c.id + '-m1',
+        title: 'Project Delivery & Milestones',
+        amount: totalValue,
+        status: (c.status === 'FUNDED' || c.status === 'ACTIVE') ? 'FUNDED' : 'PENDING'
+      }];
+    }
+    
+    var releasedTotal = 0;
+    var protectedTotal = (c.escrow && Number(c.escrow.balance || c.escrow.amount)) || 0;
+    
+    var milestones = rawMilestones.map(function(m, idx){
+      var st = String(m.status || 'PENDING').toLowerCase();
+      var normStatus = 'unfunded';
+      if (st === 'released' || st === 'approved') {
+        normStatus = 'released';
+        releasedTotal += Number(m.amount || 0);
+      } else if (st === 'submitted' || c.status === 'IN_PROGRESS') {
+        normStatus = 'submitted';
+      } else if (st === 'funded') {
+        normStatus = 'funded';
+      } else {
+        normStatus = (c.status === 'FUNDED' || c.status === 'ACTIVE' || c.status === 'IN_PROGRESS') ? 'funded' : 'unfunded';
+      }
+      return {
+        id: m.id,
+        position: idx + 1,
+        title: m.title || ('Milestone ' + (idx + 1)),
+        amount: Number(m.amount || 0),
+        status: normStatus,
+        rawStatus: m.status
+      };
+    });
+    
+    var contractStatus = String(c.status || 'DRAFT').toLowerCase();
+    var isActuallyFunded = (contractStatus === 'funded' || contractStatus === 'active' || contractStatus === 'in_progress' || protectedTotal > 0);
+    
+    return {
+      id: c.id,
+      code: c.id.slice(0, 8).toUpperCase(),
+      jobId: c.jobId,
+      title: jobTitle,
+      scope: scope,
+      deliveryDays: deliveryDays,
+      status: isActuallyFunded ? 'active' : contractStatus,
+      rawStatus: c.status,
+      role: role,
+      client: {
+        id: (c.client && c.client.id) || c.clientId,
+        name: clientName,
+        verified: true
+      },
+      freelancer: {
+        id: (c.specialist && c.specialist.id) || c.specialistId,
+        name: specName,
+        verified: true
+      },
+      totals: {
+        value: totalValue,
+        released: releasedTotal,
+        protected: protectedTotal
+      },
+      milestones: milestones,
+      escrow: c.escrow,
+      review: c.review || null
+    };
+  }
+
   function contractHtml(c){
     var ck = '<svg class="ic ic-sm" aria-hidden="true"><use href="#i-check"/></svg>';
     var other = c.role === 'client' ? c.freelancer : c.client;
+    var otherName = other.name || (c.role === 'client' ? 'Specialist' : 'Client');
+    var otherRole = c.role === 'client' ? 'Specialist' : 'Client';
     var actions = '<button class="btn btn-outline" type="button" data-open="dispute">Open a case</button>';
-    // Message button for the counterpart
-    var otherName = other.name || (c.role === 'client' ? 'Freelancer' : 'Client');
-    var otherRole = c.role === 'client' ? 'Freelancer' : 'Client';
     if (other.id) {
       actions += '<button class="btn btn-outline" type="button" data-msg-user-id="' + esc(other.id) + '" data-msg-user-name="' + esc(otherName) + '" data-msg-user-role="' + esc(otherRole) + '">Message ' + esc(otherName.split(' ')[0]) + '</button>';
     }
-    var fund = c.role === 'client' && fundTarget(c), sub = firstMs(c, ['submitted']), work = firstMs(c, ['funded', 'changes_requested']);
-    if (c.status === 'active'){
-      if (c.role === 'client' && sub) actions += '<button class="btn btn-primary" type="button" data-approve="' + sub.id + '">Approve milestone ' + sub.position + '</button>';
-      else if (fund) actions += '<button class="btn btn-primary" type="button" data-open="escrow">Fund milestone ' + fund.position + '</button>';
-      else if (c.role === 'freelancer' && work) actions += '<button class="btn btn-primary" type="button" data-submit-ms="' + work.id + '">Submit milestone ' + work.position + '</button>';
+    var fund = c.role === 'client' && fundTarget(c);
+    var sub = firstMs(c, ['submitted']);
+    var work = firstMs(c, ['funded', 'changes_requested']);
+    
+    // Status chip
+    var statusChip = '<span class="chip chip-muted">Draft / Escrow Pending</span>';
+    if (c.rawStatus === 'FUNDED' || c.status === 'active'){
+      statusChip = '<span class="chip chip-safe"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>SafePay Escrow Protected</span>';
+    } else if (c.rawStatus === 'COMPLETED'){
+      statusChip = '<span class="chip chip-verified"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Completed</span>';
     }
+
+    // Role-specific Next Actions
+    var nextActionBanner = '';
+    if (c.role === 'client'){
+      if (c.status === 'active' && sub){
+        actions += '<button class="btn btn-primary" type="button" data-approve="' + sub.id + '">Approve milestone ' + sub.position + ' &amp; Release Funds</button>';
+        nextActionBanner = '<div class="alert-info" style="margin:14px 0;padding:12px 14px;border-radius:8px;background:var(--card);border:1px solid var(--teal)"><strong>Next Action: Review Work Deliverables</strong><p style="margin:4px 0 0;font-size:13px;color:var(--ink-2)">' + esc(c.freelancer.name) + ' has submitted work for Milestone ' + sub.position + '. Review deliverables and approve to release payment.</p></div>';
+      } else if (fund){
+        actions += '<button class="btn btn-primary" type="button" data-open="escrow">Fund milestone ' + fund.position + ' with SafePay</button>';
+        nextActionBanner = '<div class="alert-info" style="margin:14px 0;padding:12px 14px;border-radius:8px;background:var(--card);border:1px solid var(--accent)"><strong>Next Action: Fund Escrow via SafePay</strong><p style="margin:4px 0 0;font-size:13px;color:var(--ink-2)">To start this project, deposit Milestone ' + fund.position + ' (' + fmt(fund.amount) + ') into SafePay escrow. Funds remain securely locked until you approve the specialist’s work.</p></div>';
+      } else if (c.status === 'active'){
+        nextActionBanner = '<div class="alert-info" style="margin:14px 0;padding:12px 14px;border-radius:8px;background:var(--card);border:1px solid var(--teal)"><strong>SafePay Escrow Protected · Work in Progress</strong><p style="margin:4px 0 0;font-size:13px;color:var(--ink-2)">Escrow is funded. ' + esc(c.freelancer.name) + ' has been notified to proceed with work.</p></div>';
+      }
+    } else {
+      // Freelancer / Specialist
+      if (c.status === 'active' && sub){
+        nextActionBanner = '<div class="alert-info" style="margin:14px 0;padding:12px 14px;border-radius:8px;background:var(--card);border:1px solid var(--line)"><strong>Milestone Submitted · Awaiting Client Approval</strong><p style="margin:4px 0 0;font-size:13px;color:var(--ink-2)">Your milestone deliverables have been submitted. ' + esc(c.client.name) + ' will review and release payment to your wallet.</p></div>';
+      } else if (c.status === 'active' && work){
+        actions += '<button class="btn btn-primary" type="button" data-submit-ms="' + work.id + '">Submit Milestone ' + work.position + ' for Review</button>';
+        nextActionBanner = '<div class="alert-info" style="margin:14px 0;padding:12px 14px;border-radius:8px;background:var(--card);border:1px solid var(--teal)"><strong>Project Ready to Start · Escrow Funded</strong><p style="margin:4px 0 0;font-size:13px;color:var(--ink-2)">Client has funded escrow with SafePay (' + fmt(c.totals.protected) + ' protected). You can safely start work! Submit milestone deliverables when ready.</p></div>';
+      } else if (!c.totals.protected && c.rawStatus !== 'COMPLETED'){
+        nextActionBanner = '<div class="alert-info" style="margin:14px 0;padding:12px 14px;border-radius:8px;background:var(--card);border:1px solid var(--line)"><strong>Next Step: Awaiting Client Escrow Deposit</strong><p style="margin:4px 0 0;font-size:13px;color:var(--ink-2)">Proposal accepted! Please wait for ' + esc(c.client.name) + ' to deposit funds into SafePay escrow before starting work.</p></div>';
+      }
+    }
+
     return '<button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>' +
-      '<div class="cc-top" style="padding-right:44px"><span class="eyebrow">Contract #' + esc(c.code) + '</span></div>' +
-      '<h2 id="contractTitle">' + esc(c.title) + '</h2>' +
-      '<div class="cc-parties">' + esc(c.client.name) + ' × ' + esc(c.freelancer.name) + (other.verified ? ' <span class="chip chip-verified"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Verified</span>' : '') + '</div>' +
-      '<div class="stat-row three">' +
-        '<div class="stat"><span>Contract value</span><strong>' + fmt(c.totals.value) + '</strong></div>' +
-        '<div class="stat"><span>Released</span><strong>' + fmt(c.totals.released) + '</strong></div>' +
-        '<div class="stat"><span>Protected</span><strong>' + fmt(c.totals.protected) + '</strong></div>' +
+      '<div class="cc-top" style="padding-right:44px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
+        '<span class="eyebrow">Contract #' + esc(c.code) + '</span>' +
+        statusChip +
       '</div>' +
+      '<h2 id="contractTitle">' + esc(c.title) + '</h2>' +
+      '<div class="cc-parties">' + esc(c.client.name) + ' (Client) × ' + esc(c.freelancer.name) + ' (Specialist)' + (other.verified ? ' <span class="chip chip-verified"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Verified</span>' : '') + '</div>' +
+      nextActionBanner +
+      '<div class="stat-row three">' +
+        '<div class="stat"><span>Agreed Value</span><strong>' + fmt(c.totals.value) + '</strong></div>' +
+        '<div class="stat"><span>Delivery Timeline</span><strong>' + c.deliveryDays + ' days</strong></div>' +
+        '<div class="stat"><span>Escrow Protected</span><strong>' + fmt(c.totals.protected) + '</strong></div>' +
+      '</div>' +
+      (c.scope ? ('<div style="margin:14px 0;padding:12px 14px;background:var(--bg-2);border-radius:8px;border-left:3px solid var(--teal)"><strong style="display:block;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-3);margin-bottom:4px">Agreed Project Scope &amp; Proposal Details</strong><div style="font-size:13px;line-height:1.6;color:var(--ink-2);white-space:pre-wrap">' + esc(c.scope) + '</div></div>') : '') +
       '<ol class="milestones">' + c.milestones.map(function(m){
         var v = (MS_VIEW[m.status] || MS_VIEW.unfunded)(m);
         return '<li class="ms' + (v.cls || '') + '"><span class="ms-no">' + (m.status === 'released' ? ck : m.position) + '</span><div><strong>' + esc(m.title) + '</strong><span class="ms-sub">' + v.sub + '</span></div>' + v.chip + '</li>';
@@ -894,12 +1021,6 @@
       $$('[data-rv-star]', f).forEach(function(x){ var k = +x.getAttribute('data-rv-star'); x.classList.toggle('on', k <= n); x.setAttribute('aria-checked', String(k === n)); });
       return;
     }
-    var sc = e.target.closest('[data-show-contract]');
-    if (sc){
-      var id = +sc.getAttribute('data-show-contract');
-      CONTRACT = CONTRACTS.filter(function(x){ return x.id === id; })[0] || CONTRACT;
-      $('#m-contract .modal-card').innerHTML = contractHtml(CONTRACT);
-    }
   });
   document.addEventListener('submit', function(e){
     var f = e.target.closest && e.target.closest('[data-review-form]'); if (!f) return;
@@ -916,15 +1037,24 @@
       toast('Thanks! Your review is on their profile.');
     }).catch(function(e2){ btn.disabled = false; err.textContent = e2.message; err.hidden = false; });
   });
-  function loadContract(){
+  function openContractById(contractId){
+    openModal('contract');
+    loadContract(contractId);
+  }
+  function loadContract(contractId){
     var card = keep('contract', $('#m-contract .modal-card'));
     if (!signedIn()){ CONTRACT = null; card.innerHTML = SAMPLE.contract; return Promise.resolve(); }
     return api('GET', '/contracts').then(function(r){
-      var keepId = CONTRACT && CONTRACT.id, pick = function(f){ return r.contracts.filter(f)[0]; };
-      var c = pick(function(x){ return x.id === keepId; }) || pick(function(x){ return x.status === 'active'; }) ||
-        pick(function(x){ return x.review && x.review.canReview; }) || r.contracts[0] || null;
+      var list = Array.isArray(r) ? r : (r && r.contracts) || [];
+      var normalized = list.map(function(item){ return fromApiContract(item); }).filter(Boolean);
+      CONTRACTS = normalized;
+      var keepId = contractId || (CONTRACT && CONTRACT.id);
+      var pick = function(f){ return CONTRACTS.filter(f)[0]; };
+      var c = (keepId ? pick(function(x){ return String(x.id) === String(keepId); }) : null) ||
+        pick(function(x){ return x.status === 'active'; }) ||
+        pick(function(x){ return x.review && x.review.canReview; }) ||
+        CONTRACTS[0] || null;
       CONTRACT = c;
-      CONTRACTS = r.contracts;
       card.innerHTML = c ? contractHtml(c) : SAMPLE.contract;
       var x = card.querySelector('.m-close');
       if (x && !$('#m-contract').hidden) x.focus({preventScroll:true});
@@ -932,7 +1062,12 @@
   }
   function milestoneAction(path, okMsg){
     var c = CONTRACT; if (!c) return;
-    api('POST', '/contracts/' + c.id + '/milestones/' + path, {}).then(function(){ toast(okMsg); loadContract(); }).catch(handleError);
+    api('POST', '/contracts/' + c.id + '/milestones/' + path, {}).then(function(){
+      toast(okMsg);
+      loadContract(c.id);
+      var onDash = !$('[data-view="dashboard"]').hidden;
+      if (onDash) renderDashboard();
+    }).catch(handleError);
   }
 
   function prepareEscrow(){
@@ -994,10 +1129,140 @@
     }).catch(noop);
   }
 
+  /* ---------- hire specialist click handler ---------- */
+  function handleHireClick(el){
+    var specId = el.getAttribute('data-hire-specialist') || '';
+    var specName = el.getAttribute('data-hire-name') || 'Specialist';
+    var user = PaklanceAuth.getUser();
+    
+    if (!user){
+      var body = $('#hireModalBody');
+      if (body){
+        body.innerHTML =
+          '<h3 id="hireModalTitle" style="font-size:20px;margin-bottom:8px">Hire ' + esc(specName) + '</h3>' +
+          '<p class="muted" style="font-size:14px;line-height:1.5;margin-bottom:18px">' +
+            'Sign in or create a client account to work with ' + esc(specName) + ' on Paklance.' +
+          '</p>' +
+          '<div style="display:flex;gap:10px;flex-direction:column">' +
+            '<button class="btn btn-primary btn-block" type="button" id="hireLoginBtn">Sign In</button>' +
+            '<button class="btn btn-outline btn-block" type="button" id="hireSignupBtn">Create Client Account</button>' +
+          '</div>';
+        openModal('hire');
+        var lBtn = $('#hireLoginBtn'), sBtn = $('#hireSignupBtn');
+        if (lBtn) lBtn.onclick = function(){ closeModals(); PaklanceAuth.open('login'); };
+        if (sBtn) sBtn.onclick = function(){ closeModals(); PaklanceAuth.open('signup'); };
+      } else {
+        toast('Please sign in or register to hire ' + specName + '.');
+        PaklanceAuth.open('signup');
+      }
+      return;
+    }
+
+    var isClient = String(user.role || '').toLowerCase() === 'client';
+    var isSelf = (user.id && user.id === specId) || (user.email && specId && user.id === specId);
+
+    if (isSelf){
+      toast('This is your own specialist profile.');
+      return;
+    }
+
+    if (isClient){
+      var body = $('#hireModalBody');
+      if (body){
+        body.innerHTML =
+          '<div class="cc-top" style="padding-right:32px"><span class="chip chip-verified"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Client Account</span></div>' +
+          '<h3 id="hireModalTitle" style="font-size:20px;margin-top:6px;margin-bottom:8px">Hire ' + esc(specName) + '</h3>' +
+          '<p style="font-size:14px;color:var(--ink-2);line-height:1.5;margin-bottom:14px">' +
+            'You are signed in as <strong>' + esc(user.fullName || user.email) + '</strong> (Client). ' +
+            'Specialist hiring on Paklance happens securely through job proposals and SafePay escrow protection.' +
+          '</p>' +
+          '<div style="background:var(--bg-2);border-radius:8px;padding:12px;margin-bottom:18px;font-size:13px;line-height:1.5;color:var(--ink-2);border-left:3px solid var(--primary)">' +
+            '<strong>Next steps to hire ' + esc(specName.split(' ')[0]) + ':</strong>' +
+            '<ul style="margin:6px 0 0 18px;padding:0">' +
+              '<li><strong>Message ' + esc(specName.split(' ')[0]) + '</strong> to discuss requirements, timeline, and deliverables.</li>' +
+              '<li><strong>Post a job</strong> so ' + esc(specName.split(' ')[0]) + ' can submit an agreed proposal with protected milestones.</li>' +
+            '</ul>' +
+          '</div>' +
+          '<div style="display:flex;gap:10px;flex-direction:column">' +
+            '<button class="btn btn-primary btn-block" type="button" id="hireMsgBtn">' +
+              '<svg class="ic ic-sm" aria-hidden="true" style="margin-right:6px"><use href="#i-chat"/></svg>Message ' + esc(specName.split(' ')[0]) +
+            '</button>' +
+            '<button class="btn btn-outline btn-block" type="button" id="hirePostJobBtn">Post a Job &amp; Invite</button>' +
+          '</div>';
+        openModal('hire');
+        var mBtn = $('#hireMsgBtn'), pBtn = $('#hirePostJobBtn');
+        if (mBtn){
+          mBtn.onclick = function(){
+            closeModals();
+            if (typeof PaklanceMessages !== 'undefined'){
+              PaklanceMessages.open({ id: specId, name: specName, role: 'Specialist', headline: 'Specialist' });
+            }
+          };
+        }
+        if (pBtn){
+          pBtn.onclick = function(){
+            closeModals();
+            go('home');
+            setTimeout(function(){
+              var f = $('#heroForm') || $('#postJob');
+              if (f) f.scrollIntoView({ behavior:'smooth' });
+            }, 100);
+          };
+        }
+      }
+      return;
+    }
+
+    // Specialist viewing specialist
+    var body = $('#hireModalBody');
+    if (body){
+      body.innerHTML =
+        '<h3 id="hireModalTitle" style="font-size:20px;margin-bottom:8px">Specialist Collaboration</h3>' +
+        '<p style="font-size:14px;color:var(--ink-2);line-height:1.5;margin-bottom:14px">' +
+          'You are signed in with a Specialist account (<strong>' + esc(user.fullName || user.email) + '</strong>). ' +
+          'Specialist accounts cannot hire other specialists through client contracts.' +
+        '</p>' +
+        '<div style="background:var(--bg-2);border-radius:8px;padding:12px;margin-bottom:18px;font-size:13px;line-height:1.5;color:var(--ink-2)">' +
+          'If you’d like to collaborate with ' + esc(specName) + ' on projects, you can message them directly.' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;flex-direction:column">' +
+          '<button class="btn btn-primary btn-block" type="button" id="hireCollabMsgBtn">Message ' + esc(specName.split(' ')[0]) + ' for Collaboration</button>' +
+          '<button class="btn btn-outline btn-block" type="button" data-close>Close</button>' +
+        '</div>';
+      openModal('hire');
+      var cBtn = $('#hireCollabMsgBtn');
+      if (cBtn){
+        cBtn.onclick = function(){
+          closeModals();
+          if (typeof PaklanceMessages !== 'undefined'){
+            PaklanceMessages.open({ id: specId, name: specName, role: 'Specialist', headline: 'Specialist' });
+          }
+        };
+      }
+    }
+  }
+
   /* ---------- clicks ---------- */
   document.addEventListener('click', function(e){
-    var el = e.target.closest('[data-open],[data-close],[data-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals]');
+    var el = e.target.closest('[data-open],[data-close],[data-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job]');
     if (!el) return;
+    if (el.hasAttribute('data-hire-specialist')){ handleHireClick(el); return; }
+    if (el.hasAttribute('data-show-contract')){ openContractById(el.getAttribute('data-show-contract')); return; }
+    if (el.hasAttribute('data-view-contract-job')){
+      var jid = el.getAttribute('data-view-contract-job');
+      openModal('contract');
+      api('GET', '/contracts').then(function(r){
+        var list = Array.isArray(r) ? r : (r && r.contracts) || [];
+        var normalized = list.map(function(item){ return fromApiContract(item); }).filter(Boolean);
+        CONTRACTS = normalized;
+        var matched = CONTRACTS.filter(function(x){ return String(x.jobId) === String(jid); })[0] || CONTRACTS[0];
+        if (matched){
+          CONTRACT = matched;
+          $('#m-contract .modal-card').innerHTML = contractHtml(matched);
+        }
+      }).catch(noop);
+      return;
+    }
     if (el.hasAttribute('data-logout')){ PaklanceAuth.logOut().then(function(){ toast('You’ve logged out.'); go('home'); }); return; }
     if (el.hasAttribute('data-edit-skills')){ PaklanceAuth.editSkills(); return; }
     if (el.getAttribute('data-open') === 'auth'){ authEntry(el.hasAttribute('data-signup')); return; }
@@ -1321,12 +1586,140 @@
       } else {
         $('#dashJobs').innerHTML = '<div class="empty" style="padding:16px 0"><p class="muted">You haven’t posted any jobs yet.</p><div class="hero-ctas" style="margin-top:10px"><button class="btn btn-primary btn-sm" type="button" data-open="auth" data-signup>Post a Job</button></div></div>';
       }
+      loadClientDashboardContracts();
       loadClientDashboardProposals();
     } else {
       var matches = matchJobs(u), shown = matches.length ? matches : JOBS.slice(0, 3);
       $('#dashJobsNote').textContent = matches.length ? 'Based on the skills you picked.' : (JOBS.length ? 'No close matches yet, so here are the newest jobs.' : 'Post your profile and skills to see matching jobs here.');
       $('#dashJobs').innerHTML = shown.length ? shown.map(jobCard).join('') : '<p class="muted" style="font-size:14px;margin-top:8px">No jobs available right now. Check back soon.</p>';
+      loadSpecialistDashboardContracts();
     }
+  }
+
+  function loadClientDashboardContracts(){
+    var container = $('#dashClientContracts');
+    if (!container){
+      var dashMain = $('.dash-main');
+      if (dashMain){
+        var card = document.createElement('div');
+        card.className = 'card';
+        card.id = 'dashClientContracts';
+        card.style.marginTop = '16px';
+        card.innerHTML =
+          '<div class="cc-top"><h3 style="font-size:19px">Active Projects &amp; Contracts</h3></div>' +
+          '<div id="dashClientContractsList" style="margin-top:12px"><p class="muted" style="font-size:14px">Loading contracts…</p></div>';
+        var propCard = $('#dashClientProposals');
+        if (propCard && propCard.parentNode === dashMain){
+          dashMain.insertBefore(card, propCard);
+        } else {
+          dashMain.appendChild(card);
+        }
+        container = card;
+      }
+    }
+    var listEl = $('#dashClientContractsList');
+    if (!listEl) return;
+    api('GET', '/contracts').catch(function(){ return []; }).then(function(r){
+      var list = Array.isArray(r) ? r : (r && r.contracts) || [];
+      var normalized = list.map(function(item){ return fromApiContract(item); }).filter(Boolean);
+      if (!normalized.length){
+        listEl.innerHTML = '<p class="muted" style="font-size:14px">No active contracts yet. When you accept a specialist’s proposal, your contract and next escrow steps will appear here.</p>';
+        return;
+      }
+      listEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px">' +
+        normalized.map(function(c){
+          var spec = c.freelancer || {};
+          var statusChip = c.rawStatus === 'FUNDED'
+            ? '<span class="chip chip-safe"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>SafePay Protected</span>'
+            : (c.rawStatus === 'COMPLETED'
+              ? '<span class="chip chip-verified">Completed</span>'
+              : '<span class="chip chip-muted">Awaiting Escrow Deposit</span>');
+          var nextAction = c.rawStatus === 'FUNDED'
+            ? (firstMs(c, ['submitted']) ? '<strong>Action needed:</strong> Specialist submitted work. Review deliverables and approve milestone.' : 'Escrow funded · Specialist working on delivery.')
+            : '<strong>Action needed:</strong> Deposit Milestone 1 into SafePay escrow to start the project.';
+          return '<div style="padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">' +
+              '<div>' +
+                '<strong style="font-size:16px;display:block">' + esc(c.title) + '</strong>' +
+                '<span class="muted" style="font-size:13px">Specialist: <strong>' + esc(spec.name) + '</strong> · ' + c.deliveryDays + ' days delivery</span>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+                '<strong style="color:var(--primary);font-size:16px">' + fmt(c.totals.value) + '</strong>' +
+                statusChip +
+              '</div>' +
+            '</div>' +
+            '<div style="margin-top:10px;padding:8px 12px;background:var(--bg-2);border-radius:6px;font-size:13px;color:var(--ink-2)">' +
+              nextAction +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">' +
+              (spec.id ? '<button class="btn btn-outline btn-sm" type="button" data-msg-user-id="' + esc(spec.id) + '" data-msg-user-name="' + esc(spec.name) + '" data-msg-user-role="Specialist">Message ' + esc((spec.name||'').split(' ')[0]) + '</button>' : '<span></span>') +
+              '<button class="btn btn-primary btn-sm" type="button" data-show-contract="' + esc(c.id) + '">View Contract &amp; Next Steps</button>' +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    });
+  }
+
+  function loadSpecialistDashboardContracts(){
+    var container = $('#dashSpecialistContracts');
+    if (!container){
+      var dashMain = $('.dash-main');
+      if (dashMain){
+        var card = document.createElement('div');
+        card.className = 'card';
+        card.id = 'dashSpecialistContracts';
+        card.style.marginTop = '16px';
+        card.innerHTML =
+          '<div class="cc-top"><h3 style="font-size:19px">My Active Contracts &amp; Projects</h3></div>' +
+          '<div id="dashSpecialistContractsList" style="margin-top:12px"><p class="muted" style="font-size:14px">Loading contracts…</p></div>';
+        dashMain.insertBefore(card, dashMain.firstChild);
+        container = card;
+      }
+    }
+    var listEl = $('#dashSpecialistContractsList');
+    if (!listEl) return;
+    api('GET', '/contracts').catch(function(){ return []; }).then(function(r){
+      var list = Array.isArray(r) ? r : (r && r.contracts) || [];
+      var normalized = list.map(function(item){ return fromApiContract(item); }).filter(Boolean);
+      if (!normalized.length){
+        if (container) container.hidden = true;
+        return;
+      }
+      if (container) container.hidden = false;
+      listEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px">' +
+        normalized.map(function(c){
+          var client = c.client || {};
+          var statusChip = c.rawStatus === 'FUNDED'
+            ? '<span class="chip chip-safe"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Ready to Start · Escrow Funded</span>'
+            : (c.rawStatus === 'COMPLETED'
+              ? '<span class="chip chip-verified">Completed</span>'
+              : '<span class="chip chip-muted">Waiting for Client Escrow</span>');
+          var nextAction = c.rawStatus === 'FUNDED'
+            ? (firstMs(c, ['submitted']) ? 'Milestone submitted. Awaiting client review and release.' : '<strong>Ready to start!</strong> Escrow is protected (' + fmt(c.totals.protected) + '). Submit work when deliverables are ready.')
+            : 'Proposal accepted! Please wait for client to deposit Milestone 1 into SafePay escrow before starting work.';
+          return '<div style="padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">' +
+              '<div>' +
+                '<strong style="font-size:16px;display:block">' + esc(c.title) + '</strong>' +
+                '<span class="muted" style="font-size:13px">Client: <strong>' + esc(client.name) + '</strong> · ' + c.deliveryDays + ' days timeline</span>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+                '<strong style="color:var(--primary);font-size:16px">' + fmt(c.totals.value) + '</strong>' +
+                statusChip +
+              '</div>' +
+            '</div>' +
+            '<div style="margin-top:10px;padding:8px 12px;background:var(--bg-2);border-radius:6px;font-size:13px;color:var(--ink-2)">' +
+              nextAction +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">' +
+              (client.id ? '<button class="btn btn-outline btn-sm" type="button" data-msg-user-id="' + esc(client.id) + '" data-msg-user-name="' + esc(client.name) + '" data-msg-user-role="Client">Message Client</button>' : '<span></span>') +
+              '<button class="btn btn-primary btn-sm" type="button" data-show-contract="' + esc(c.id) + '">View Contract / Project Status</button>' +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    });
   }
 
   function loadClientDashboardProposals(){
@@ -1376,7 +1769,10 @@
             (p.coverLetter ? ('<div style="margin-top:8px;font-size:13px;color:var(--ink-2);background:var(--bg-2);padding:8px 10px;border-radius:6px;white-space:pre-wrap;border-left:2px solid var(--teal)">' + esc(p.coverLetter) + '</div>') : '') +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">' +
               '<span class="muted" style="font-size:12px">' + (p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '') + '</span>' +
-              '<button class="btn btn-outline btn-sm" type="button" data-job="' + esc(p.jobId) + '">View Job &amp; Proposal</button>' +
+              '<div style="display:flex;gap:8px">' +
+                (p.status === 'ACCEPTED' ? '<button class="btn btn-primary btn-sm" type="button" data-view-contract-job="' + esc(p.jobId) + '">View Contract</button>' : '') +
+                '<button class="btn btn-outline btn-sm" type="button" data-job="' + esc(p.jobId) + '">View Job &amp; Proposal</button>' +
+              '</div>' +
             '</div>' +
           '</div>';
         }).join('') +

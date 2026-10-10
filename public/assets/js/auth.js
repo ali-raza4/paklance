@@ -1467,7 +1467,7 @@ window.PaklanceProfile = (function () {
       '<div class="pp-cta">' + (m.rate ? '<strong class="pp-rate">' + pkr(m.rate) + '<small>/hr</small></strong>' : '') +
         (m.availability ? '<span class="pp-avail"><i aria-hidden="true"></i>' + esc(m.availability) + '</span>' : '') +
         (owner ? '<button class="btn btn-primary" type="button" data-pc-open="intro">Edit profile</button>'
-               : '<button class="btn btn-primary" type="button" data-open="auth" data-signup>Hire ' + esc(first) + '</button>' +
+               : '<button class="btn btn-primary" type="button" data-hire-specialist="' + esc(m.userId || m.id || '') + '" data-hire-name="' + esc(m.name || '') + '" data-hire-role="' + esc(m.headline || '') + '">Hire ' + esc(first) + '</button>' +
                  (m.userId ? '<button class="btn btn-outline pk-contact-btn" type="button" data-msg-user-id="' + esc(m.userId) + '" data-msg-user-name="' + esc(m.name || '') + '" data-msg-user-role="' + esc(m.headline || '') + '">Message</button>' : '')) + '</div>' +
     '</section>';
 
