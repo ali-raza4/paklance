@@ -9,6 +9,11 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 
+export enum RegisterRole {
+  CLIENT = 'CLIENT',
+  SPECIALIST = 'SPECIALIST',
+}
+
 export class RegisterDto {
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail({}, { message: 'Must be a valid email' })
@@ -21,10 +26,10 @@ export class RegisterDto {
   @MinLength(6, { message: 'Password must be at least 6 characters' })
   password: string;
 
-  @ApiPropertyOptional({ enum: Role, default: Role.SPECIALIST })
+  @ApiPropertyOptional({ enum: RegisterRole, default: RegisterRole.SPECIALIST })
   @IsOptional()
-  @IsEnum(Role, { message: 'role must be one of: ADMIN, CLIENT, SPECIALIST' })
-  role?: Role;
+  @IsEnum(RegisterRole, { message: 'role must be one of: CLIENT, SPECIALIST' })
+  role?: RegisterRole;
 }
 
 export class LoginDto {

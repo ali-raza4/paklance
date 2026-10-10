@@ -109,6 +109,8 @@ export class AdminController {
   @ApiOperation({
     summary: 'Atomic cleanup of confirmed disposable test records with strict whitelist protection',
   })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post('maintenance/cleanup-test-data')
   cleanupDisposableTestData(@Body('secret') secret?: string) {
     return this.adminService.cleanupDisposableTestData(secret);
@@ -117,6 +119,8 @@ export class AdminController {
   @ApiOperation({
     summary: 'Delete verified duplicate job',
   })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post('maintenance/delete-duplicate-job')
   deleteDuplicateJob(
     @Body('jobId') jobId: string,

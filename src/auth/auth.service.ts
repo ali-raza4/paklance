@@ -32,6 +32,11 @@ export class AuthService {
    * OTP is NEVER returned in the API response.
    */
   async register(data: { email: string; password: string; role?: Role }) {
+    if (data.role === Role.ADMIN) {
+      throw new BadRequestException(
+        'Direct registration as administrator is strictly forbidden.',
+      );
+    }
     const otp = crypto.randomInt(100000, 999999).toString();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes validity
     const now = new Date();
@@ -511,7 +516,6 @@ export class AuthService {
         passwordHash: newPasswordHash,
         resetPasswordToken: null,
         resetPasswordExpires: null,
-        isEmailVerified: true,
       },
     });
 
