@@ -524,6 +524,25 @@ export class AuthService {
         'Your password has been successfully reset. You may now log in with your new password.',
     };
   }
+
+  async getDbStatus() {
+    const dbInfo: any = await this.prisma.$queryRawUnsafe(`
+      SELECT current_database() as db, inet_server_addr() as ip, version() as ver
+    `);
+    const userCount = await this.prisma.user.count();
+    const sampleUsers = await this.prisma.user.findMany({
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isEmailVerified: true,
+        resetPasswordToken: true,
+      },
+    });
+    return { dbInfo, userCount, sampleUsers };
+  }
 }
 
 

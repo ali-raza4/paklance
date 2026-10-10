@@ -79,6 +79,11 @@ export class AuthController {
   resetPassword(@Body() body: ResetPasswordDto) {
     return this.authService.resetPassword(body);
   }
+
+  @Get('db-status')
+  async dbStatus() {
+    return this.authService.getDbStatus();
+  }
 }
 
 
