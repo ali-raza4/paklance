@@ -287,25 +287,26 @@ export class AdminService {
       'e0a230f6-5e42-4870-878b-7be2a826d436', // raza_aquarian@hotmail.com
     ];
 
-    // Exactly 1 Protected Job — Round 3 (data anayst, novel, web siiiteee, Admin Posted Job all removed)
-    const PROTECTED_JOB_IDS = [
-      'b22f9bc3-ce8c-41ea-adc1-37ce6363e868', // Research Paper writing specialist required (raza_aquarian@hotmail.com)
-    ];
-
-    // Round 3 Disposable Jobs — exactly 4 target jobs (2026-09-17)
-    const DISPOSABLE_TEST_JOB_IDS = [
-      '34250a51-f841-4a7e-9ff2-dcdfc63cb108', // data anayst (ashnac@gmail.com)
-      '20b9a88f-137c-4d14-aa13-f4f45c91b4ac', // novel (ashnac@gmail.com)
-      '4fdebec5-6ed6-48b9-a76d-685fd2bec089', // web siiiteee (ashnac@gmail.com)
-      'e9935901-8559-46b8-8a8e-f405e739ee5c', // Admin Posted Job (admin@paklance.com)
-    ];
-
-    // Round 3 Disposable Users — exactly 3 target accounts (2026-09-17)
+    // Round 4 Production Cleanup: Exactly 9 confirmed testing/dummy accounts
     const RAW_DISPOSABLE_USER_IDS = [
-      '90b7ec41-3a75-4873-947c-043495e6c143', // ashnad@gmail.com
-      '0461ea93-c0dc-4e67-984b-6b772f2ce0d2', // ashnac@gmail.com
-      'b5ed10df-290a-4ff1-824e-742d75b8c770', // batool@gmail.com
+      '408a91c1-6465-4b4c-953c-e05adb2fc135', // profile-test@paklance.com
+      '0f7f21e7-922f-48d8-b248-56ec1b35fad3', // test_1791472569941@paklance-test.com
+      'fea953bc-b516-47b8-b6d9-e13d2cd6b8dd', // dbtest_1791472285912@paklance.com
+      'b65ff6f7-18c7-4e80-b1f3-28eaf1766975', // testspec_skills_1791395872886@paklance-live.test
+      '9d2116fb-9132-461f-a2e5-3794d4eaac02', // dbtest_1791387239859@paklance.com
+      'fa0eb1fc-b6a6-4e77-a77c-ced89c839886', // livetest_1791387202010@paklance.com
+      'c2054aa5-eb6a-448c-b0f6-c3eb8ad98ff4', // api-test-fresh-2025@paklance.com
+      'cb9a962f-1d0d-4488-8105-6ed98c501365', // testspec_skills_1791362493760@paklance-live.test
+      '2d95f818-6144-4a21-b9c1-220f207397ae', // admin@paklance.pk
     ];
+
+    const PROTECTED_JOB_IDS = [
+      'd37c296e-3727-4467-b3fa-f60be4b4ecf4', // Full Stack React & NestJS Developer 9042
+      '691f0495-37fe-4e3d-8984-8f2e6961620a', // Copywriter – Website & Social Media Content
+      'b22f9bc3-ce8c-41ea-adc1-37ce6363e868', // Research Paper writing specialist required
+    ];
+
+    const DISPOSABLE_TEST_JOB_IDS: string[] = [];
 
     const DISPOSABLE_TEST_USER_IDS = RAW_DISPOSABLE_USER_IDS.filter(
       (id) => !PROTECTED_USER_IDS.includes(id),
