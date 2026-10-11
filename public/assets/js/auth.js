@@ -50,7 +50,7 @@ window.PaklanceAuth = (function () {
   function getToken() { try { return localStorage.getItem(TOKEN_KEY) || null; } catch (e) { return null; } }
   function setToken(t) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
   function clearToken() { setToken(null); try { localStorage.removeItem(USER_KEY); } catch (e) {} }
-  function getCachedUser() { try { var raw = localStorage.getItem(USER_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
+  function getCachedUser() { try { var raw = localStorage.getItem(USER_KEY); if (!raw) return null; var parsed = JSON.parse(raw); if (typeof parsed === 'string') { try { parsed = JSON.parse(parsed); } catch (e2) {} } return parsed; } catch (e) { return null; } }
 
   /* ---------- normalise a user object (Express backend shape) to the shape the UI expects ---------- */
   function normaliseUser(u) {

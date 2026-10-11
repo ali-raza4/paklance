@@ -249,6 +249,7 @@
       if (!curAdminUser){
         if (_siteGetToken()){
           $$('.view').forEach(function(v){ v.hidden = v.getAttribute('data-view') !== 'admin'; });
+          renderAdminDashboard();
           return;
         }
         r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0);
