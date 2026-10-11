@@ -437,8 +437,9 @@ window.PaklanceBlog = (function () {
   index();
   // Replace the built-in demo articles with articles from the API (same shape, plus demo: true|false).
   function setArticles(list) {
+    var copy = Array.isArray(list) ? list.slice() : [];
     ARTICLES.length = 0;
-    (list || []).forEach(function (a) { ARTICLES.push(a); });
+    copy.forEach(function (a) { ARTICLES.push(a); });
     index();
     renderHome();   // refresh the homepage 'From the blog' section with the API articles
     var blogView = document.querySelector('[data-view="blog"]');

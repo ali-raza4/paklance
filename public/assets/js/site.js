@@ -247,7 +247,10 @@
     if (r === 'admin'){
       var curAdminUser = PaklanceAuth.getUser();
       if (!curAdminUser){
-        if (_siteGetToken()) return;
+        if (_siteGetToken()){
+          $$('.view').forEach(function(v){ v.hidden = v.getAttribute('data-view') !== 'admin'; });
+          return;
+        }
         r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0);
       }
       else if (String(curAdminUser.role || '').toUpperCase() !== 'ADMIN'){
@@ -261,7 +264,10 @@
     if (r === 'dashboard'){
       var curDashUser = PaklanceAuth.getUser();
       if (!curDashUser){
-        if (_siteGetToken()) return;
+        if (_siteGetToken()){
+          $$('.view').forEach(function(v){ v.hidden = v.getAttribute('data-view') !== 'dashboard'; });
+          return;
+        }
         r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0);
       }
       else if (String(curDashUser.role || '').toUpperCase() === 'ADMIN'){
@@ -272,7 +278,10 @@
       }
     }
     if (r === 'profile' && !PaklanceAuth.getUser()){
-      if (_siteGetToken()) return;
+      if (_siteGetToken()){
+        $$('.view').forEach(function(v){ v.hidden = v.getAttribute('data-view') !== 'person'; });
+        return;
+      }
       r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0);
     }
     var own = r === 'profile'; if (own) r = 'person';          // my own profile uses the same page, with edit buttons

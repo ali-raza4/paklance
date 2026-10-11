@@ -1028,9 +1028,9 @@ window.PaklanceAuth = (function () {
     editSkills: editSkills,
     // logOut clears the stored JWT token (stateless backend — no server-side session to destroy)
     logOut: function () { return API.logOut().catch(function () {}).then(function () { clearToken(); setUser(null); }); },
-    getUser: function () { return user; },
-    isAdminUser: function () { return isAdminUser(user); },
-    isClientUser: function () { return isClientUser(user); },
+    getUser: function () { if (!user) { user = getCachedUser(); } return user; },
+    isAdminUser: function () { var u = user || getCachedUser(); return isAdminUser(u); },
+    isClientUser: function () { var u = user || getCachedUser(); return isClientUser(u); },
     getToken: getToken,
     onChange: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (f) { return f !== fn; }); }; },
     isOpen: function () { return !!root && !root.hidden; },
