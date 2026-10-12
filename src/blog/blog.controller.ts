@@ -11,10 +11,11 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, AnyFilesInterceptor } from '@nestjs/platform-express';
 import { BlogService } from './blog.service';
 import { CreateBlogDto } from './dto/create-blog.dto';
 import { UpdateBlogDto } from './dto/update-blog.dto';
@@ -105,13 +106,17 @@ export class BlogAdminController {
   @ApiOperation({ summary: 'Upload blog cover or in-content image' })
   @ApiConsumes('multipart/form-data')
   @Post('upload-image')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_SIZE } }))
-  async uploadBlogImage(@UploadedFile() file: Express.Multer.File) {
+  @UseInterceptors(AnyFilesInterceptor({ limits: { fileSize: MAX_IMAGE_SIZE } }))
+  async uploadBlogImage(@UploadedFiles() files: Express.Multer.File[]) {
+    const file = files && files.length > 0 ? files[0] : null;
     if (!file) throw new BadRequestException('Image file is required');
+    if (file.size > MAX_IMAGE_SIZE) {
+      throw new BadRequestException('Image file exceeds maximum allowed size of 5MB');
+    }
     if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
       throw new BadRequestException('Invalid image format. Supported formats: JPEG, PNG, WebP, GIF, SVG');
     }
-    const url = await this.storageService.uploadFile(file);
+    const url = await this.storageService.uploadFile(file, 'blog');
     return { url };
   }
 }

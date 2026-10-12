@@ -104,19 +104,23 @@ export class StorageService implements OnModuleInit {
     }
   }
 
-  async uploadFile(file: Express.Multer.File): Promise<string> {
+  async uploadFile(file: Express.Multer.File, folder?: string): Promise<string> {
+    const isImage = Boolean(file.mimetype && file.mimetype.startsWith('image/'));
+    const defaultFolder = folder || (isImage ? 'images' : 'videos');
+    const extMatch = (file.originalname || '').match(/\.[a-z0-9]+$/i);
+    const defaultExt = isImage ? '.png' : '.mp4';
+    const ext = extMatch ? extMatch[0].toLowerCase() : defaultExt;
+    const rawBase = (file.originalname || (isImage ? 'image' : 'upload')).replace(/\.[^.]+$/, '');
+    const safeBase = rawBase.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'file';
+    const pathname = `${defaultFolder}/${Date.now()}-${safeBase}${ext}`;
+    const contentType = file.mimetype || (isImage ? 'image/png' : 'video/mp4');
+
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (token) {
       try {
-        const extMatch = (file.originalname || '').match(/\.[a-z0-9]+$/i);
-        const ext = extMatch ? extMatch[0].toLowerCase() : '.mp4';
-        const rawBase = (file.originalname || 'upload').replace(/\.[^.]+$/, '');
-        const safeBase = rawBase.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'upload';
-        const pathname = `videos/${Date.now()}-${safeBase}${ext}`;
-
         const blob = await put(pathname, file.buffer, {
           access: 'public',
-          contentType: file.mimetype || 'video/mp4',
+          contentType,
           token,
         });
         return blob.url;
@@ -127,13 +131,13 @@ export class StorageService implements OnModuleInit {
 
     if (this.minioClient) {
       try {
-        const filename = `${Date.now()}-${(file.originalname || 'upload').replace(/\s+/g, '-')}`;
+        const filename = `${defaultFolder}/${Date.now()}-${(file.originalname || 'upload').replace(/\s+/g, '-')}`;
         await this.minioClient.putObject(
           this.bucketName,
           filename,
           file.buffer,
           file.size,
-          { 'Content-Type': file.mimetype || 'image/jpeg' },
+          { 'Content-Type': contentType },
         );
         const protocol = process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http';
         const host = process.env.MINIO_PUBLIC_HOST || `${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT || '9000'}`;
@@ -143,8 +147,8 @@ export class StorageService implements OnModuleInit {
       }
     }
 
-    // Default & Serverless (Vercel) storage: encode image as standard data URI
-    const mimeType = file.mimetype || 'image/jpeg';
+    // Default & Serverless (Vercel) storage fallback: encode image as standard data URI
+    const mimeType = file.mimetype || (isImage ? 'image/jpeg' : 'application/octet-stream');
     const base64Data = file.buffer.toString('base64');
     return `data:${mimeType};base64,${base64Data}`;
   }

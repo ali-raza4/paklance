@@ -3,10 +3,11 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   BadRequestException,
   UseGuards,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, AnyFilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -31,11 +32,12 @@ export class UploadsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   @UseInterceptors(
-    FileInterceptor('file', {
+    AnyFilesInterceptor({
       limits: { fileSize: MAX_FILE_SIZE },
     }),
   )
-  async uploadFile(@UploadedFile() file: Express.Multer.File) {
+  async uploadFile(@UploadedFiles() files: Express.Multer.File[]) {
+    const file = files && files.length > 0 ? files[0] : null;
     if (!file) {
       throw new BadRequestException('File is required');
     }
