@@ -1624,6 +1624,7 @@
         <span class="badge" style="background:rgba(18,165,111,0.12);color:#12A56F;font-size:12px;padding:3px 10px;border-radius:999px;font-weight:700">DOCUMENT EDITOR</span>
         <span id="blogEditorModeBadge" class="badge" style="background:rgba(37,99,235,0.12);color:#2563EB;font-size:12px;padding:3px 10px;border-radius:999px;font-weight:600">NEW ARTICLE</span>
         <h2 id="adminBlogEditorTitle" style="font-size:18px;margin:0;font-weight:700;color:var(--ink)">Create Blog Article</h2>
+        <span id="blogDraftAutosaveStatus" style="font-size:11.5px;color:var(--muted);font-weight:500;display:inline-flex;align-items:center;gap:4px"></span>
       </div>
       <div class="doc-editor-header-actions">
         <button type="button" class="btn btn-outline btn-sm" id="blogBtnPreviewArticle" style="display:inline-flex;align-items:center;gap:6px">
@@ -1775,6 +1776,18 @@
             </div>
           </div>
         </details>
+ 
+        <!-- Draft Auto-Recovery Banner -->
+        <div id="blogDraftRecoveryBanner" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:10px 16px;margin:12px 0;display:none;align-items:center;justify-content:space-between;gap:12px;color:#92400E;font-size:13px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:16px">💾</span>
+            <span><strong>Unsaved Draft Detected:</strong> You have an unsaved draft from a previous editing session. Would you like to restore it?</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button type="button" class="btn btn-xs" id="blogBtnRestoreDraft" style="background:#B45309;color:#fff;border-color:#B45309;font-weight:700;padding:4px 10px">Restore Draft</button>
+            <button type="button" class="btn btn-xs btn-outline" id="blogBtnDismissDraft" style="color:#78350F;border-color:rgba(120,53,15,0.3);padding:4px 8px">Dismiss</button>
+          </div>
+        </div>
 
         <!-- Sticky Formatting Toolbar -->
         <div class="doc-toolbar-sticky-wrapper">
@@ -1981,11 +1994,11 @@
   </div>
 </div>
 
-<!-- ===================== IMAGE OPTIONS MODAL ===================== -->
-<div class="modal" id="m-blog-image-options" hidden role="dialog" aria-modal="true" aria-labelledby="blogImageOptionsTitle">
-  <div class="modal-card" style="max-width:540px">
-    <button class="m-close" type="button" data-close aria-label="Close image options"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
-    <h3 id="blogImageOptionsTitle" style="font-size:20px;margin:0 0 16px 0;font-weight:700">Image Block Settings</h3>
+<!-- ===================== IMAGE OPTIONS SUBMODAL ===================== -->
+<div class="doc-submodal-overlay" id="m-blog-image-options" style="display:none" role="dialog" aria-modal="true" aria-labelledby="blogImageOptionsTitle">
+  <div class="modal-card doc-submodal-card" style="max-width:540px;background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,0.3);padding:24px;position:relative">
+    <button class="m-close" type="button" id="docImgModalCloseBtn" aria-label="Close image options" style="position:static;float:right"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <h3 id="blogImageOptionsTitle" style="font-size:20px;margin:0 0 16px 0;font-weight:700;color:var(--ink)">Image Block Settings</h3>
     
     <div class="field" style="margin-bottom:14px">
       <label style="font-weight:600;font-size:13px">Image Source <span style="color:#DC2626">*</span></label>
@@ -1997,6 +2010,7 @@
           Upload File
         </button>
       </div>
+      <div id="docImgModalUploadStatus" style="font-size:12px;margin:4px 0;display:none"></div>
       <div id="docImgModalPreviewWrap" style="height:140px;border-radius:10px;border:1px dashed var(--line);background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:8px">
         <img id="docImgModalPreviewImg" src="" alt="Preview" style="max-height:100%;max-width:100%;object-fit:contain;display:none">
         <span id="docImgModalPreviewPlaceholder" style="font-size:12px;color:var(--muted)">No image selected</span>
@@ -2033,10 +2047,91 @@
     </div>
 
     <div style="display:flex;justify-content:flex-end;gap:10px">
-      <button type="button" class="btn btn-outline" data-close>Cancel</button>
+      <button type="button" class="btn btn-outline" id="docImgModalCancelBtn">Cancel</button>
       <button type="button" class="btn btn-primary" id="docImgModalConfirmBtn" style="background:#12A56F;border-color:#12A56F;font-weight:600">
         Insert Image Block
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== BLOCK CONTENT & COLOR EDIT MODAL ===================== -->
+<div class="doc-submodal-overlay" id="m-blog-block-edit" style="display:none" role="dialog" aria-modal="true" aria-labelledby="blogBlockEditHeading">
+  <div class="modal-card doc-submodal-card" style="max-width:620px;background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,0.3);padding:24px;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--line-2);padding-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="docBlockEditTypeBadge" class="badge" style="background:rgba(18,165,111,0.12);color:#12A56F;font-size:11px;padding:2px 8px;border-radius:999px;font-weight:700">BLOCK</span>
+        <h3 id="blogBlockEditHeading" style="font-size:18px;margin:0;font-weight:700;color:var(--ink)">Edit Block</h3>
+      </div>
+      <button class="m-close" type="button" id="docBlockEditCloseBtn" aria-label="Close edit modal" style="position:static"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    </div>
+
+    <!-- Dynamic Form Fields Container -->
+    <div id="docBlockEditFieldsContainer" style="max-height:50vh;overflow-y:auto;padding-right:6px;margin-bottom:16px">
+      <!-- Injected dynamically by openBlockEditModal -->
+    </div>
+
+    <!-- Block Color Customization Section -->
+    <div id="docBlockEditColorSection" style="border-top:1px solid var(--line-2);padding-top:14px;margin-top:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-size:13.5px;font-weight:700;color:var(--ink)">🎨 Block Color Styling</span>
+        <button type="button" class="btn btn-outline btn-xs" id="docBlockBtnResetColors" style="font-size:11.5px;padding:3px 9px">↺ Reset Colors</button>
+      </div>
+
+      <!-- Background Color Selection -->
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:var(--ink-2);display:flex;justify-content:space-between;margin-bottom:6px">
+          <span>Background Color</span>
+          <span id="docBlockBgColorVal" style="font-family:monospace;font-size:11px;color:var(--muted)">Default</span>
+        </label>
+        <div class="doc-palette-row" id="docBlockBgPalette">
+          <button type="button" class="doc-color-chip is-active" data-color-type="bg" data-color="" title="Default Theme">∅</button>
+          <button type="button" class="doc-color-chip" data-color-type="bg" data-color="#ECFDF5" data-text="#065F46" data-border="#A7F3D0" title="Mint Light" style="background:#ECFDF5;border-color:#A7F3D0"></button>
+          <button type="button" class="doc-color-chip" data-color-type="bg" data-color="#064E3B" data-text="#ECFDF5" data-border="#047857" title="Deep Emerald" style="background:#064E3B;border-color:#047857"></button>
+          <button type="button" class="doc-color-chip" data-color-type="bg" data-color="#EFF6FF" data-text="#1E40AF" data-border="#BFDBFE" title="Ocean Blue" style="background:#EFF6FF;border-color:#BFDBFE"></button>
+          <button type="button" class="doc-color-chip" data-color-type="bg" data-color="#FFFBEB" data-text="#92400E" data-border="#FDE68A" title="Amber Light" style="background:#FFFBEB;border-color:#FDE68A"></button>
+          <button type="button" class="doc-color-chip" data-color-type="bg" data-color="#FFFFFF" data-text="#111827" data-border="#E5E7EB" title="Pure White" style="background:#FFFFFF;border-color:#E5E7EB"></button>
+          <button type="button" class="doc-color-chip" data-color-type="bg" data-color="#F8FAFC" data-text="#0F172A" data-border="#CBD5E1" title="Soft Slate Light" style="background:#F8FAFC;border-color:#CBD5E1"></button>
+          <button type="button" class="doc-color-chip" data-color-type="bg" data-color="#1E293B" data-text="#F8FAFC" data-border="#334155" title="Dark Slate" style="background:#1E293B;border-color:#334155"></button>
+          <button type="button" class="doc-color-chip" data-color-type="bg" data-color="#0A0A0A" data-text="#FFFFFF" data-border="#262626" title="Deep Black" style="background:#0A0A0A;border-color:#262626"></button>
+          <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
+            <input type="color" id="docBlockBgColorInput" value="#ffffff" style="width:28px;height:28px;padding:0;border:none;border-radius:6px;cursor:pointer">
+            <span style="font-size:11px;color:var(--muted)">Custom</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text Color Selection -->
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:var(--ink-2);display:flex;justify-content:space-between;margin-bottom:6px">
+          <span>Text Color</span>
+          <span id="docBlockTextColorVal" style="font-family:monospace;font-size:11px;color:var(--muted)">Default</span>
+        </label>
+        <div class="doc-palette-row" id="docBlockTextPalette">
+          <button type="button" class="doc-color-chip is-active" data-color-type="text" data-color="" title="Default Theme">∅</button>
+          <button type="button" class="doc-color-chip" data-color-type="text" data-color="#111827" title="Dark Ink" style="background:#111827"></button>
+          <button type="button" class="doc-color-chip" data-color-type="text" data-color="#065F46" title="Emerald Dark" style="background:#065F46"></button>
+          <button type="button" class="doc-color-chip" data-color-type="text" data-color="#1E40AF" title="Blue Dark" style="background:#1E40AF"></button>
+          <button type="button" class="doc-color-chip" data-color-type="text" data-color="#92400E" title="Amber Dark" style="background:#92400E"></button>
+          <button type="button" class="doc-color-chip" data-color-type="text" data-color="#F8FAFC" title="White Light" style="background:#F8FAFC;border-color:#CBD5E1"></button>
+          <button type="button" class="doc-color-chip" data-color-type="text" data-color="#ECFDF5" title="Mint Light" style="background:#ECFDF5;border-color:#A7F3D0"></button>
+          <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
+            <input type="color" id="docBlockTextColorInput" value="#111827" style="width:28px;height:28px;padding:0;border:none;border-radius:6px;cursor:pointer">
+            <span style="font-size:11px;color:var(--muted)">Custom</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Preview -->
+      <div id="docBlockColorLivePreview" style="padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12.5px;text-align:center;font-weight:600;margin-top:8px">
+        Color Appearance Live Preview
+      </div>
+    </div>
+
+    <!-- Save & Cancel Action Buttons -->
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;border-top:1px solid var(--line-2);padding-top:14px">
+      <button type="button" class="btn btn-outline" id="docBlockEditCancelBtn">Cancel</button>
+      <button type="button" class="btn btn-primary" id="docBlockEditSaveBtn" style="background:#12A56F;border-color:#12A56F;font-weight:600">Save Changes</button>
     </div>
   </div>
 </div>

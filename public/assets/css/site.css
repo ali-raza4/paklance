@@ -3024,3 +3024,100 @@ a.pc-btn{display:inline-flex;align-items:center}
     margin: 20px auto;
   }
 }
+
+/* Scoped Editor Submodals (Image Options & Block Edit Modal) */
+.doc-submodal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10006;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: docFadeIn 0.15s ease;
+}
+
+.doc-submodal-card {
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: docScaleUp 0.15s ease;
+}
+
+@keyframes docScaleUp {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Block Selection Visual Indicator */
+.doc-block-wrapper.is-selected {
+  border-color: #12A56F !important;
+  box-shadow: 0 0 0 3px rgba(18, 165, 111, 0.22) !important;
+  background: rgba(236, 253, 245, 0.3) !important;
+  border-radius: 14px;
+}
+
+.doc-block-wrapper.is-selected .doc-block-toolbar {
+  opacity: 1 !important;
+  background: #e2e8f0 !important;
+}
+
+/* Color Customization Chips & Palette */
+.doc-palette-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.doc-color-chip {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.doc-color-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+
+.doc-color-chip.is-active {
+  border-color: var(--brand) !important;
+  box-shadow: 0 0 0 2px rgba(18, 165, 111, 0.4) !important;
+  transform: scale(1.1);
+}
+
+.doc-block-btn-edit {
+  background: rgba(18, 165, 111, 0.1) !important;
+  color: #12A56F !important;
+  border-color: rgba(18, 165, 111, 0.3) !important;
+}
+
+.doc-block-btn-edit:hover {
+  background: #12A56F !important;
+  color: #ffffff !important;
+}
+
+.doc-block-btn-color {
+  background: rgba(37, 99, 235, 0.08) !important;
+  color: #2563EB !important;
+  border-color: rgba(37, 99, 235, 0.25) !important;
+}
+
+.doc-block-btn-color:hover {
+  background: #2563EB !important;
+  color: #ffffff !important;
+}
+

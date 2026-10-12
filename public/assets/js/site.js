@@ -3825,6 +3825,44 @@
   // =========================================================================
   var docEditor = null;
   var activeImageCallback = null;
+  var savedImageInsertPos = null;
+  var activeBlockEditCallback = null;
+  var autosaveTimer = null;
+
+  function autosaveBlogDraft() {
+    if (!docEditor) return;
+    try {
+      var content = docEditor.getHTML();
+      if (!content || content === '<p></p>') return;
+      var draft = {
+        title: ($('#blogFormTitle') ? $('#blogFormTitle').value : ''),
+        subtitle: ($('#blogFormSubtitle') ? $('#blogFormSubtitle').value : ''),
+        slug: ($('#blogFormSlug') ? $('#blogFormSlug').value : ''),
+        category: ($('#blogFormCategory') ? $('#blogFormCategory').value : 'Freelancing'),
+        authorName: ($('#blogFormAuthor') ? $('#blogFormAuthor').value : 'Paklance Editorial Team'),
+        status: ($('#blogFormStatus') ? $('#blogFormStatus').value : 'DRAFT'),
+        excerpt: ($('#blogFormExcerpt') ? $('#blogFormExcerpt').value : ''),
+        coverImageUrl: ($('#blogFormCoverUrl') ? $('#blogFormCoverUrl').value : ''),
+        tags: ($('#blogFormTags') ? $('#blogFormTags').value : ''),
+        metaTitle: ($('#blogFormMetaTitle') ? $('#blogFormMetaTitle').value : ''),
+        metaDescription: ($('#blogFormMetaDesc') ? $('#blogFormMetaDesc').value : ''),
+        content: content,
+        updatedAt: Date.now()
+      };
+      localStorage.setItem('pk_blog_active_draft', JSON.stringify(draft));
+      var statusEl = $('#blogDraftAutosaveStatus');
+      if (statusEl) {
+        var d = new Date();
+        var timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        statusEl.innerHTML = '<span style="color:#12A56F">●</span> Autosaved ' + timeStr;
+      }
+    } catch(e){}
+  }
+
+  function debouncedAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(autosaveBlogDraft, 1200);
+  }
 
   function initDocEditor() {
     if (docEditor) return docEditor;
@@ -3862,15 +3900,28 @@
         ],
         content: '<p></p>',
         onSelectionUpdate: updateToolbarActiveStates,
-        onTransaction: updateToolbarActiveStates
+        onTransaction: updateToolbarActiveStates,
+        onUpdate: function(){
+          debouncedAutosave();
+          updateToolbarActiveStates();
+        }
       });
     } catch (err) {
       console.error('Failed to initialize TipTap Document Editor:', err);
       return null;
     }
 
+    richElement.addEventListener('click', function(e){
+      var blockWrap = e.target.closest('.doc-block-wrapper');
+      document.querySelectorAll('.doc-block-wrapper').forEach(function(w){
+        if (w !== blockWrap) w.classList.remove('is-selected');
+      });
+      if (blockWrap) blockWrap.classList.add('is-selected');
+    });
+
     setupDocToolbar();
     setupImageOptionsModal();
+    setupBlockEditAndColorModal();
     window.docEditor = docEditor;
     return docEditor;
   }
@@ -4097,26 +4148,21 @@
     if (!docEditor) return;
     switch (type) {
       case 'image':
-        window.PaklanceEditorUI.openImageModal(null, function(attrs){
-          if (attrs && attrs.src) {
-            docEditor.chain().focus().insertContent({
-              type: 'blogFigure',
-              attrs: attrs
-            }).run();
-          }
-        });
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openImageModal === 'function') {
+          window.PaklanceEditorUI.openImageModal(null, null);
+        }
         break;
 
       case 'comparisonTable':
         docEditor.chain().focus().insertContent({
-          type: 'blogTable',
+          type: 'table',
           content: [
             {
               type: 'tableRow',
               content: [
-                { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Key Feature' }] }] },
+                { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Feature' }] }] },
                 { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Paklance Platform' }] }] },
-                { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Traditional Global Platforms' }] }] }
+                { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Traditional Global Marketplaces' }] }] }
               ]
             },
             {
@@ -4130,15 +4176,7 @@
             {
               type: 'tableRow',
               content: [
-                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Platform Commission' }] }] },
-                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Ultra-low flat fee with complete transparent breakdown' }] }] },
-                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Up to 20% commission shaved off specialist earnings' }] }] }
-              ]
-            },
-            {
-              type: 'tableRow',
-              content: [
-                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Local Payout Rails' }] }] },
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Payout Speed' }] }] },
                 { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Instant payouts via Raast, EasyPaisa, JazzCash & Pakistani Banks' }] }] },
                 { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Third-party intermediaries (Payoneer/Wire) with $15-30 transfer fees' }] }] }
               ]
@@ -4161,7 +4199,10 @@
           type: 'blogQuote',
           attrs: {
             text: 'Paklance was engineered from day one to give Pakistani specialists equal global footing with zero foreign exchange friction and guaranteed milestone protection.',
-            cite: 'Paklance Product Team'
+            cite: 'Paklance Product Team',
+            bgColor: '',
+            textColor: '',
+            borderColor: ''
           }
         }).run();
         toast('Quote block inserted!');
@@ -4172,7 +4213,10 @@
           type: 'blogTip',
           attrs: {
             title: 'Pro Tip: Milestone Escrow Protection',
-            text: 'Always verify SafePay milestone funding is locked in escrow before commencing work on any project deliverable to guarantee 100% payment security.'
+            text: 'Always verify SafePay milestone funding is locked in escrow before commencing work on any project deliverable to guarantee 100% payment security.',
+            bgColor: '',
+            textColor: '',
+            borderColor: ''
           }
         }).run();
         toast('Pro Tip block inserted!');
@@ -4187,7 +4231,10 @@
             card2Num: '100%',
             card2Label: 'SafePay Escrow Protection',
             card3Num: 'Top 3%',
-            card3Label: 'Verified Pakistani Specialists'
+            card3Label: 'Verified Pakistani Specialists',
+            bgColor: '',
+            textColor: '',
+            borderColor: ''
           }
         }).run();
         toast('Statistics block inserted!');
@@ -4199,7 +4246,10 @@
           attrs: {
             cols: 2,
             col1: 'Direct client collaboration without foreign exchange risk. Communication is direct and disputes are resolved locally.',
-            col2: 'Paklance SafePay eliminates intermediary bank markups, high wire fees, and currency fluctuation hazards.'
+            col2: 'Paklance SafePay eliminates intermediary bank markups, high wire fees, and currency fluctuation hazards.',
+            bgColor: '',
+            textColor: '',
+            borderColor: ''
           }
         }).run();
         toast('2-Column block inserted!');
@@ -4212,7 +4262,10 @@
             cols: 3,
             col1: 'Pre-vetted top 3% specialist talent',
             col2: '100% SafePay escrow protection',
-            col3: 'Instant local bank & wallet payouts'
+            col3: 'Instant local bank & wallet payouts',
+            bgColor: '',
+            textColor: '',
+            borderColor: ''
           }
         }).run();
         toast('3-Column block inserted!');
@@ -4227,7 +4280,10 @@
             step2Title: 'Deliverable Production & Reviews',
             step2Desc: 'Verified specialists complete milestones with direct communication and progress reviews.',
             step3Title: 'Instant Milestone Release',
-            step3Desc: 'Approved funds disburse immediately via Raast, EasyPaisa, JazzCash, or direct bank transfer.'
+            step3Desc: 'Approved funds disburse immediately via Raast, EasyPaisa, JazzCash, or direct bank transfer.',
+            bgColor: '',
+            textColor: '',
+            borderColor: ''
           }
         }).run();
         toast('Workflow steps inserted!');
@@ -4242,7 +4298,10 @@
         docEditor.chain().focus().insertContent({
           type: 'blogSourceNote',
           attrs: {
-            text: 'Platform benchmarks 2026. Data verified against active marketplace escrow and payout ledgers.'
+            text: 'Platform benchmarks 2026. Data verified against active marketplace escrow and payout ledgers.',
+            bgColor: '',
+            textColor: '',
+            borderColor: ''
           }
         }).run();
         toast('Source Note inserted!');
@@ -4255,47 +4314,71 @@
     if (!modal || modal._bound) return;
     modal._bound = true;
 
-    window.PaklanceEditorUI = {
-      openImageModal: function(existingAttrs, callback) {
-        activeImageCallback = callback;
-        var urlInp = $('#docImgModalUrl');
-        var capInp = $('#docImgModalCaption');
-        var altInp = $('#docImgModalAlt');
-        var widthSel = $('#docImgModalWidth');
-        var alignSel = $('#docImgModalAlign');
-        var titleH3 = $('#blogImageOptionsTitle');
-        var confirmBtn = $('#docImgModalConfirmBtn');
-
-        if (existingAttrs) {
-          titleH3.textContent = 'Edit Image Block';
-          confirmBtn.textContent = 'Update Image Block';
-          urlInp.value = existingAttrs.src || '';
-          capInp.value = existingAttrs.caption || '';
-          altInp.value = existingAttrs.alt || '';
-          widthSel.value = existingAttrs.width || '100%';
-          alignSel.value = existingAttrs.align || 'center';
-        } else {
-          titleH3.textContent = 'Insert Image Block';
-          confirmBtn.textContent = 'Insert Image Block';
-          urlInp.value = '';
-          capInp.value = '';
-          altInp.value = '';
-          widthSel.value = '100%';
-          alignSel.value = 'center';
-        }
-
-        updateImageModalPreview();
-        openModal('blog-image-options');
+    window.PaklanceEditorUI = window.PaklanceEditorUI || {};
+    window.PaklanceEditorUI.openImageModal = function(existingAttrs, callback) {
+      activeImageCallback = callback;
+      if (docEditor && docEditor.state && docEditor.state.selection) {
+        savedImageInsertPos = docEditor.state.selection.from;
       }
+      var urlInp = $('#docImgModalUrl');
+      var capInp = $('#docImgModalCaption');
+      var altInp = $('#docImgModalAlt');
+      var widthSel = $('#docImgModalWidth');
+      var alignSel = $('#docImgModalAlign');
+      var titleH3 = $('#blogImageOptionsTitle');
+      var confirmBtn = $('#docImgModalConfirmBtn');
+      var statusDiv = $('#docImgModalUploadStatus');
+      if (statusDiv) { statusDiv.style.display = 'none'; statusDiv.textContent = ''; }
+
+      if (existingAttrs) {
+        titleH3.textContent = 'Edit Image Block';
+        confirmBtn.textContent = 'Update Image Block';
+        urlInp.value = existingAttrs.src || '';
+        capInp.value = existingAttrs.caption || '';
+        altInp.value = existingAttrs.alt || '';
+        widthSel.value = existingAttrs.width || '100%';
+        alignSel.value = existingAttrs.align || 'center';
+      } else {
+        titleH3.textContent = 'Insert Image Block';
+        confirmBtn.textContent = 'Insert Image Block';
+        urlInp.value = '';
+        capInp.value = '';
+        altInp.value = '';
+        widthSel.value = '100%';
+        alignSel.value = 'center';
+      }
+
+      updateImageModalPreview();
+      // Scoped display - DO NOT call closeModals() which closes blog editor!
+      modal.style.display = 'flex';
     };
+
+    function closeImageSubmodal() {
+      modal.style.display = 'none';
+      activeImageCallback = null;
+      var fileInp = $('#docImgModalFileInput');
+      if (fileInp) fileInp.value = '';
+      if (docEditor) docEditor.commands.focus();
+    }
+
+    var closeBtn = $('#docImgModalCloseBtn');
+    if (closeBtn) closeBtn.onclick = closeImageSubmodal;
+    var cancelBtn = $('#docImgModalCancelBtn');
+    if (cancelBtn) cancelBtn.onclick = closeImageSubmodal;
 
     var urlInp = $('#docImgModalUrl');
     if (urlInp) urlInp.oninput = updateImageModalPreview;
 
     var uploadBtn = $('#docImgModalUploadBtn');
     var fileInp = $('#docImgModalFileInput');
+    var confirmBtn = $('#docImgModalConfirmBtn');
+
     if (uploadBtn && fileInp) {
-      uploadBtn.onclick = function(){ fileInp.click(); };
+      uploadBtn.onclick = function(e){
+        e.preventDefault();
+        fileInp.click();
+      };
+
       fileInp.onchange = function(){
         var file = this.files && this.files[0];
         if (!file) return;
@@ -4304,31 +4387,39 @@
         var ext = (file.name || '').split('.').pop().toLowerCase();
         var allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'];
         if (allowedTypes.indexOf(file.type) === -1 && allowedExts.indexOf(ext) === -1) {
-          toast('Unsupported format. Please select a JPG, JPEG, PNG, or WebP image.');
+          toast('Unsupported image format. Please select a JPG, JPEG, PNG, or WebP image.');
           this.value = '';
           return;
         }
 
         var MAX_SIZE = 5 * 1024 * 1024;
         if (file.size > MAX_SIZE) {
-          toast('Image file exceeds 5MB size limit. Please choose a smaller image.');
+          toast('Image exceeds 5MB size limit. Please select a smaller image.');
           this.value = '';
           return;
         }
 
-        // Local instant preview
-        var localBlobUrl = '';
+        var statusDiv = $('#docImgModalUploadStatus');
+        if (statusDiv) {
+          statusDiv.style.display = 'block';
+          statusDiv.style.color = 'var(--brand)';
+          statusDiv.textContent = '⏳ Uploading ' + file.name + ' to persistent storage...';
+        }
+
+        // Show local preview immediately while uploading
         if (window.URL && typeof window.URL.createObjectURL === 'function') {
           try {
-            localBlobUrl = URL.createObjectURL(file);
-            urlInp.value = localBlobUrl;
+            var tempBlob = URL.createObjectURL(file);
+            urlInp.value = tempBlob;
             updateImageModalPreview();
           } catch(e){}
         }
 
-        var origBtnHtml = uploadBtn.innerHTML;
         uploadBtn.disabled = true;
-        uploadBtn.innerHTML = 'Uploading...';
+        if (confirmBtn) {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = 'Uploading image...';
+        }
 
         var formData = new FormData();
         formData.append('file', file);
@@ -4347,7 +4438,7 @@
         }).then(function(r){
           if (!r.ok) {
             return r.json().catch(function(){ return {}; }).then(function(d){
-              throw new Error(d.message || ('Upload failed (' + r.status + ')'));
+              throw new Error(d.message || ('Upload failed with status ' + r.status));
             });
           }
           return r.json();
@@ -4355,50 +4446,76 @@
           if (d && d.url) {
             urlInp.value = d.url;
             updateImageModalPreview();
-            toast('Image uploaded to production storage!');
+            if (statusDiv) {
+              statusDiv.style.display = 'block';
+              statusDiv.style.color = '#12A56F';
+              statusDiv.textContent = '✓ Uploaded successfully to persistent storage!';
+            }
+            toast('Image uploaded to persistent production storage!');
           } else {
-            throw new Error('Server did not return image URL.');
+            throw new Error('Server response missing image URL.');
           }
-        }).catch(function(e){
-          toast('Upload failed: ' + (e.message || ''));
+        }).catch(function(err){
+          if (statusDiv) {
+            statusDiv.style.display = 'block';
+            statusDiv.style.color = '#DC2626';
+            statusDiv.textContent = '✕ Upload failed: ' + err.message;
+          }
+          toast('Image upload failed: ' + err.message);
         }).finally(function(){
           uploadBtn.disabled = false;
-          uploadBtn.innerHTML = origBtnHtml;
-          if (localBlobUrl && window.URL && typeof window.URL.revokeObjectURL === 'function') {
-            try { URL.revokeObjectURL(localBlobUrl); } catch(ex){}
+          if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = activeImageCallback ? 'Update Image Block' : 'Insert Image Block';
           }
           fileInp.value = '';
         });
       };
     }
 
-    var confirmBtn = $('#docImgModalConfirmBtn');
     if (confirmBtn) {
-      confirmBtn.onclick = function(){
+      confirmBtn.onclick = function(e){
+        e.preventDefault();
         var src = urlInp.value.trim();
         if (!src) {
-          toast('Please enter or upload an image URL.');
+          toast('Please select or upload an image.');
           urlInp.focus();
           return;
         }
+
+        // Before doing anything risky, snapshot article state
+        autosaveBlogDraft();
+
         var attrs = {
           src: src,
-          caption: $('#docImgModalCaption').value.trim(),
-          alt: $('#docImgModalAlt').value.trim(),
-          width: $('#docImgModalWidth').value,
-          align: $('#docImgModalAlign').value
+          caption: ($('#docImgModalCaption') ? $('#docImgModalCaption').value.trim() : ''),
+          alt: ($('#docImgModalAlt') ? $('#docImgModalAlt').value.trim() : ''),
+          width: ($('#docImgModalWidth') ? $('#docImgModalWidth').value : '100%'),
+          align: ($('#docImgModalAlign') ? $('#docImgModalAlign').value : 'center')
         };
+
         if (activeImageCallback) {
           activeImageCallback(attrs);
           activeImageCallback = null;
         } else if (docEditor) {
+          // If inserting a new image, ensure we do not replace the entire document!
+          var sel = docEditor.state.selection;
+          if (sel && sel.from === 0 && sel.to === docEditor.state.doc.content.size) {
+            docEditor.commands.setTextSelection(docEditor.state.doc.content.size);
+          } else if (savedImageInsertPos != null) {
+            try {
+              docEditor.commands.setTextSelection(savedImageInsertPos);
+            } catch(ex){}
+          }
           docEditor.chain().focus().insertContent({
             type: 'blogFigure',
             attrs: attrs
           }).run();
         }
-        closeModals();
-        toast('Image inserted into article!');
+
+        closeImageSubmodal();
+        autosaveBlogDraft();
+        toast('Image block added to article!');
       };
     }
   }
@@ -4420,6 +4537,259 @@
     }
   }
 
+  function setupBlockEditAndColorModal() {
+    var modal = $('#m-blog-block-edit');
+    if (!modal || modal._bound) return;
+    modal._bound = true;
+
+    var headingH3 = $('#blogBlockEditHeading');
+    var badge = $('#docBlockEditTypeBadge');
+    var fieldsContainer = $('#docBlockEditFieldsContainer');
+    var closeBtn = $('#docBlockEditCloseBtn');
+    var cancelBtn = $('#docBlockEditCancelBtn');
+    var saveBtn = $('#docBlockEditSaveBtn');
+
+    var bgValSpan = $('#docBlockBgColorVal');
+    var textValSpan = $('#docBlockTextColorVal');
+    var bgPicker = $('#docBlockBgColorInput');
+    var textPicker = $('#docBlockTextColorInput');
+    var resetBtn = $('#docBlockBtnResetColors');
+    var previewBox = $('#docBlockColorLivePreview');
+
+    var currentBlockType = '';
+    var workingAttrs = {};
+
+    function updateColorLivePreview() {
+      if (!previewBox) return;
+      previewBox.style.backgroundColor = workingAttrs.bgColor || '';
+      previewBox.style.color = workingAttrs.textColor || '';
+      previewBox.style.borderColor = workingAttrs.borderColor || '#e2e8f0';
+      if (bgValSpan) bgValSpan.textContent = workingAttrs.bgColor || 'Default';
+      if (textValSpan) textValSpan.textContent = workingAttrs.textColor || 'Default';
+      if (bgPicker && workingAttrs.bgColor && workingAttrs.bgColor.startsWith('#')) {
+        bgPicker.value = workingAttrs.bgColor;
+      }
+      if (textPicker && workingAttrs.textColor && workingAttrs.textColor.startsWith('#')) {
+        textPicker.value = workingAttrs.textColor;
+      }
+      // Update active chip classes
+      modal.querySelectorAll('.doc-color-chip').forEach(function(chip){
+        var cType = chip.getAttribute('data-color-type');
+        var cVal = chip.getAttribute('data-color') || '';
+        if (cType === 'bg') {
+          chip.classList.toggle('is-active', (workingAttrs.bgColor || '') === cVal);
+        } else if (cType === 'text') {
+          chip.classList.toggle('is-active', (workingAttrs.textColor || '') === cVal);
+        }
+      });
+    }
+
+    // Palette chips click handlers
+    modal.querySelectorAll('.doc-color-chip').forEach(function(chip){
+      chip.onclick = function(e){
+        e.preventDefault();
+        var cType = chip.getAttribute('data-color-type');
+        var cVal = chip.getAttribute('data-color') || '';
+        if (cType === 'bg') {
+          workingAttrs.bgColor = cVal;
+          if (chip.getAttribute('data-text')) {
+            workingAttrs.textColor = chip.getAttribute('data-text');
+          }
+          if (chip.getAttribute('data-border')) {
+            workingAttrs.borderColor = chip.getAttribute('data-border');
+          }
+        } else if (cType === 'text') {
+          workingAttrs.textColor = cVal;
+        }
+        updateColorLivePreview();
+      };
+    });
+
+    if (bgPicker) {
+      bgPicker.oninput = function(){
+        workingAttrs.bgColor = this.value;
+        updateColorLivePreview();
+      };
+    }
+
+    if (textPicker) {
+      textPicker.oninput = function(){
+        workingAttrs.textColor = this.value;
+        updateColorLivePreview();
+      };
+    }
+
+    if (resetBtn) {
+      resetBtn.onclick = function(){
+        workingAttrs.bgColor = '';
+        workingAttrs.textColor = '';
+        workingAttrs.borderColor = '';
+        updateColorLivePreview();
+        toast('Colors reset to default.');
+      };
+    }
+
+    function closeModal() {
+      modal.style.display = 'none';
+      activeBlockEditCallback = null;
+      if (docEditor) docEditor.commands.focus();
+    }
+
+    if (closeBtn) closeBtn.onclick = closeModal;
+    if (cancelBtn) cancelBtn.onclick = closeModal;
+
+    window.PaklanceEditorUI = window.PaklanceEditorUI || {};
+
+    window.PaklanceEditorUI.openBlockEditModal = function(blockType, currentAttrs, onSave) {
+      currentBlockType = blockType;
+      activeBlockEditCallback = onSave;
+      workingAttrs = Object.assign({}, currentAttrs);
+
+      var typeNames = {
+        blogQuote: 'Highlighted Quote',
+        blogTip: 'Pro Tip / Callout',
+        blogStats: 'Statistics Cards',
+        blogColumns: 'Multi-Column Layout',
+        blogSteps: 'Numbered Workflow Steps',
+        blogSourceNote: 'Source Attribution Note',
+        blogFigure: 'Image Block'
+      };
+
+      headingH3.textContent = 'Edit ' + (typeNames[blockType] || 'Block');
+      badge.textContent = (typeNames[blockType] || 'BLOCK').toUpperCase();
+
+      // Render Dynamic Fields
+      fieldsContainer.innerHTML = '';
+      if (blockType === 'blogQuote') {
+        fieldsContainer.innerHTML =
+          '<div class="field" style="margin-bottom:12px">' +
+            '<label style="font-weight:600;font-size:13px">Quote Text <span style="color:#DC2626">*</span></label>' +
+            '<textarea class="input" id="beQuoteText" rows="3" style="height:auto;padding:8px" required>' + esc(workingAttrs.text || '') + '</textarea>' +
+          '</div>' +
+          '<div class="field" style="margin-bottom:8px">' +
+            '<label style="font-weight:600;font-size:13px">Attribution / Author Citation</label>' +
+            '<input class="input" type="text" id="beQuoteCite" value="' + esc(workingAttrs.cite || '') + '" placeholder="e.g. Paklance Product Team">' +
+          '</div>';
+      } else if (blockType === 'blogTip') {
+        fieldsContainer.innerHTML =
+          '<div class="field" style="margin-bottom:12px">' +
+            '<label style="font-weight:600;font-size:13px">Tip Header / Title <span style="color:#DC2626">*</span></label>' +
+            '<input class="input" type="text" id="beTipTitle" value="' + esc(workingAttrs.title || '') + '" required>' +
+          '</div>' +
+          '<div class="field" style="margin-bottom:8px">' +
+            '<label style="font-weight:600;font-size:13px">Tip Message / Advice <span style="color:#DC2626">*</span></label>' +
+            '<textarea class="input" id="beTipText" rows="3" style="height:auto;padding:8px" required>' + esc(workingAttrs.text || '') + '</textarea>' +
+          '</div>';
+      } else if (blockType === 'blogStats') {
+        fieldsContainer.innerHTML =
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
+            '<div class="field" style="margin:0"><label style="font-weight:600;font-size:12px">Card 1 Number</label><input class="input" id="beStat1Num" value="' + esc(workingAttrs.card1Num || '') + '"></div>' +
+            '<div class="field" style="margin:0"><label style="font-weight:600;font-size:12px">Card 1 Label</label><input class="input" id="beStat1Lbl" value="' + esc(workingAttrs.card1Label || '') + '"></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
+            '<div class="field" style="margin:0"><label style="font-weight:600;font-size:12px">Card 2 Number</label><input class="input" id="beStat2Num" value="' + esc(workingAttrs.card2Num || '') + '"></div>' +
+            '<div class="field" style="margin:0"><label style="font-weight:600;font-size:12px">Card 2 Label</label><input class="input" id="beStat2Lbl" value="' + esc(workingAttrs.card2Label || '') + '"></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">' +
+            '<div class="field" style="margin:0"><label style="font-weight:600;font-size:12px">Card 3 Number</label><input class="input" id="beStat3Num" value="' + esc(workingAttrs.card3Num || '') + '"></div>' +
+            '<div class="field" style="margin:0"><label style="font-weight:600;font-size:12px">Card 3 Label</label><input class="input" id="beStat3Lbl" value="' + esc(workingAttrs.card3Label || '') + '"></div>' +
+          '</div>';
+      } else if (blockType === 'blogColumns') {
+        var is3 = Number(workingAttrs.cols) === 3;
+        fieldsContainer.innerHTML =
+          '<div class="field" style="margin-bottom:10px">' +
+            '<label style="font-weight:600;font-size:12px">Column 1 Content</label>' +
+            '<textarea class="input" id="beCol1" rows="2" style="height:auto;padding:6px">' + esc(workingAttrs.col1 || '') + '</textarea>' +
+          '</div>' +
+          '<div class="field" style="margin-bottom:10px">' +
+            '<label style="font-weight:600;font-size:12px">Column 2 Content</label>' +
+            '<textarea class="input" id="beCol2" rows="2" style="height:auto;padding:6px">' + esc(workingAttrs.col2 || '') + '</textarea>' +
+          '</div>' +
+          (is3 ? (
+            '<div class="field" style="margin-bottom:8px">' +
+              '<label style="font-weight:600;font-size:12px">Column 3 Content</label>' +
+              '<textarea class="input" id="beCol3" rows="2" style="height:auto;padding:6px">' + esc(workingAttrs.col3 || '') + '</textarea>' +
+            '</div>'
+          ) : '');
+      } else if (blockType === 'blogSteps') {
+        fieldsContainer.innerHTML =
+          '<div style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:10px">' +
+            '<span style="font-weight:700;font-size:12px;color:var(--brand)">Step 1</span>' +
+            '<input class="input" id="beStep1T" value="' + esc(workingAttrs.step1Title || '') + '" style="margin:4px 0">' +
+            '<textarea class="input" id="beStep1D" rows="2" style="height:auto;padding:4px">' + esc(workingAttrs.step1Desc || '') + '</textarea>' +
+          '</div>' +
+          '<div style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:10px">' +
+            '<span style="font-weight:700;font-size:12px;color:var(--brand)">Step 2</span>' +
+            '<input class="input" id="beStep2T" value="' + esc(workingAttrs.step2Title || '') + '" style="margin:4px 0">' +
+            '<textarea class="input" id="beStep2D" rows="2" style="height:auto;padding:4px">' + esc(workingAttrs.step2Desc || '') + '</textarea>' +
+          '</div>' +
+          '<div style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:8px">' +
+            '<span style="font-weight:700;font-size:12px;color:var(--brand)">Step 3</span>' +
+            '<input class="input" id="beStep3T" value="' + esc(workingAttrs.step3Title || '') + '" style="margin:4px 0">' +
+            '<textarea class="input" id="beStep3D" rows="2" style="height:auto;padding:4px">' + esc(workingAttrs.step3Desc || '') + '</textarea>' +
+          '</div>';
+      } else if (blockType === 'blogSourceNote') {
+        fieldsContainer.innerHTML =
+          '<div class="field" style="margin-bottom:8px">' +
+            '<label style="font-weight:600;font-size:13px">Source & Attribution Note Text</label>' +
+            '<textarea class="input" id="beSourceText" rows="3" style="height:auto;padding:8px" required>' + esc(workingAttrs.text || '') + '</textarea>' +
+          '</div>';
+      }
+
+      updateColorLivePreview();
+      modal.style.display = 'flex';
+    };
+
+    window.PaklanceEditorUI.openBlockColorModal = function(blockType, currentAttrs, onSave) {
+      window.PaklanceEditorUI.openBlockEditModal(blockType, currentAttrs, onSave);
+      var colSec = $('#docBlockEditColorSection');
+      if (colSec) colSec.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    if (saveBtn) {
+      saveBtn.onclick = function(e){
+        e.preventDefault();
+        // Collect form values
+        if (currentBlockType === 'blogQuote') {
+          if ($('#beQuoteText')) workingAttrs.text = $('#beQuoteText').value.trim();
+          if ($('#beQuoteCite')) workingAttrs.cite = $('#beQuoteCite').value.trim();
+        } else if (currentBlockType === 'blogTip') {
+          if ($('#beTipTitle')) workingAttrs.title = $('#beTipTitle').value.trim();
+          if ($('#beTipText')) workingAttrs.text = $('#beTipText').value.trim();
+        } else if (currentBlockType === 'blogStats') {
+          if ($('#beStat1Num')) workingAttrs.card1Num = $('#beStat1Num').value.trim();
+          if ($('#beStat1Lbl')) workingAttrs.card1Label = $('#beStat1Lbl').value.trim();
+          if ($('#beStat2Num')) workingAttrs.card2Num = $('#beStat2Num').value.trim();
+          if ($('#beStat2Lbl')) workingAttrs.card2Label = $('#beStat2Lbl').value.trim();
+          if ($('#beStat3Num')) workingAttrs.card3Num = $('#beStat3Num').value.trim();
+          if ($('#beStat3Lbl')) workingAttrs.card3Label = $('#beStat3Lbl').value.trim();
+        } else if (currentBlockType === 'blogColumns') {
+          if ($('#beCol1')) workingAttrs.col1 = $('#beCol1').value.trim();
+          if ($('#beCol2')) workingAttrs.col2 = $('#beCol2').value.trim();
+          if ($('#beCol3')) workingAttrs.col3 = $('#beCol3').value.trim();
+        } else if (currentBlockType === 'blogSteps') {
+          if ($('#beStep1T')) workingAttrs.step1Title = $('#beStep1T').value.trim();
+          if ($('#beStep1D')) workingAttrs.step1Desc = $('#beStep1D').value.trim();
+          if ($('#beStep2T')) workingAttrs.step2Title = $('#beStep2T').value.trim();
+          if ($('#beStep2D')) workingAttrs.step2Desc = $('#beStep2D').value.trim();
+          if ($('#beStep3T')) workingAttrs.step3Title = $('#beStep3T').value.trim();
+          if ($('#beStep3D')) workingAttrs.step3Desc = $('#beStep3D').value.trim();
+        } else if (currentBlockType === 'blogSourceNote') {
+          if ($('#beSourceText')) workingAttrs.text = $('#beSourceText').value.trim();
+        }
+
+        if (activeBlockEditCallback) {
+          activeBlockEditCallback(workingAttrs);
+          activeBlockEditCallback = null;
+        }
+
+        closeModal();
+        autosaveBlogDraft();
+        toast('Block updated successfully!');
+      };
+    }
+  }
+
   function bindAdminBlogEditorControls() {
     var draftBtn = $('#blogBtnSaveDraft');
     if (draftBtn) draftBtn.onclick = function(){ saveAdminBlogPost('DRAFT'); };
@@ -4427,6 +4797,52 @@
     if (pubBtn) pubBtn.onclick = function(){ saveAdminBlogPost('PUBLISHED'); };
     var prevBtn = $('#blogBtnPreviewArticle');
     if (prevBtn) prevBtn.onclick = function(){ openAdminBlogPreview(); };
+
+    // Recovery banner buttons
+    var restoreBtn = $('#blogBtnRestoreDraft');
+    if (restoreBtn) {
+      restoreBtn.onclick = function(){
+        try {
+          var raw = localStorage.getItem('pk_blog_active_draft');
+          if (raw) {
+            var draft = JSON.parse(raw);
+            if ($('#blogFormTitle')) $('#blogFormTitle').value = draft.title || '';
+            if ($('#blogFormSubtitle')) $('#blogFormSubtitle').value = draft.subtitle || '';
+            if ($('#blogFormSlug')) $('#blogFormSlug').value = draft.slug || '';
+            if ($('#blogFormCategory')) $('#blogFormCategory').value = draft.category || 'Freelancing';
+            if ($('#blogFormAuthor')) $('#blogFormAuthor').value = draft.authorName || 'Paklance Editorial Team';
+            if ($('#blogFormStatus')) $('#blogFormStatus').value = draft.status || 'DRAFT';
+            if ($('#blogFormExcerpt')) $('#blogFormExcerpt').value = draft.excerpt || '';
+            if ($('#blogFormCoverUrl')) $('#blogFormCoverUrl').value = draft.coverImageUrl || '';
+            if ($('#blogFormTags')) $('#blogFormTags').value = draft.tags || '';
+            if ($('#blogFormMetaTitle')) $('#blogFormMetaTitle').value = draft.metaTitle || '';
+            if ($('#blogFormMetaDesc')) $('#blogFormMetaDesc').value = draft.metaDescription || '';
+
+            var ed = initDocEditor();
+            if (ed && draft.content) {
+              ed.commands.setContent(draft.content);
+            }
+            updateCoverPreview();
+            updateSerpPreview();
+            var b = $('#blogDraftRecoveryBanner');
+            if (b) b.style.display = 'none';
+            toast('Unsaved draft restored successfully!');
+          }
+        } catch(ex){
+          toast('Could not restore draft: ' + ex.message);
+        }
+      };
+    }
+
+    var dismissBtn = $('#blogBtnDismissDraft');
+    if (dismissBtn) {
+      dismissBtn.onclick = function(){
+        localStorage.removeItem('pk_blog_active_draft');
+        var b = $('#blogDraftRecoveryBanner');
+        if (b) b.style.display = 'none';
+        toast('Draft dismissed.');
+      };
+    }
   }
 
   function openAdminBlogEditor(blogId){
@@ -4449,6 +4865,7 @@
     var richBody = $('#blogRichBody');
     var metaTitleInput = $('#blogFormMetaTitle');
     var metaDescText = $('#blogFormMetaDesc');
+    var draftBanner = $('#blogDraftRecoveryBanner');
 
     if (blogId){
       var b = adminData.blogs.find(function(x){ return x.id === blogId; });
@@ -4480,6 +4897,7 @@
       } else {
         richBody.innerHTML = b.content || '';
       }
+      if (draftBanner) draftBanner.style.display = 'none';
     } else {
       idInput.value = '';
       titleH2.textContent = 'Create Blog Article';
@@ -4504,6 +4922,19 @@
         editor.commands.setContent('<p></p>');
       } else {
         richBody.innerHTML = '';
+      }
+
+      // Check if there is an unsaved draft in localStorage
+      var savedRaw = localStorage.getItem('pk_blog_active_draft');
+      if (savedRaw) {
+        try {
+          var draftData = JSON.parse(savedRaw);
+          if (draftData && draftData.content && draftData.content !== '<p></p>') {
+            if (draftBanner) draftBanner.style.display = 'flex';
+          }
+        } catch(e){}
+      } else {
+        if (draftBanner) draftBanner.style.display = 'none';
       }
     }
 

@@ -58,8 +58,46 @@ function deleteBlockNode(editor, getPos, node) {
   view.dispatch(tr);
 }
 
+function updateNodeAttrs(editor, getPos, node, newAttrs) {
+  const pos = typeof getPos === 'function' ? getPos() : getPos;
+  if (pos === undefined || pos === null) return;
+  const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
+    ...node.attrs,
+    ...newAttrs
+  });
+  editor.view.dispatch(tr);
+}
+
+// Apply custom colors to an element
+function applyBlockCustomColors(el, attrs) {
+  if (!el) return;
+  if (attrs.bgColor) {
+    el.style.backgroundColor = attrs.bgColor;
+  } else {
+    el.style.backgroundColor = '';
+  }
+  if (attrs.textColor) {
+    el.style.color = attrs.textColor;
+  } else {
+    el.style.color = '';
+  }
+  if (attrs.borderColor) {
+    el.style.borderColor = attrs.borderColor;
+  } else {
+    el.style.borderColor = '';
+  }
+}
+
+function getStyleStringForColors(attrs) {
+  let s = '';
+  if (attrs.bgColor) s += 'background-color:' + attrs.bgColor + ';';
+  if (attrs.textColor) s += 'color:' + attrs.textColor + ';';
+  if (attrs.borderColor) s += 'border-color:' + attrs.borderColor + ';';
+  return s;
+}
+
 // Create Block Controls Header for any NodeView
-function createBlockControls(label, onMoveUp, onMoveDown, onDuplicate, onDelete, onEdit) {
+function createBlockControls(label, onMoveUp, onMoveDown, onDuplicate, onDelete, onEdit, onColor) {
   const bar = document.createElement('div');
   bar.className = 'doc-block-toolbar';
   bar.setAttribute('contenteditable', 'false');
@@ -75,11 +113,21 @@ function createBlockControls(label, onMoveUp, onMoveDown, onDuplicate, onDelete,
   if (onEdit) {
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
-    editBtn.className = 'doc-block-btn';
-    editBtn.title = 'Edit Settings';
-    editBtn.innerHTML = '⚙ Settings';
+    editBtn.className = 'doc-block-btn doc-block-btn-edit';
+    editBtn.title = 'Edit Block Content';
+    editBtn.innerHTML = '✎ Edit';
     editBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); onEdit(); };
     actions.appendChild(editBtn);
+  }
+
+  if (onColor) {
+    const colorBtn = document.createElement('button');
+    colorBtn.type = 'button';
+    colorBtn.className = 'doc-block-btn doc-block-btn-color';
+    colorBtn.title = 'Customize Colors';
+    colorBtn.innerHTML = '🎨 Colors';
+    colorBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); onColor(); };
+    actions.appendChild(colorBtn);
   }
 
   const upBtn = document.createElement('button');
@@ -111,7 +159,7 @@ function createBlockControls(label, onMoveUp, onMoveDown, onDuplicate, onDelete,
   const delBtn = document.createElement('button');
   delBtn.type = 'button';
   delBtn.className = 'doc-block-btn doc-block-del';
-  delBtn.title = 'Delete';
+  delBtn.title = 'Delete Block';
   delBtn.innerHTML = '✕';
   delBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); onDelete(); };
   actions.appendChild(delBtn);
@@ -134,19 +182,16 @@ const BlogTable = Table.extend({
   parseHTML() {
     return [
       { tag: 'div.blog-table-wrap table' },
+      { tag: 'table.blog-table' },
       { tag: 'table' }
     ];
   },
   renderHTML({ HTMLAttributes }) {
-    return [
-      'div',
-      { class: 'blog-table-wrap' },
-      ['table', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0]
-    ];
+    return ['table', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
   }
 });
 
-// 2. Blog Figure (Image + Caption + Width + Alignment)
+// 2. Blog Figure (Image + Caption + Width + Alignment + Colors)
 const BlogFigure = Node.create({
   name: 'blogFigure',
   group: 'block',
@@ -159,7 +204,10 @@ const BlogFigure = Node.create({
       alt: { default: '' },
       caption: { default: '' },
       align: { default: 'center' }, // center, left, right
-      width: { default: '100%' } // 100%, 75%, 50%
+      width: { default: '100%' }, // 100%, 75%, 50%
+      bgColor: { default: '' },
+      textColor: { default: '' },
+      borderColor: { default: '' }
     };
   },
   parseHTML() {
@@ -178,7 +226,10 @@ const BlogFigure = Node.create({
             alt: img ? img.getAttribute('alt') || '' : '',
             caption: cap ? cap.innerHTML : '',
             align: dom.getAttribute('data-align') || align,
-            width: w.replace(';', '')
+            width: w.replace(';', ''),
+            bgColor: dom.getAttribute('data-bg-color') || dom.style.backgroundColor || '',
+            textColor: dom.getAttribute('data-text-color') || dom.style.color || '',
+            borderColor: dom.getAttribute('data-border-color') || dom.style.borderColor || ''
           };
         }
       },
@@ -192,7 +243,10 @@ const BlogFigure = Node.create({
             alt: img ? img.getAttribute('alt') || '' : '',
             caption: cap ? cap.innerHTML : '',
             align: 'center',
-            width: '100%'
+            width: '100%',
+            bgColor: dom.getAttribute('data-bg-color') || dom.style.backgroundColor || '',
+            textColor: dom.getAttribute('data-text-color') || dom.style.color || '',
+            borderColor: dom.getAttribute('data-border-color') || dom.style.borderColor || ''
           };
         }
       },
@@ -204,7 +258,10 @@ const BlogFigure = Node.create({
             alt: dom.getAttribute('alt') || '',
             caption: '',
             align: 'center',
-            width: '100%'
+            width: '100%',
+            bgColor: '',
+            textColor: '',
+            borderColor: ''
           };
         }
       }
@@ -213,7 +270,9 @@ const BlogFigure = Node.create({
   renderHTML({ HTMLAttributes }) {
     const alignClass = 'blog-figure-' + (HTMLAttributes.align || 'center');
     const widthVal = HTMLAttributes.width || '100%';
-    const figureStyle = 'max-width:' + widthVal + ';margin:24px auto;';
+    let figureStyle = 'max-width:' + widthVal + ';margin:24px auto;';
+    figureStyle += getStyleStringForColors(HTMLAttributes);
+
     const children = [
       [
         'img',
@@ -233,6 +292,9 @@ const BlogFigure = Node.create({
         class: 'blog-figure ' + alignClass,
         'data-align': HTMLAttributes.align || 'center',
         'data-width': widthVal,
+        'data-bg-color': HTMLAttributes.bgColor || '',
+        'data-text-color': HTMLAttributes.textColor || '',
+        'data-border-color': HTMLAttributes.borderColor || '',
         style: figureStyle
       },
       ...children
@@ -243,21 +305,30 @@ const BlogFigure = Node.create({
       const dom = document.createElement('div');
       dom.className = 'doc-block-wrapper doc-block-figure';
 
+      const openEdit = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openImageModal === 'function') {
+          window.PaklanceEditorUI.openImageModal(node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
+      const openColor = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockColorModal === 'function') {
+          window.PaklanceEditorUI.openBlockColorModal('blogFigure', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
       const toolbar = createBlockControls(
         'IMAGE BLOCK',
         () => moveBlockNode(editor, getPos, node, 'up'),
         () => moveBlockNode(editor, getPos, node, 'down'),
         () => duplicateBlockNode(editor, getPos, node),
         () => deleteBlockNode(editor, getPos, node),
-        () => {
-          if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openImageModal === 'function') {
-            window.PaklanceEditorUI.openImageModal(node.attrs, (newAttrs) => {
-              if (typeof getPos === 'function') {
-                editor.commands.updateAttributes('blogFigure', newAttrs);
-              }
-            });
-          }
-        }
+        openEdit,
+        openColor
       );
       dom.appendChild(toolbar);
 
@@ -266,6 +337,7 @@ const BlogFigure = Node.create({
       figure.className = 'blog-figure ' + alignClass;
       figure.style.maxWidth = node.attrs.width || '100%';
       figure.style.margin = '14px auto';
+      applyBlockCustomColors(figure, node.attrs);
 
       const img = document.createElement('img');
       img.src = node.attrs.src || '';
@@ -281,21 +353,33 @@ const BlogFigure = Node.create({
       cap.setAttribute('contenteditable', 'true');
       cap.setAttribute('data-placeholder', 'Write image caption...');
       cap.innerHTML = node.attrs.caption || '';
-      cap.oninput = () => {
-        node.attrs.caption = cap.innerHTML;
+      cap.onblur = () => {
+        updateNodeAttrs(editor, getPos, node, { caption: cap.innerHTML });
       };
       figure.appendChild(cap);
 
       dom.appendChild(figure);
 
+      dom.onclick = () => {
+        document.querySelectorAll('.doc-block-wrapper').forEach(w => w.classList.remove('is-selected'));
+        dom.classList.add('is-selected');
+      };
+
       return {
         dom,
+        stopEvent: (event) => {
+          const target = event.target;
+          return target.isContentEditable || ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(target.tagName);
+        },
+        ignoreMutation: () => true,
         update: (updatedNode) => {
           if (updatedNode.type.name !== 'blogFigure') return false;
+          if (dom.contains(document.activeElement)) return true;
           img.src = updatedNode.attrs.src || '';
           img.alt = updatedNode.attrs.alt || '';
           figure.style.maxWidth = updatedNode.attrs.width || '100%';
           figure.className = 'blog-figure blog-figure-' + (updatedNode.attrs.align || 'center');
+          applyBlockCustomColors(figure, updatedNode.attrs);
           if (cap.innerHTML !== updatedNode.attrs.caption) {
             cap.innerHTML = updatedNode.attrs.caption || '';
           }
@@ -306,7 +390,7 @@ const BlogFigure = Node.create({
   }
 });
 
-// 3. Blog Quote (Pull Quote + Citation)
+// 3. Blog Quote (Pull Quote + Citation + Colors)
 const BlogQuote = Node.create({
   name: 'blogQuote',
   group: 'block',
@@ -316,7 +400,10 @@ const BlogQuote = Node.create({
   addAttributes() {
     return {
       text: { default: 'Paklance was engineered from day one to give Pakistani specialists equal global footing with zero foreign exchange friction and guaranteed milestone protection.' },
-      cite: { default: 'Paklance Product Team' }
+      cite: { default: 'Paklance Product Team' },
+      bgColor: { default: '' },
+      textColor: { default: '' },
+      borderColor: { default: '' }
     };
   },
   parseHTML() {
@@ -328,7 +415,10 @@ const BlogQuote = Node.create({
           const cite = dom.querySelector('cite');
           return {
             text: p ? p.innerHTML : dom.innerHTML,
-            cite: cite ? cite.innerText : 'Paklance Product Team'
+            cite: cite ? cite.innerText : 'Paklance Product Team',
+            bgColor: dom.getAttribute('data-bg-color') || dom.style.backgroundColor || '',
+            textColor: dom.getAttribute('data-text-color') || dom.style.color || '',
+            borderColor: dom.getAttribute('data-border-color') || dom.style.borderColor || ''
           };
         }
       },
@@ -339,16 +429,26 @@ const BlogQuote = Node.create({
           const p = dom.querySelector('p');
           return {
             text: p ? p.innerHTML : dom.innerHTML,
-            cite: cite ? cite.innerText : 'Author'
+            cite: cite ? cite.innerText : 'Author',
+            bgColor: dom.getAttribute('data-bg-color') || dom.style.backgroundColor || '',
+            textColor: dom.getAttribute('data-text-color') || dom.style.color || '',
+            borderColor: dom.getAttribute('data-border-color') || dom.style.borderColor || ''
           };
         }
       }
     ];
   },
   renderHTML({ HTMLAttributes }) {
+    const customStyle = getStyleStringForColors(HTMLAttributes);
     return [
       'blockquote',
-      { class: 'blog-quote' },
+      {
+        class: 'blog-quote',
+        'data-bg-color': HTMLAttributes.bgColor || '',
+        'data-text-color': HTMLAttributes.textColor || '',
+        'data-border-color': HTMLAttributes.borderColor || '',
+        style: customStyle || undefined
+      },
       ['p', {}, HTMLAttributes.text || ''],
       ['cite', {}, HTMLAttributes.cite || 'Paklance Product Team']
     ];
@@ -358,36 +458,71 @@ const BlogQuote = Node.create({
       const dom = document.createElement('div');
       dom.className = 'doc-block-wrapper doc-block-quote';
 
+      const openEdit = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockEditModal === 'function') {
+          window.PaklanceEditorUI.openBlockEditModal('blogQuote', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
+      const openColor = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockColorModal === 'function') {
+          window.PaklanceEditorUI.openBlockColorModal('blogQuote', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
       const toolbar = createBlockControls(
         'HIGHLIGHTED QUOTE',
         () => moveBlockNode(editor, getPos, node, 'up'),
         () => moveBlockNode(editor, getPos, node, 'down'),
         () => duplicateBlockNode(editor, getPos, node),
-        () => deleteBlockNode(editor, getPos, node)
+        () => deleteBlockNode(editor, getPos, node),
+        openEdit,
+        openColor
       );
       dom.appendChild(toolbar);
 
       const bq = document.createElement('blockquote');
       bq.className = 'blog-quote';
+      applyBlockCustomColors(bq, node.attrs);
 
       const p = document.createElement('p');
       p.setAttribute('contenteditable', 'true');
       p.innerHTML = node.attrs.text || '';
-      p.oninput = () => { node.attrs.text = p.innerHTML; };
+      p.onblur = () => {
+        updateNodeAttrs(editor, getPos, node, { text: p.innerHTML });
+      };
       bq.appendChild(p);
 
       const cite = document.createElement('cite');
       cite.setAttribute('contenteditable', 'true');
       cite.textContent = node.attrs.cite || 'Paklance Product Team';
-      cite.oninput = () => { node.attrs.cite = cite.textContent; };
+      cite.onblur = () => {
+        updateNodeAttrs(editor, getPos, node, { cite: cite.textContent });
+      };
       bq.appendChild(cite);
 
       dom.appendChild(bq);
 
+      dom.onclick = () => {
+        document.querySelectorAll('.doc-block-wrapper').forEach(w => w.classList.remove('is-selected'));
+        dom.classList.add('is-selected');
+      };
+
       return {
         dom,
+        stopEvent: (event) => {
+          const target = event.target;
+          return target.isContentEditable || ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(target.tagName);
+        },
+        ignoreMutation: () => true,
         update: (updatedNode) => {
           if (updatedNode.type.name !== 'blogQuote') return false;
+          if (dom.contains(document.activeElement)) return true;
+          applyBlockCustomColors(bq, updatedNode.attrs);
           if (p.innerHTML !== updatedNode.attrs.text) p.innerHTML = updatedNode.attrs.text || '';
           if (cite.textContent !== updatedNode.attrs.cite) cite.textContent = updatedNode.attrs.cite || '';
           return true;
@@ -397,7 +532,7 @@ const BlogQuote = Node.create({
   }
 });
 
-// 4. Blog Tip (Callout / Pro Tip)
+// 4. Blog Tip (Callout / Pro Tip + Colors)
 const BlogTip = Node.create({
   name: 'blogTip',
   group: 'block',
@@ -407,7 +542,10 @@ const BlogTip = Node.create({
   addAttributes() {
     return {
       title: { default: 'Pro Tip: Milestone Escrow Protection' },
-      text: { default: 'Always verify SafePay milestone funding is locked in escrow before commencing work on any project deliverable to guarantee 100% payment security.' }
+      text: { default: 'Always verify SafePay milestone funding is locked in escrow before commencing work on any project deliverable to guarantee 100% payment security.' },
+      bgColor: { default: '' },
+      textColor: { default: '' },
+      borderColor: { default: '' }
     };
   },
   parseHTML() {
@@ -419,16 +557,26 @@ const BlogTip = Node.create({
           const p = dom.querySelector('p');
           return {
             title: strong ? strong.innerText : 'Pro Tip',
-            text: p ? p.innerHTML : ''
+            text: p ? p.innerHTML : '',
+            bgColor: dom.getAttribute('data-bg-color') || dom.style.backgroundColor || '',
+            textColor: dom.getAttribute('data-text-color') || dom.style.color || '',
+            borderColor: dom.getAttribute('data-border-color') || dom.style.borderColor || ''
           };
         }
       }
     ];
   },
   renderHTML({ HTMLAttributes }) {
+    const customStyle = getStyleStringForColors(HTMLAttributes);
     return [
       'aside',
-      { class: 'blog-tip' },
+      {
+        class: 'blog-tip',
+        'data-bg-color': HTMLAttributes.bgColor || '',
+        'data-text-color': HTMLAttributes.textColor || '',
+        'data-border-color': HTMLAttributes.borderColor || '',
+        style: customStyle || undefined
+      },
       [
         'svg',
         {
@@ -456,17 +604,36 @@ const BlogTip = Node.create({
       const dom = document.createElement('div');
       dom.className = 'doc-block-wrapper doc-block-tip';
 
+      const openEdit = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockEditModal === 'function') {
+          window.PaklanceEditorUI.openBlockEditModal('blogTip', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
+      const openColor = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockColorModal === 'function') {
+          window.PaklanceEditorUI.openBlockColorModal('blogTip', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
       const toolbar = createBlockControls(
         'PRO TIP / CALLOUT',
         () => moveBlockNode(editor, getPos, node, 'up'),
         () => moveBlockNode(editor, getPos, node, 'down'),
         () => duplicateBlockNode(editor, getPos, node),
-        () => deleteBlockNode(editor, getPos, node)
+        () => deleteBlockNode(editor, getPos, node),
+        openEdit,
+        openColor
       );
       dom.appendChild(toolbar);
 
       const tip = document.createElement('aside');
       tip.className = 'blog-tip';
+      applyBlockCustomColors(tip, node.attrs);
 
       const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       iconSvg.setAttribute('class', 'ic');
@@ -490,22 +657,38 @@ const BlogTip = Node.create({
       const strong = document.createElement('strong');
       strong.setAttribute('contenteditable', 'true');
       strong.textContent = node.attrs.title || 'Pro Tip';
-      strong.oninput = () => { node.attrs.title = strong.textContent; };
+      strong.onblur = () => {
+        updateNodeAttrs(editor, getPos, node, { title: strong.textContent });
+      };
       contentDiv.appendChild(strong);
 
       const p = document.createElement('p');
       p.setAttribute('contenteditable', 'true');
       p.innerHTML = node.attrs.text || '';
-      p.oninput = () => { node.attrs.text = p.innerHTML; };
+      p.onblur = () => {
+        updateNodeAttrs(editor, getPos, node, { text: p.innerHTML });
+      };
       contentDiv.appendChild(p);
 
       tip.appendChild(contentDiv);
       dom.appendChild(tip);
 
+      dom.onclick = () => {
+        document.querySelectorAll('.doc-block-wrapper').forEach(w => w.classList.remove('is-selected'));
+        dom.classList.add('is-selected');
+      };
+
       return {
         dom,
+        stopEvent: (event) => {
+          const target = event.target;
+          return target.isContentEditable || ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(target.tagName);
+        },
+        ignoreMutation: () => true,
         update: (updatedNode) => {
           if (updatedNode.type.name !== 'blogTip') return false;
+          if (dom.contains(document.activeElement)) return true;
+          applyBlockCustomColors(tip, updatedNode.attrs);
           if (strong.textContent !== updatedNode.attrs.title) strong.textContent = updatedNode.attrs.title || '';
           if (p.innerHTML !== updatedNode.attrs.text) p.innerHTML = updatedNode.attrs.text || '';
           return true;
@@ -515,7 +698,7 @@ const BlogTip = Node.create({
   }
 });
 
-// 5. Blog Statistics Cards
+// 5. Blog Statistics Cards (+ Colors)
 const BlogStats = Node.create({
   name: 'blogStats',
   group: 'block',
@@ -529,7 +712,10 @@ const BlogStats = Node.create({
       card2Num: { default: '100%' },
       card2Label: { default: 'SafePay Escrow Protection' },
       card3Num: { default: 'Top 3%' },
-      card3Label: { default: 'Verified Pakistani Specialists' }
+      card3Label: { default: 'Verified Pakistani Specialists' },
+      bgColor: { default: '' },
+      textColor: { default: '' },
+      borderColor: { default: '' }
     };
   },
   parseHTML() {
@@ -545,31 +731,40 @@ const BlogStats = Node.create({
             card2Num: c2 ? (c2.querySelector('.blog-stat-num')?.innerText || '100%') : '100%',
             card2Label: c2 ? (c2.querySelector('.blog-stat-label')?.innerText || '') : '',
             card3Num: c3 ? (c3.querySelector('.blog-stat-num')?.innerText || 'Top 3%') : 'Top 3%',
-            card3Label: c3 ? (c3.querySelector('.blog-stat-label')?.innerText || '') : ''
+            card3Label: c3 ? (c3.querySelector('.blog-stat-label')?.innerText || '') : '',
+            bgColor: dom.getAttribute('data-bg-color') || dom.style.backgroundColor || '',
+            textColor: dom.getAttribute('data-text-color') || dom.style.color || '',
+            borderColor: dom.getAttribute('data-border-color') || dom.style.borderColor || ''
           };
         }
       }
     ];
   },
   renderHTML({ HTMLAttributes }) {
+    const cardStyle = getStyleStringForColors(HTMLAttributes);
     return [
       'div',
-      { class: 'blog-stats-grid' },
+      {
+        class: 'blog-stats-grid',
+        'data-bg-color': HTMLAttributes.bgColor || '',
+        'data-text-color': HTMLAttributes.textColor || '',
+        'data-border-color': HTMLAttributes.borderColor || ''
+      },
       [
         'div',
-        { class: 'blog-stat-card' },
+        { class: 'blog-stat-card', style: cardStyle || undefined },
         ['div', { class: 'blog-stat-num' }, HTMLAttributes.card1Num || 'PKR 0'],
         ['div', { class: 'blog-stat-label' }, HTMLAttributes.card1Label || '']
       ],
       [
         'div',
-        { class: 'blog-stat-card' },
+        { class: 'blog-stat-card', style: cardStyle || undefined },
         ['div', { class: 'blog-stat-num' }, HTMLAttributes.card2Num || '100%'],
         ['div', { class: 'blog-stat-label' }, HTMLAttributes.card2Label || '']
       ],
       [
         'div',
-        { class: 'blog-stat-card' },
+        { class: 'blog-stat-card', style: cardStyle || undefined },
         ['div', { class: 'blog-stat-num' }, HTMLAttributes.card3Num || 'Top 3%'],
         ['div', { class: 'blog-stat-label' }, HTMLAttributes.card3Label || '']
       ]
@@ -580,12 +775,30 @@ const BlogStats = Node.create({
       const dom = document.createElement('div');
       dom.className = 'doc-block-wrapper doc-block-stats';
 
+      const openEdit = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockEditModal === 'function') {
+          window.PaklanceEditorUI.openBlockEditModal('blogStats', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
+      const openColor = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockColorModal === 'function') {
+          window.PaklanceEditorUI.openBlockColorModal('blogStats', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
       const toolbar = createBlockControls(
         'STATISTICS CARDS',
         () => moveBlockNode(editor, getPos, node, 'up'),
         () => moveBlockNode(editor, getPos, node, 'down'),
         () => duplicateBlockNode(editor, getPos, node),
-        () => deleteBlockNode(editor, getPos, node)
+        () => deleteBlockNode(editor, getPos, node),
+        openEdit,
+        openColor
       );
       dom.appendChild(toolbar);
 
@@ -598,33 +811,56 @@ const BlogStats = Node.create({
         { numKey: 'card3Num', labelKey: 'card3Label' }
       ];
 
+      const cardEls = [];
       cData.forEach(item => {
         const card = document.createElement('div');
         card.className = 'blog-stat-card';
+        applyBlockCustomColors(card, node.attrs);
 
         const num = document.createElement('div');
         num.className = 'blog-stat-num';
         num.setAttribute('contenteditable', 'true');
         num.textContent = node.attrs[item.numKey] || '';
-        num.oninput = () => { node.attrs[item.numKey] = num.textContent; };
+        num.onblur = () => {
+          updateNodeAttrs(editor, getPos, node, { [item.numKey]: num.textContent });
+        };
         card.appendChild(num);
 
         const lbl = document.createElement('div');
         lbl.className = 'blog-stat-label';
         lbl.setAttribute('contenteditable', 'true');
         lbl.textContent = node.attrs[item.labelKey] || '';
-        lbl.oninput = () => { node.attrs[item.labelKey] = lbl.textContent; };
+        lbl.onblur = () => {
+          updateNodeAttrs(editor, getPos, node, { [item.labelKey]: lbl.textContent });
+        };
         card.appendChild(lbl);
 
         grid.appendChild(card);
+        cardEls.push({ card, num, lbl, item });
       });
 
       dom.appendChild(grid);
 
+      dom.onclick = () => {
+        document.querySelectorAll('.doc-block-wrapper').forEach(w => w.classList.remove('is-selected'));
+        dom.classList.add('is-selected');
+      };
+
       return {
         dom,
+        stopEvent: (event) => {
+          const target = event.target;
+          return target.isContentEditable || ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(target.tagName);
+        },
+        ignoreMutation: () => true,
         update: (updatedNode) => {
           if (updatedNode.type.name !== 'blogStats') return false;
+          if (dom.contains(document.activeElement)) return true;
+          cardEls.forEach(({ card, num, lbl, item }) => {
+            applyBlockCustomColors(card, updatedNode.attrs);
+            if (num.textContent !== updatedNode.attrs[item.numKey]) num.textContent = updatedNode.attrs[item.numKey] || '';
+            if (lbl.textContent !== updatedNode.attrs[item.labelKey]) lbl.textContent = updatedNode.attrs[item.labelKey] || '';
+          });
           return true;
         }
       };
@@ -632,7 +868,7 @@ const BlogStats = Node.create({
   }
 });
 
-// 6. Blog Multi-Column Layout (2 or 3 columns)
+// 6. Blog Multi-Column Layout (2 or 3 columns + Colors)
 const BlogColumns = Node.create({
   name: 'blogColumns',
   group: 'block',
@@ -644,7 +880,10 @@ const BlogColumns = Node.create({
       cols: { default: 2 }, // 2 or 3
       col1: { default: 'Left column insights: Discuss key advantages, methods, or details for your audience.' },
       col2: { default: 'Right column insights: Outline supporting data, practical execution steps, or key takeaways.' },
-      col3: { default: 'Third column insights (optional): Add further perspective or next actions.' }
+      col3: { default: 'Third column insights (optional): Add further perspective or next actions.' },
+      bgColor: { default: '' },
+      textColor: { default: '' },
+      borderColor: { default: '' }
     };
   },
   parseHTML() {
@@ -658,7 +897,10 @@ const BlogColumns = Node.create({
             cols: is3 ? 3 : 2,
             col1: cols[0] ? cols[0].innerHTML : '',
             col2: cols[1] ? cols[1].innerHTML : '',
-            col3: cols[2] ? cols[2].innerHTML : ''
+            col3: cols[2] ? cols[2].innerHTML : '',
+            bgColor: dom.getAttribute('data-bg-color') || dom.style.backgroundColor || '',
+            textColor: dom.getAttribute('data-text-color') || dom.style.color || '',
+            borderColor: dom.getAttribute('data-border-color') || dom.style.borderColor || ''
           };
         }
       }
@@ -667,14 +909,25 @@ const BlogColumns = Node.create({
   renderHTML({ HTMLAttributes }) {
     const is3 = Number(HTMLAttributes.cols) === 3;
     const colClass = is3 ? 'blog-columns blog-cols-3' : 'blog-columns blog-cols-2';
+    const colStyle = getStyleStringForColors(HTMLAttributes);
+
     const children = [
-      ['div', { class: 'blog-col' }, HTMLAttributes.col1 || ''],
-      ['div', { class: 'blog-col' }, HTMLAttributes.col2 || '']
+      ['div', { class: 'blog-col', style: colStyle || undefined }, HTMLAttributes.col1 || ''],
+      ['div', { class: 'blog-col', style: colStyle || undefined }, HTMLAttributes.col2 || '']
     ];
     if (is3) {
-      children.push(['div', { class: 'blog-col' }, HTMLAttributes.col3 || '']);
+      children.push(['div', { class: 'blog-col', style: colStyle || undefined }, HTMLAttributes.col3 || '']);
     }
-    return ['div', { class: colClass }, ...children];
+    return [
+      'div',
+      {
+        class: colClass,
+        'data-bg-color': HTMLAttributes.bgColor || '',
+        'data-text-color': HTMLAttributes.textColor || '',
+        'data-border-color': HTMLAttributes.borderColor || ''
+      },
+      ...children
+    ];
   },
   addNodeView() {
     return ({ node, HTMLAttributes, getPos, editor }) => {
@@ -682,12 +935,31 @@ const BlogColumns = Node.create({
       dom.className = 'doc-block-wrapper doc-block-columns';
 
       const is3 = Number(node.attrs.cols) === 3;
+
+      const openEdit = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockEditModal === 'function') {
+          window.PaklanceEditorUI.openBlockEditModal('blogColumns', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
+      const openColor = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockColorModal === 'function') {
+          window.PaklanceEditorUI.openBlockColorModal('blogColumns', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
       const toolbar = createBlockControls(
         is3 ? '3-COLUMN LAYOUT' : '2-COLUMN LAYOUT',
         () => moveBlockNode(editor, getPos, node, 'up'),
         () => moveBlockNode(editor, getPos, node, 'down'),
         () => duplicateBlockNode(editor, getPos, node),
-        () => deleteBlockNode(editor, getPos, node)
+        () => deleteBlockNode(editor, getPos, node),
+        openEdit,
+        openColor
       );
       dom.appendChild(toolbar);
 
@@ -698,31 +970,60 @@ const BlogColumns = Node.create({
       col1.className = 'blog-col';
       col1.setAttribute('contenteditable', 'true');
       col1.innerHTML = node.attrs.col1 || '';
-      col1.oninput = () => { node.attrs.col1 = col1.innerHTML; };
+      applyBlockCustomColors(col1, node.attrs);
+      col1.onblur = () => {
+        updateNodeAttrs(editor, getPos, node, { col1: col1.innerHTML });
+      };
       row.appendChild(col1);
 
       const col2 = document.createElement('div');
       col2.className = 'blog-col';
       col2.setAttribute('contenteditable', 'true');
       col2.innerHTML = node.attrs.col2 || '';
-      col2.oninput = () => { node.attrs.col2 = col2.innerHTML; };
+      applyBlockCustomColors(col2, node.attrs);
+      col2.onblur = () => {
+        updateNodeAttrs(editor, getPos, node, { col2: col2.innerHTML });
+      };
       row.appendChild(col2);
 
+      let col3 = null;
       if (is3) {
-        const col3 = document.createElement('div');
+        col3 = document.createElement('div');
         col3.className = 'blog-col';
         col3.setAttribute('contenteditable', 'true');
         col3.innerHTML = node.attrs.col3 || '';
-        col3.oninput = () => { node.attrs.col3 = col3.innerHTML; };
+        applyBlockCustomColors(col3, node.attrs);
+        col3.onblur = () => {
+          updateNodeAttrs(editor, getPos, node, { col3: col3.innerHTML });
+        };
         row.appendChild(col3);
       }
 
       dom.appendChild(row);
 
+      dom.onclick = () => {
+        document.querySelectorAll('.doc-block-wrapper').forEach(w => w.classList.remove('is-selected'));
+        dom.classList.add('is-selected');
+      };
+
       return {
         dom,
+        stopEvent: (event) => {
+          const target = event.target;
+          return target.isContentEditable || ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(target.tagName);
+        },
+        ignoreMutation: () => true,
         update: (updatedNode) => {
           if (updatedNode.type.name !== 'blogColumns') return false;
+          if (dom.contains(document.activeElement)) return true;
+          applyBlockCustomColors(col1, updatedNode.attrs);
+          applyBlockCustomColors(col2, updatedNode.attrs);
+          if (col1.innerHTML !== updatedNode.attrs.col1) col1.innerHTML = updatedNode.attrs.col1 || '';
+          if (col2.innerHTML !== updatedNode.attrs.col2) col2.innerHTML = updatedNode.attrs.col2 || '';
+          if (col3) {
+            applyBlockCustomColors(col3, updatedNode.attrs);
+            if (col3.innerHTML !== updatedNode.attrs.col3) col3.innerHTML = updatedNode.attrs.col3 || '';
+          }
           return true;
         }
       };
@@ -730,7 +1031,7 @@ const BlogColumns = Node.create({
   }
 });
 
-// 7. Blog Numbered Steps (Workflow Process)
+// 7. Blog Numbered Steps (Workflow Process + Colors)
 const BlogSteps = Node.create({
   name: 'blogSteps',
   group: 'block',
@@ -744,7 +1045,10 @@ const BlogSteps = Node.create({
       step2Title: { default: 'Deliverable Production & Reviews' },
       step2Desc: { default: 'Pre-screened Pakistani specialists submit deliverables through direct collaboration channels.' },
       step3Title: { default: 'Instant Milestone Release' },
-      step3Desc: { default: 'Approved funds disburse immediately via Raast, EasyPaisa, JazzCash, or direct bank transfer.' }
+      step3Desc: { default: 'Approved funds disburse immediately via Raast, EasyPaisa, JazzCash, or direct bank transfer.' },
+      bgColor: { default: '' },
+      textColor: { default: '' },
+      borderColor: { default: '' }
     };
   },
   parseHTML() {
@@ -760,19 +1064,28 @@ const BlogSteps = Node.create({
             step2Title: s2 ? (s2.querySelector('strong')?.innerText || '') : '',
             step2Desc: s2 ? (s2.querySelector('p')?.innerHTML || '') : '',
             step3Title: s3 ? (s3.querySelector('strong')?.innerText || '') : '',
-            step3Desc: s3 ? (s3.querySelector('p')?.innerHTML || '') : ''
+            step3Desc: s3 ? (s3.querySelector('p')?.innerHTML || '') : '',
+            bgColor: dom.getAttribute('data-bg-color') || dom.style.backgroundColor || '',
+            textColor: dom.getAttribute('data-text-color') || dom.style.color || '',
+            borderColor: dom.getAttribute('data-border-color') || dom.style.borderColor || ''
           };
         }
       }
     ];
   },
   renderHTML({ HTMLAttributes }) {
+    const itemStyle = getStyleStringForColors(HTMLAttributes);
     return [
       'div',
-      { class: 'blog-workflow-steps' },
+      {
+        class: 'blog-workflow-steps',
+        'data-bg-color': HTMLAttributes.bgColor || '',
+        'data-text-color': HTMLAttributes.textColor || '',
+        'data-border-color': HTMLAttributes.borderColor || ''
+      },
       [
         'div',
-        { class: 'blog-step-item' },
+        { class: 'blog-step-item', style: itemStyle || undefined },
         ['div', { class: 'blog-step-num' }, '1'],
         [
           'div',
@@ -783,7 +1096,7 @@ const BlogSteps = Node.create({
       ],
       [
         'div',
-        { class: 'blog-step-item' },
+        { class: 'blog-step-item', style: itemStyle || undefined },
         ['div', { class: 'blog-step-num' }, '2'],
         [
           'div',
@@ -794,7 +1107,7 @@ const BlogSteps = Node.create({
       ],
       [
         'div',
-        { class: 'blog-step-item' },
+        { class: 'blog-step-item', style: itemStyle || undefined },
         ['div', { class: 'blog-step-num' }, '3'],
         [
           'div',
@@ -810,12 +1123,30 @@ const BlogSteps = Node.create({
       const dom = document.createElement('div');
       dom.className = 'doc-block-wrapper doc-block-steps';
 
+      const openEdit = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockEditModal === 'function') {
+          window.PaklanceEditorUI.openBlockEditModal('blogSteps', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
+      const openColor = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockColorModal === 'function') {
+          window.PaklanceEditorUI.openBlockColorModal('blogSteps', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
       const toolbar = createBlockControls(
         'NUMBERED WORKFLOW STEPS',
         () => moveBlockNode(editor, getPos, node, 'up'),
         () => moveBlockNode(editor, getPos, node, 'down'),
         () => duplicateBlockNode(editor, getPos, node),
-        () => deleteBlockNode(editor, getPos, node)
+        () => deleteBlockNode(editor, getPos, node),
+        openEdit,
+        openColor
       );
       dom.appendChild(toolbar);
 
@@ -828,9 +1159,11 @@ const BlogSteps = Node.create({
         { num: '3', titleKey: 'step3Title', descKey: 'step3Desc' }
       ];
 
+      const itemEls = [];
       sData.forEach(item => {
         const step = document.createElement('div');
         step.className = 'blog-step-item';
+        applyBlockCustomColors(step, node.attrs);
 
         const numBadge = document.createElement('div');
         numBadge.className = 'blog-step-num';
@@ -843,25 +1176,46 @@ const BlogSteps = Node.create({
         const strong = document.createElement('strong');
         strong.setAttribute('contenteditable', 'true');
         strong.textContent = node.attrs[item.titleKey] || '';
-        strong.oninput = () => { node.attrs[item.titleKey] = strong.textContent; };
+        strong.onblur = () => {
+          updateNodeAttrs(editor, getPos, node, { [item.titleKey]: strong.textContent });
+        };
         content.appendChild(strong);
 
         const p = document.createElement('p');
         p.setAttribute('contenteditable', 'true');
         p.innerHTML = node.attrs[item.descKey] || '';
-        p.oninput = () => { node.attrs[item.descKey] = p.innerHTML; };
+        p.onblur = () => {
+          updateNodeAttrs(editor, getPos, node, { [item.descKey]: p.innerHTML });
+        };
         content.appendChild(p);
 
         step.appendChild(content);
         stepsDiv.appendChild(step);
+        itemEls.push({ step, strong, p, item });
       });
 
       dom.appendChild(stepsDiv);
 
+      dom.onclick = () => {
+        document.querySelectorAll('.doc-block-wrapper').forEach(w => w.classList.remove('is-selected'));
+        dom.classList.add('is-selected');
+      };
+
       return {
         dom,
+        stopEvent: (event) => {
+          const target = event.target;
+          return target.isContentEditable || ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(target.tagName);
+        },
+        ignoreMutation: () => true,
         update: (updatedNode) => {
           if (updatedNode.type.name !== 'blogSteps') return false;
+          if (dom.contains(document.activeElement)) return true;
+          itemEls.forEach(({ step, strong, p, item }) => {
+            applyBlockCustomColors(step, updatedNode.attrs);
+            if (strong.textContent !== updatedNode.attrs[item.titleKey]) strong.textContent = updatedNode.attrs[item.titleKey] || '';
+            if (p.innerHTML !== updatedNode.attrs[item.descKey]) p.innerHTML = updatedNode.attrs[item.descKey] || '';
+          });
           return true;
         }
       };
@@ -903,12 +1257,17 @@ const BlogDivider = Node.create({
       hr.className = 'blog-divider';
       dom.appendChild(hr);
 
+      dom.onclick = () => {
+        document.querySelectorAll('.doc-block-wrapper').forEach(w => w.classList.remove('is-selected'));
+        dom.classList.add('is-selected');
+      };
+
       return { dom };
     };
   }
 });
 
-// 9. Blog Source Note
+// 9. Blog Source Note (+ Colors)
 const BlogSourceNote = Node.create({
   name: 'blogSourceNote',
   group: 'block',
@@ -917,7 +1276,10 @@ const BlogSourceNote = Node.create({
   isolating: true,
   addAttributes() {
     return {
-      text: { default: 'Paklance Platform Benchmarks 2026. Data verified against active marketplace escrow and payout ledgers.' }
+      text: { default: 'Paklance Platform Benchmarks 2026. Data verified against active marketplace escrow and payout ledgers.' },
+      bgColor: { default: '' },
+      textColor: { default: '' },
+      borderColor: { default: '' }
     };
   },
   parseHTML() {
@@ -928,15 +1290,27 @@ const BlogSourceNote = Node.create({
           const p = dom.querySelector('p');
           let text = p ? p.innerHTML : dom.innerHTML;
           text = text.split('Source Note:').pop();
-          return { text: text ? text.trim() : '' };
+          return {
+            text: text ? text.trim() : '',
+            bgColor: dom.getAttribute('data-bg-color') || dom.style.backgroundColor || '',
+            textColor: dom.getAttribute('data-text-color') || dom.style.color || '',
+            borderColor: dom.getAttribute('data-border-color') || dom.style.borderColor || ''
+          };
         }
       }
     ];
   },
   renderHTML({ HTMLAttributes }) {
+    const customStyle = getStyleStringForColors(HTMLAttributes);
     return [
       'aside',
-      { class: 'blog-source-note' },
+      {
+        class: 'blog-source-note',
+        'data-bg-color': HTMLAttributes.bgColor || '',
+        'data-text-color': HTMLAttributes.textColor || '',
+        'data-border-color': HTMLAttributes.borderColor || '',
+        style: customStyle || undefined
+      },
       ['p', {}, ['strong', {}, 'Source Note: '], HTMLAttributes.text || '']
     ];
   },
@@ -945,30 +1319,63 @@ const BlogSourceNote = Node.create({
       const dom = document.createElement('div');
       dom.className = 'doc-block-wrapper doc-block-source';
 
+      const openEdit = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockEditModal === 'function') {
+          window.PaklanceEditorUI.openBlockEditModal('blogSourceNote', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
+      const openColor = () => {
+        if (window.PaklanceEditorUI && typeof window.PaklanceEditorUI.openBlockColorModal === 'function') {
+          window.PaklanceEditorUI.openBlockColorModal('blogSourceNote', node.attrs, (newAttrs) => {
+            updateNodeAttrs(editor, getPos, node, newAttrs);
+          });
+        }
+      };
+
       const toolbar = createBlockControls(
         'SOURCE / ATTRIBUTION NOTE',
         () => moveBlockNode(editor, getPos, node, 'up'),
         () => moveBlockNode(editor, getPos, node, 'down'),
         () => duplicateBlockNode(editor, getPos, node),
-        () => deleteBlockNode(editor, getPos, node)
+        () => deleteBlockNode(editor, getPos, node),
+        openEdit,
+        openColor
       );
       dom.appendChild(toolbar);
 
       const aside = document.createElement('aside');
       aside.className = 'blog-source-note';
+      applyBlockCustomColors(aside, node.attrs);
 
       const p = document.createElement('p');
       p.innerHTML = '<strong>Source Note: </strong><span contenteditable="true" class="source-note-text">' + (node.attrs.text || '') + '</span>';
       const span = p.querySelector('.source-note-text');
-      span.oninput = () => { node.attrs.text = span.innerHTML; };
+      span.onblur = () => {
+        updateNodeAttrs(editor, getPos, node, { text: span.innerHTML });
+      };
       aside.appendChild(p);
 
       dom.appendChild(aside);
 
+      dom.onclick = () => {
+        document.querySelectorAll('.doc-block-wrapper').forEach(w => w.classList.remove('is-selected'));
+        dom.classList.add('is-selected');
+      };
+
       return {
         dom,
+        stopEvent: (event) => {
+          const target = event.target;
+          return target.isContentEditable || ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(target.tagName);
+        },
+        ignoreMutation: () => true,
         update: (updatedNode) => {
           if (updatedNode.type.name !== 'blogSourceNote') return false;
+          if (dom.contains(document.activeElement)) return true;
+          applyBlockCustomColors(aside, updatedNode.attrs);
           if (span && span.innerHTML !== updatedNode.attrs.text) span.innerHTML = updatedNode.attrs.text || '';
           return true;
         }
