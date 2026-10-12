@@ -3358,10 +3358,9 @@
           uploadBtn.textContent = 'Uploading...';
           toast('Uploading cover image from device...');
 
-          // 5. Build FormData with both 'file' and 'image'
+          // 5. Build FormData with 'file'
           var formData = new FormData();
           formData.append('file', file);
-          formData.append('image', file);
 
           var tok = _siteGetToken();
           var authHeader = tok ? { 'Authorization': 'Bearer ' + tok } : {};
@@ -3478,7 +3477,6 @@
 
             var formData = new FormData();
             formData.append('file', file);
-            formData.append('image', file);
             toast('Uploading article image...');
 
             var tok = _siteGetToken();
