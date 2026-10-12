@@ -3582,6 +3582,9 @@
   }
 
   function loadAdminDashboardData(force){
+    if (!adminData) {
+      adminData = { stats: null, financials: null, users: [], jobs: [], contracts: [], disputes: [], verifications: [], withdrawals: [], blogs: [], activeTab: 'users', roleFilter: 'ALL', searchQuery: '', jobSearchQuery: '', jobStatusFilter: 'ALL', contractSearchQuery: '', contractStatusFilter: 'ALL', verifStatusFilter: 'ALL', blogSearchQuery: '', blogStatusFilter: 'ALL', blogCategoryFilter: 'ALL', loading: false };
+    }
     if (adminData.loading && !force) return;
     adminData.loading = true;
 
