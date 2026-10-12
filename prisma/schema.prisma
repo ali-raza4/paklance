@@ -65,16 +65,33 @@ model Verification {
 }
 
 model Job {
-  id          String     @id @default(uuid())
-  title       String
-  description String
-  budget      Decimal
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  clientId    String
-  contracts   Contract[]
-  client      User       @relation(fields: [clientId], references: [id])
-  Proposal    Proposal[]
+  id              String     @id @default(uuid())
+  title           String
+  description     String
+  budget          Decimal
+  category        String?
+  skills          String[]   @default([])
+  jobType         String?    @default("FREELANCE")
+  paymentMethod   String?    @default("FIXED")
+  hourlyMin       Decimal?
+  hourlyMax       Decimal?
+  weeklyHours     Int?
+  weeklyRate      Decimal?
+  monthlyRate     Decimal?
+  currency        String?    @default("PKR")
+  deliveryDays    Int?
+  duration        String?
+  experienceLevel String?    @default("INTERMEDIATE")
+  locationType    String?    @default("REMOTE")
+  location        String?
+  status          String?    @default("OPEN")
+  safepay         Boolean?   @default(false)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  clientId        String
+  contracts       Contract[]
+  client          User       @relation(fields: [clientId], references: [id])
+  Proposal        Proposal[]
 }
 
 model Contract {

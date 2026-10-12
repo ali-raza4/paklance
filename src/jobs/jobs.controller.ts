@@ -96,10 +96,10 @@ export class JobsController {
     return this.jobsService.findOne(id);
   }
 
-  @ApiOperation({ summary: 'Update a job post (Owner CLIENT only)' })
+  @ApiOperation({ summary: 'Update a job post (Owner CLIENT or ADMIN)' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CLIENT)
+  @Roles(Role.CLIENT, Role.ADMIN)
   @Patch(':id')
   update(
     @CurrentUser('id') userId: string,
