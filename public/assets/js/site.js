@@ -3018,6 +3018,7 @@
     blogCategoryFilter: 'ALL',
     loading: false
   };
+  window.adminData = adminData;
 
   function switchAdminTab(targetTab){
     if (!targetTab) return;
@@ -3402,180 +3403,7 @@
         };
       }
 
-      // Rich Text Toolbar
-      var toolbar = $('#blogEditorToolbar');
-      if (toolbar) {
-        toolbar.querySelectorAll('.admin-editor-btn[data-cmd]').forEach(function(btn){
-          btn.onmousedown = function(e){
-            e.preventDefault();
-            var cmd = btn.getAttribute('data-cmd');
-            var val = btn.getAttribute('data-val') || null;
-            document.execCommand(cmd, false, val);
-            var editor = $('#blogRichBody');
-            if (editor) editor.focus();
-          };
-        });
-
-        var linkBtn = $('#blogToolbarLinkBtn');
-        if (linkBtn) {
-          linkBtn.onmousedown = function(e){
-            e.preventDefault();
-            var url = prompt('Enter link URL (e.g. https://example.com):', 'https://');
-            if (url && url !== 'https://') {
-              document.execCommand('createLink', false, url);
-            }
-            var editor = $('#blogRichBody');
-            if (editor) editor.focus();
-          };
-        }
-
-        function insertInlineImage(url){
-          var editor = $('#blogRichBody');
-          if (!editor) return;
-          editor.focus();
-          var imgHtml = '<p><img src="' + esc(url) + '" alt="Article image" style="max-width:100%;border-radius:10px;margin:16px 0;display:block;box-shadow:0 2px 8px rgba(0,0,0,0.06)"></p><p><br></p>';
-          document.execCommand('insertHTML', false, imgHtml);
-        }
-
-        var imgBtn = $('#blogToolbarImageBtn');
-        var inlineFileInp = $('#blogToolbarImageFileInput');
-        if (imgBtn && inlineFileInp) {
-          imgBtn.onmousedown = function(e){
-            e.preventDefault();
-            var choice = confirm("Upload an image from your computer/device?\n\n• Click OK to upload an image file from your device.\n• Click Cancel to enter a direct image URL.");
-            if (choice) {
-              inlineFileInp.click();
-            } else {
-              var url = prompt('Enter direct image URL:');
-              if (url && url.trim()) {
-                insertInlineImage(url.trim());
-              }
-            }
-          };
-
-          inlineFileInp.onchange = function(){
-            var file = this.files && this.files[0];
-            if (!file) return;
-
-            // Validate format and size
-            var allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
-            var ext = (file.name || '').split('.').pop().toLowerCase();
-            var allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'];
-            var isAllowed = allowedTypes.indexOf(file.type) !== -1 || allowedExts.indexOf(ext) !== -1;
-            if (!isAllowed) {
-              toast('Unsupported image format. Please select a JPG, JPEG, PNG, or WebP image.');
-              this.value = '';
-              return;
-            }
-
-            var MAX_SIZE = 5 * 1024 * 1024;
-            if (file.size > MAX_SIZE) {
-              toast('Image file exceeds the 5MB size limit. Please choose a smaller image.');
-              this.value = '';
-              return;
-            }
-
-            var formData = new FormData();
-            formData.append('file', file);
-            toast('Uploading article image...');
-
-            var tok = _siteGetToken();
-            var authHeader = tok ? { 'Authorization': 'Bearer ' + tok } : {};
-            var uploadUrl = '/api/admin/blogs/upload-image';
-            if (!LIVE || location.hostname === 'localhost' || location.protocol === 'file:') {
-              uploadUrl = 'https://paklance-backend-updated.vercel.app/api/admin/blogs/upload-image';
-            }
-
-            fetch(uploadUrl, {
-              method: 'POST',
-              headers: authHeader,
-              body: formData
-            }).then(function(r){
-              if (!r.ok) {
-                return r.json().catch(function(){ return {}; }).then(function(errData){
-                  throw new Error(errData.message || ('Upload failed (' + r.status + ')'));
-                });
-              }
-              return r.json();
-            }).then(function(d){
-              if (d && d.url){
-                insertInlineImage(d.url);
-                toast('Image inserted into article!');
-              } else {
-                throw new Error('Server did not return image URL.');
-              }
-            }).catch(function(e){
-              toast('Image upload failed: ' + (e.message || ''));
-            }).finally(function(){
-              inlineFileInp.value = '';
-            });
-          };
-        }
-
-        // Comparison Table Toolbar Button
-        var tableBtn = $('#blogToolbarTableBtn');
-        if (tableBtn) {
-          tableBtn.onmousedown = function(e){
-            e.preventDefault();
-            var editor = $('#blogRichBody');
-            if (!editor) return;
-            editor.focus();
-            var tblHtml = '<div class="blog-table-wrap">' +
-              '<table class="blog-table">' +
-              '<thead><tr><th>Feature</th><th>Paklance</th><th>Traditional Platforms</th></tr></thead>' +
-              '<tbody>' +
-              '<tr><th>SafePay Escrow</th><td>Direct PKR milestone protection via local banks</td><td>High foreign conversion &amp; withdrawal delays</td></tr>' +
-              '<tr><th>Commission Fees</th><td>Low, transparent platform fee (no cuts)</td><td>Up to 20% commission on specialist earnings</td></tr>' +
-              '<tr><th>Specialist Vetting</th><td>Verified top 3% Pakistani professionals</td><td>Uncurated spam proposals</td></tr>' +
-              '<tr><th>Local Payouts</th><td>Instant via Raast, EasyPaisa, JazzCash</td><td>Payoneer/Wire with intermediate bank charges</td></tr>' +
-              '</tbody></table></div><p><br></p>';
-            document.execCommand('insertHTML', false, tblHtml);
-          };
-        }
-
-        // Highlighted Quote Toolbar Button
-        var quoteBtn = $('#blogToolbarQuoteBtn');
-        if (quoteBtn) {
-          quoteBtn.onmousedown = function(e){
-            e.preventDefault();
-            var editor = $('#blogRichBody');
-            if (!editor) return;
-            editor.focus();
-            var qHtml = '<blockquote class="blog-quote">' +
-              '<p>"Paklance was engineered from day one to give Pakistani specialists equal global footing with zero FX friction and guaranteed payment milestones."</p>' +
-              '<cite>Paklance Editorial Team</cite>' +
-              '</blockquote><p><br></p>';
-            document.execCommand('insertHTML', false, qHtml);
-          };
-        }
-
-        // Callout Tip Toolbar Button
-        var tipBtn = $('#blogToolbarTipBtn');
-        if (tipBtn) {
-          tipBtn.onmousedown = function(e){
-            e.preventDefault();
-            var editor = $('#blogRichBody');
-            if (!editor) return;
-            editor.focus();
-            var tipHtml = '<aside class="blog-tip">' +
-              '<svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-3);flex-shrink:0;margin-top:2px"><path d="M9 18h6m-4 4h2M12 2a7 7 0 0 0-7 7c0 3 2 5 2 7h10c0-2 2-4 2-7a7 7 0 0 0-7-7z"/></svg>' +
-              '<div><strong>Pro Tip: SafePay Escrow Milestone Protection</strong>' +
-              '<p>Always verify milestone funding is confirmed before beginning deliverables to guarantee your payment.</p>' +
-              '</div></aside><p><br></p>';
-            document.execCommand('insertHTML', false, tipHtml);
-          };
-        }
-      }
-
-      // Save Draft & Save Publish buttons
-      var draftBtn = $('#blogBtnSaveDraft');
-      if (draftBtn) draftBtn.onclick = function(){ saveAdminBlogPost('DRAFT'); };
-      var pubBtn = $('#blogBtnSavePublish');
-      if (pubBtn) pubBtn.onclick = function(){ saveAdminBlogPost('PUBLISHED'); };
-
-      // Preview article button
-      var prevBtn = $('#blogBtnPreviewArticle');
-      if (prevBtn) prevBtn.onclick = function(){ openAdminBlogPreview(); };
+      bindAdminBlogEditorControls();
     }
 
     loadAdminDashboardData();
@@ -3992,7 +3820,617 @@
     });
   }
 
+  // =========================================================================
+  // PAKLANCE DOCUMENT EDITOR CONTROLLER (TipTap Engine + Custom Block Nodes)
+  // =========================================================================
+  var docEditor = null;
+  var activeImageCallback = null;
+
+  function initDocEditor() {
+    if (docEditor) return docEditor;
+    var richElement = $('#blogRichBody');
+    if (!richElement || !window.PaklanceEditorBundle) return null;
+
+    var Bundle = window.PaklanceEditorBundle;
+    try {
+      docEditor = new Bundle.Editor({
+        element: richElement,
+        extensions: [
+          Bundle.StarterKit.configure({
+            heading: { levels: [2, 3] },
+            blockquote: false,
+            horizontalRule: false
+          }),
+          Bundle.BlogTable.configure({ resizable: true }),
+          Bundle.TableRow,
+          Bundle.TableCell,
+          Bundle.TableHeader,
+          Bundle.Underline,
+          Bundle.TextAlign.configure({ types: ['heading', 'paragraph'] }),
+          Bundle.Link.configure({ openOnClick: false }),
+          Bundle.Placeholder.configure({
+            placeholder: "Write your article here... Press '+ Insert Block' for tables, quotes, tips, images, statistics, and workflow diagrams."
+          }),
+          Bundle.BlogFigure,
+          Bundle.BlogQuote,
+          Bundle.BlogTip,
+          Bundle.BlogStats,
+          Bundle.BlogColumns,
+          Bundle.BlogSteps,
+          Bundle.BlogDivider,
+          Bundle.BlogSourceNote
+        ],
+        content: '<p></p>',
+        onSelectionUpdate: updateToolbarActiveStates,
+        onTransaction: updateToolbarActiveStates
+      });
+    } catch (err) {
+      console.error('Failed to initialize TipTap Document Editor:', err);
+      return null;
+    }
+
+    setupDocToolbar();
+    setupImageOptionsModal();
+    window.docEditor = docEditor;
+    return docEditor;
+  }
+  window.initDocEditor = initDocEditor;
+
+  function updateToolbarActiveStates() {
+    if (!docEditor) return;
+
+    // Table contextual toolbar visibility
+    var tableToolbar = $('#blogTableContextToolbar');
+    if (tableToolbar) {
+      if (docEditor.isActive('table')) {
+        tableToolbar.style.display = 'flex';
+      } else {
+        tableToolbar.style.display = 'none';
+      }
+    }
+
+    // Heading / Paragraph select dropdown
+    var blockSelect = $('#docBlockTypeSelect');
+    if (blockSelect) {
+      if (docEditor.isActive('heading', { level: 2 })) {
+        blockSelect.value = 'h2';
+      } else if (docEditor.isActive('heading', { level: 3 })) {
+        blockSelect.value = 'h3';
+      } else {
+        blockSelect.value = 'p';
+      }
+    }
+
+    // Inline formatting buttons
+    var tb = $('#blogEditorToolbar');
+    if (tb) {
+      var boldBtn = tb.querySelector('[data-doc-cmd="bold"]');
+      if (boldBtn) boldBtn.classList.toggle('is-active', docEditor.isActive('bold'));
+
+      var italicBtn = tb.querySelector('[data-doc-cmd="italic"]');
+      if (italicBtn) italicBtn.classList.toggle('is-active', docEditor.isActive('italic'));
+
+      var underBtn = tb.querySelector('[data-doc-cmd="underline"]');
+      if (underBtn) underBtn.classList.toggle('is-active', docEditor.isActive('underline'));
+
+      var strikeBtn = tb.querySelector('[data-doc-cmd="strike"]');
+      if (strikeBtn) strikeBtn.classList.toggle('is-active', docEditor.isActive('strike'));
+
+      var alignL = tb.querySelector('[data-doc-cmd="align-left"]');
+      if (alignL) alignL.classList.toggle('is-active', docEditor.isActive({ textAlign: 'left' }));
+
+      var alignC = tb.querySelector('[data-doc-cmd="align-center"]');
+      if (alignC) alignC.classList.toggle('is-active', docEditor.isActive({ textAlign: 'center' }));
+
+      var alignR = tb.querySelector('[data-doc-cmd="align-right"]');
+      if (alignR) alignR.classList.toggle('is-active', docEditor.isActive({ textAlign: 'right' }));
+
+      var ulBtn = tb.querySelector('[data-doc-cmd="bulletList"]');
+      if (ulBtn) ulBtn.classList.toggle('is-active', docEditor.isActive('bulletList'));
+
+      var olBtn = tb.querySelector('[data-doc-cmd="orderedList"]');
+      if (olBtn) olBtn.classList.toggle('is-active', docEditor.isActive('orderedList'));
+
+      var linkBtn = $('#docBtnLink');
+      if (linkBtn) linkBtn.classList.toggle('is-active', docEditor.isActive('link'));
+    }
+  }
+
+  function setupDocToolbar() {
+    var tb = $('#blogEditorToolbar');
+    if (!tb || tb._bound) return;
+    tb._bound = true;
+
+    // Toolbar Buttons (Undo, Redo, Bold, Italic, Underline, Strike, Alignment, Lists, Clear)
+    tb.querySelectorAll('[data-doc-cmd]').forEach(function(btn){
+      btn.onmousedown = function(e){
+        e.preventDefault();
+        if (!docEditor) return;
+        var cmd = btn.getAttribute('data-doc-cmd');
+        switch (cmd) {
+          case 'undo': docEditor.chain().focus().undo().run(); break;
+          case 'redo': docEditor.chain().focus().redo().run(); break;
+          case 'bold': docEditor.chain().focus().toggleBold().run(); break;
+          case 'italic': docEditor.chain().focus().toggleItalic().run(); break;
+          case 'underline': docEditor.chain().focus().toggleUnderline().run(); break;
+          case 'strike': docEditor.chain().focus().toggleStrike().run(); break;
+          case 'align-left': docEditor.chain().focus().setTextAlign('left').run(); break;
+          case 'align-center': docEditor.chain().focus().setTextAlign('center').run(); break;
+          case 'align-right': docEditor.chain().focus().setTextAlign('right').run(); break;
+          case 'bulletList': docEditor.chain().focus().toggleBulletList().run(); break;
+          case 'orderedList': docEditor.chain().focus().toggleOrderedList().run(); break;
+          case 'clearFormat': docEditor.chain().focus().unsetAllMarks().clearNodes().run(); break;
+        }
+      };
+    });
+
+    // Block Type Selector (Paragraph, H2, H3)
+    var blockSelect = $('#docBlockTypeSelect');
+    if (blockSelect) {
+      blockSelect.onchange = function(){
+        if (!docEditor) return;
+        var val = this.value;
+        if (val === 'h2') {
+          docEditor.chain().focus().toggleHeading({ level: 2 }).run();
+        } else if (val === 'h3') {
+          docEditor.chain().focus().toggleHeading({ level: 3 }).run();
+        } else {
+          docEditor.chain().focus().setParagraph().run();
+        }
+      };
+    }
+
+    // Link Button
+    var linkBtn = $('#docBtnLink');
+    if (linkBtn) {
+      linkBtn.onclick = function(e){
+        e.preventDefault();
+        if (!docEditor) return;
+        var prevUrl = docEditor.getAttributes('link').href || '';
+        var url = prompt('Enter link URL (e.g. https://paklance.com):', prevUrl || 'https://');
+        if (url === null) return;
+        if (url.trim() === '' || url === 'https://') {
+          docEditor.chain().focus().unsetLink().run();
+        } else {
+          docEditor.chain().focus().setLink({ href: url.trim() }).run();
+        }
+      };
+    }
+    var unlinkBtn = $('#docBtnUnlink');
+    if (unlinkBtn) {
+      unlinkBtn.onclick = function(e){
+        e.preventDefault();
+        if (docEditor) docEditor.chain().focus().unsetLink().run();
+      };
+    }
+
+    // Table Picker Popover Toggle
+    var tablePickerBtn = $('#docBtnTablePicker');
+    var tablePopover = $('#docTablePickerPopover');
+    if (tablePickerBtn && tablePopover) {
+      tablePickerBtn.onclick = function(e){
+        e.stopPropagation();
+        var isOpen = tablePopover.classList.contains('is-open');
+        closePopovers();
+        if (!isOpen) tablePopover.classList.add('is-open');
+      };
+    }
+
+    // Confirm Insert Table
+    var confirmTableBtn = $('#docBtnConfirmInsertTable');
+    if (confirmTableBtn) {
+      confirmTableBtn.onclick = function(e){
+        e.preventDefault();
+        if (!docEditor) return;
+        var rows = parseInt($('#docTableRowsInp').value, 10) || 3;
+        var cols = parseInt($('#docTableColsInp').value, 10) || 3;
+        var withHeader = $('#docTableHeaderCheck') ? $('#docTableHeaderCheck').checked : true;
+        rows = Math.max(1, Math.min(20, rows));
+        cols = Math.max(1, Math.min(10, cols));
+        docEditor.chain().focus().insertTable({ rows: rows, cols: cols, withHeaderRow: withHeader }).run();
+        closePopovers();
+        toast('Table inserted (' + rows + 'x' + cols + ')!');
+      };
+    }
+
+    // Table Context Toolbar Buttons
+    var tableContextTb = $('#blogTableContextToolbar');
+    if (tableContextTb) {
+      tableContextTb.querySelectorAll('[data-table-cmd]').forEach(function(btn){
+        btn.onmousedown = function(e){
+          e.preventDefault();
+          if (!docEditor) return;
+          var cmd = btn.getAttribute('data-table-cmd');
+          switch (cmd) {
+            case 'addRowBefore': docEditor.chain().focus().addRowBefore().run(); break;
+            case 'addRowAfter': docEditor.chain().focus().addRowAfter().run(); break;
+            case 'deleteRow': docEditor.chain().focus().deleteRow().run(); break;
+            case 'addColumnBefore': docEditor.chain().focus().addColumnBefore().run(); break;
+            case 'addColumnAfter': docEditor.chain().focus().addColumnAfter().run(); break;
+            case 'deleteColumn': docEditor.chain().focus().deleteColumn().run(); break;
+            case 'toggleHeaderRow': docEditor.chain().focus().toggleHeaderRow().run(); break;
+            case 'deleteTable': docEditor.chain().focus().deleteTable().run(); break;
+          }
+        };
+      });
+    }
+
+    // Insert Block Dropdown Menu
+    var insertBlockBtn = $('#docBtnInsertBlockMenu');
+    var insertPopover = $('#docInsertMenuPopover');
+    if (insertBlockBtn && insertPopover) {
+      insertBlockBtn.onclick = function(e){
+        e.stopPropagation();
+        var isOpen = insertPopover.classList.contains('is-open');
+        closePopovers();
+        if (!isOpen) insertPopover.classList.add('is-open');
+      };
+    }
+
+    // Insert Block Items
+    if (insertPopover) {
+      insertPopover.querySelectorAll('[data-insert-block]').forEach(function(item){
+        item.onclick = function(e){
+          e.preventDefault();
+          var type = item.getAttribute('data-insert-block');
+          closePopovers();
+          handleInsertBlock(type);
+        };
+      });
+    }
+
+    // Close popovers on click outside
+    document.addEventListener('click', function(e){
+      if (!e.target.closest('#docBtnTablePicker') && !e.target.closest('#docTablePickerPopover') &&
+          !e.target.closest('#docBtnInsertBlockMenu') && !e.target.closest('#docInsertMenuPopover')) {
+        closePopovers();
+      }
+    });
+  }
+
+  function closePopovers() {
+    var p1 = $('#docTablePickerPopover'); if (p1) p1.classList.remove('is-open');
+    var p2 = $('#docInsertMenuPopover'); if (p2) p2.classList.remove('is-open');
+  }
+
+  function handleInsertBlock(type) {
+    if (!docEditor) return;
+    switch (type) {
+      case 'image':
+        window.PaklanceEditorUI.openImageModal(null, function(attrs){
+          if (attrs && attrs.src) {
+            docEditor.chain().focus().insertContent({
+              type: 'blogFigure',
+              attrs: attrs
+            }).run();
+          }
+        });
+        break;
+
+      case 'comparisonTable':
+        docEditor.chain().focus().insertContent({
+          type: 'blogTable',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Key Feature' }] }] },
+                { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Paklance Platform' }] }] },
+                { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Traditional Global Platforms' }] }] }
+              ]
+            },
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'SafePay Escrow' }] }] },
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Direct PKR milestone protection held securely before work begins' }] }] },
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Foreign currency escrow with 5-10% FX conversion loss' }] }] }
+              ]
+            },
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Platform Commission' }] }] },
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Ultra-low flat fee with complete transparent breakdown' }] }] },
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Up to 20% commission shaved off specialist earnings' }] }] }
+              ]
+            },
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Local Payout Rails' }] }] },
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Instant payouts via Raast, EasyPaisa, JazzCash & Pakistani Banks' }] }] },
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Third-party intermediaries (Payoneer/Wire) with $15-30 transfer fees' }] }] }
+              ]
+            },
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Talent Vetting' }] }] },
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Pre-screened, verified top 3% Pakistani specialists' }] }] },
+                { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Unmoderated bidding wars flooded by bot proposals' }] }] }
+              ]
+            }
+          ]
+        }).run();
+        toast('Comparison table inserted!');
+        break;
+
+      case 'quote':
+        docEditor.chain().focus().insertContent({
+          type: 'blogQuote',
+          attrs: {
+            text: 'Paklance was engineered from day one to give Pakistani specialists equal global footing with zero foreign exchange friction and guaranteed milestone protection.',
+            cite: 'Paklance Product Team'
+          }
+        }).run();
+        toast('Quote block inserted!');
+        break;
+
+      case 'tip':
+        docEditor.chain().focus().insertContent({
+          type: 'blogTip',
+          attrs: {
+            title: 'Pro Tip: Milestone Escrow Protection',
+            text: 'Always verify SafePay milestone funding is locked in escrow before commencing work on any project deliverable to guarantee 100% payment security.'
+          }
+        }).run();
+        toast('Pro Tip block inserted!');
+        break;
+
+      case 'stats':
+        docEditor.chain().focus().insertContent({
+          type: 'blogStats',
+          attrs: {
+            card1Num: 'PKR 0',
+            card1Label: 'Foreign Exchange Loss',
+            card2Num: '100%',
+            card2Label: 'SafePay Escrow Protection',
+            card3Num: 'Top 3%',
+            card3Label: 'Verified Pakistani Specialists'
+          }
+        }).run();
+        toast('Statistics block inserted!');
+        break;
+
+      case 'cols2':
+        docEditor.chain().focus().insertContent({
+          type: 'blogColumns',
+          attrs: {
+            cols: 2,
+            col1: 'Direct client collaboration without foreign exchange risk. Communication is direct and disputes are resolved locally.',
+            col2: 'Paklance SafePay eliminates intermediary bank markups, high wire fees, and currency fluctuation hazards.'
+          }
+        }).run();
+        toast('2-Column block inserted!');
+        break;
+
+      case 'cols3':
+        docEditor.chain().focus().insertContent({
+          type: 'blogColumns',
+          attrs: {
+            cols: 3,
+            col1: 'Pre-vetted top 3% specialist talent',
+            col2: '100% SafePay escrow protection',
+            col3: 'Instant local bank & wallet payouts'
+          }
+        }).run();
+        toast('3-Column block inserted!');
+        break;
+
+      case 'steps':
+        docEditor.chain().focus().insertContent({
+          type: 'blogSteps',
+          attrs: {
+            step1Title: 'Scope Definition & SafePay Escrow',
+            step1Desc: 'Clients define deliverables and fund SafePay escrow securely in PKR before work commences.',
+            step2Title: 'Deliverable Production & Reviews',
+            step2Desc: 'Verified specialists complete milestones with direct communication and progress reviews.',
+            step3Title: 'Instant Milestone Release',
+            step3Desc: 'Approved funds disburse immediately via Raast, EasyPaisa, JazzCash, or direct bank transfer.'
+          }
+        }).run();
+        toast('Workflow steps inserted!');
+        break;
+
+      case 'divider':
+        docEditor.chain().focus().insertContent({ type: 'blogDivider' }).run();
+        toast('Divider inserted!');
+        break;
+
+      case 'sourceNote':
+        docEditor.chain().focus().insertContent({
+          type: 'blogSourceNote',
+          attrs: {
+            text: 'Platform benchmarks 2026. Data verified against active marketplace escrow and payout ledgers.'
+          }
+        }).run();
+        toast('Source Note inserted!');
+        break;
+    }
+  }
+
+  function setupImageOptionsModal() {
+    var modal = $('#m-blog-image-options');
+    if (!modal || modal._bound) return;
+    modal._bound = true;
+
+    window.PaklanceEditorUI = {
+      openImageModal: function(existingAttrs, callback) {
+        activeImageCallback = callback;
+        var urlInp = $('#docImgModalUrl');
+        var capInp = $('#docImgModalCaption');
+        var altInp = $('#docImgModalAlt');
+        var widthSel = $('#docImgModalWidth');
+        var alignSel = $('#docImgModalAlign');
+        var titleH3 = $('#blogImageOptionsTitle');
+        var confirmBtn = $('#docImgModalConfirmBtn');
+
+        if (existingAttrs) {
+          titleH3.textContent = 'Edit Image Block';
+          confirmBtn.textContent = 'Update Image Block';
+          urlInp.value = existingAttrs.src || '';
+          capInp.value = existingAttrs.caption || '';
+          altInp.value = existingAttrs.alt || '';
+          widthSel.value = existingAttrs.width || '100%';
+          alignSel.value = existingAttrs.align || 'center';
+        } else {
+          titleH3.textContent = 'Insert Image Block';
+          confirmBtn.textContent = 'Insert Image Block';
+          urlInp.value = '';
+          capInp.value = '';
+          altInp.value = '';
+          widthSel.value = '100%';
+          alignSel.value = 'center';
+        }
+
+        updateImageModalPreview();
+        openModal('blog-image-options');
+      }
+    };
+
+    var urlInp = $('#docImgModalUrl');
+    if (urlInp) urlInp.oninput = updateImageModalPreview;
+
+    var uploadBtn = $('#docImgModalUploadBtn');
+    var fileInp = $('#docImgModalFileInput');
+    if (uploadBtn && fileInp) {
+      uploadBtn.onclick = function(){ fileInp.click(); };
+      fileInp.onchange = function(){
+        var file = this.files && this.files[0];
+        if (!file) return;
+
+        var allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+        var ext = (file.name || '').split('.').pop().toLowerCase();
+        var allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'];
+        if (allowedTypes.indexOf(file.type) === -1 && allowedExts.indexOf(ext) === -1) {
+          toast('Unsupported format. Please select a JPG, JPEG, PNG, or WebP image.');
+          this.value = '';
+          return;
+        }
+
+        var MAX_SIZE = 5 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+          toast('Image file exceeds 5MB size limit. Please choose a smaller image.');
+          this.value = '';
+          return;
+        }
+
+        // Local instant preview
+        var localBlobUrl = '';
+        if (window.URL && typeof window.URL.createObjectURL === 'function') {
+          try {
+            localBlobUrl = URL.createObjectURL(file);
+            urlInp.value = localBlobUrl;
+            updateImageModalPreview();
+          } catch(e){}
+        }
+
+        var origBtnHtml = uploadBtn.innerHTML;
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = 'Uploading...';
+
+        var formData = new FormData();
+        formData.append('file', file);
+
+        var tok = _siteGetToken();
+        var authHeader = tok ? { 'Authorization': 'Bearer ' + tok } : {};
+        var uploadUrl = '/api/admin/blogs/upload-image';
+        if (!LIVE || location.hostname === 'localhost' || location.protocol === 'file:') {
+          uploadUrl = 'https://paklance-backend-updated.vercel.app/api/admin/blogs/upload-image';
+        }
+
+        fetch(uploadUrl, {
+          method: 'POST',
+          headers: authHeader,
+          body: formData
+        }).then(function(r){
+          if (!r.ok) {
+            return r.json().catch(function(){ return {}; }).then(function(d){
+              throw new Error(d.message || ('Upload failed (' + r.status + ')'));
+            });
+          }
+          return r.json();
+        }).then(function(d){
+          if (d && d.url) {
+            urlInp.value = d.url;
+            updateImageModalPreview();
+            toast('Image uploaded to production storage!');
+          } else {
+            throw new Error('Server did not return image URL.');
+          }
+        }).catch(function(e){
+          toast('Upload failed: ' + (e.message || ''));
+        }).finally(function(){
+          uploadBtn.disabled = false;
+          uploadBtn.innerHTML = origBtnHtml;
+          if (localBlobUrl && window.URL && typeof window.URL.revokeObjectURL === 'function') {
+            try { URL.revokeObjectURL(localBlobUrl); } catch(ex){}
+          }
+          fileInp.value = '';
+        });
+      };
+    }
+
+    var confirmBtn = $('#docImgModalConfirmBtn');
+    if (confirmBtn) {
+      confirmBtn.onclick = function(){
+        var src = urlInp.value.trim();
+        if (!src) {
+          toast('Please enter or upload an image URL.');
+          urlInp.focus();
+          return;
+        }
+        var attrs = {
+          src: src,
+          caption: $('#docImgModalCaption').value.trim(),
+          alt: $('#docImgModalAlt').value.trim(),
+          width: $('#docImgModalWidth').value,
+          align: $('#docImgModalAlign').value
+        };
+        if (activeImageCallback) {
+          activeImageCallback(attrs);
+          activeImageCallback = null;
+        } else if (docEditor) {
+          docEditor.chain().focus().insertContent({
+            type: 'blogFigure',
+            attrs: attrs
+          }).run();
+        }
+        closeModals();
+        toast('Image inserted into article!');
+      };
+    }
+  }
+
+  function updateImageModalPreview() {
+    var urlInp = $('#docImgModalUrl');
+    var previewImg = $('#docImgModalPreviewImg');
+    var placeholder = $('#docImgModalPreviewPlaceholder');
+    if (!urlInp || !previewImg || !placeholder) return;
+    var url = urlInp.value.trim();
+    if (url) {
+      previewImg.src = url;
+      previewImg.style.display = 'block';
+      placeholder.style.display = 'none';
+    } else {
+      previewImg.src = '';
+      previewImg.style.display = 'none';
+      placeholder.style.display = 'block';
+    }
+  }
+
+  function bindAdminBlogEditorControls() {
+    var draftBtn = $('#blogBtnSaveDraft');
+    if (draftBtn) draftBtn.onclick = function(){ saveAdminBlogPost('DRAFT'); };
+    var pubBtn = $('#blogBtnSavePublish');
+    if (pubBtn) pubBtn.onclick = function(){ saveAdminBlogPost('PUBLISHED'); };
+    var prevBtn = $('#blogBtnPreviewArticle');
+    if (prevBtn) prevBtn.onclick = function(){ openAdminBlogPreview(); };
+  }
+
   function openAdminBlogEditor(blogId){
+    bindAdminBlogEditorControls();
     var modal = $('#m-admin-blog-editor');
     if (!modal) return;
 
@@ -4033,9 +4471,15 @@
       excerptText.value = b.excerpt || '';
       coverUrlInput.value = b.coverImageUrl || b.coverImage || '';
       tagsInput.value = Array.isArray(b.tags) ? b.tags.join(', ') : (b.tags || '');
-      richBody.innerHTML = b.content || '';
       metaTitleInput.value = b.metaTitle || '';
       metaDescText.value = b.metaDescription || '';
+
+      var editor = initDocEditor();
+      if (editor) {
+        editor.commands.setContent(b.content || '<p></p>');
+      } else {
+        richBody.innerHTML = b.content || '';
+      }
     } else {
       idInput.value = '';
       titleH2.textContent = 'Create Blog Article';
@@ -4052,15 +4496,31 @@
       excerptText.value = '';
       coverUrlInput.value = '';
       tagsInput.value = '';
-      richBody.innerHTML = '';
       metaTitleInput.value = '';
       metaDescText.value = '';
+
+      var editor = initDocEditor();
+      if (editor) {
+        editor.commands.setContent('<p></p>');
+      } else {
+        richBody.innerHTML = '';
+      }
     }
 
     updateCoverPreview();
     updateSerpPreview();
     openModal('admin-blog-editor');
   }
+  window.openAdminBlogEditor = openAdminBlogEditor;
+
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('#adminCreateBlogBtn, #adminHdrAddBlogBtn, #adminKpiAddBlogBtn, #adminSideBtnAddBlog');
+    if (btn) {
+      e.preventDefault();
+      switchAdminTab('blogs');
+      openAdminBlogEditor();
+    }
+  });
 
   function saveAdminBlogPost(forceStatus){
     var id = $('#blogFormId').value.trim();
@@ -4074,7 +4534,7 @@
     var coverImageUrl = $('#blogFormCoverUrl').value.trim();
     var rawTags = $('#blogFormTags').value.trim();
     var tags = rawTags ? rawTags.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [];
-    var content = $('#blogRichBody').innerHTML.trim();
+    var content = (docEditor ? docEditor.getHTML() : $('#blogRichBody').innerHTML).trim();
     var metaTitle = $('#blogFormMetaTitle').value.trim() || null;
     var metaDescription = $('#blogFormMetaDesc').value.trim() || null;
 
@@ -4088,9 +4548,10 @@
       $('#blogFormSlug').focus();
       return;
     }
-    if (!content || content === '<br>' || content === '<div><br></div>'){
+    if (!content || content === '<p></p>' || content === '<br>' || content === '<div><br></div>'){
       toast('Please write some content for the article.');
-      $('#blogRichBody').focus();
+      if (docEditor) docEditor.commands.focus();
+      else $('#blogRichBody').focus();
       return;
     }
 
@@ -4149,7 +4610,7 @@
       var coverImageUrl = $('#blogFormCoverUrl').value.trim();
       var rawTags = $('#blogFormTags').value.trim();
       var tags = rawTags ? rawTags.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [];
-      var content = $('#blogRichBody').innerHTML.trim() || '<p>No content written yet.</p>';
+      var content = (docEditor ? docEditor.getHTML() : $('#blogRichBody').innerHTML).trim() || '<p>No content written yet.</p>';
       var status = $('#blogFormStatus').value;
       b = {
         title: title,
