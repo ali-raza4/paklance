@@ -11,6 +11,7 @@ export class JobsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(clientId: string, dto: CreateJobDto) {
+    await this.prisma.ensureSchemaMigrated();
     const paymentMethod = (dto.paymentMethod || 'FIXED').toUpperCase();
     let calculatedBudget = Number(dto.budget) || 0;
 
@@ -103,6 +104,7 @@ export class JobsService {
   }
 
   async findAll(query: QueryJobDto) {
+    await this.prisma.ensureSchemaMigrated();
     const where: any = {};
 
     if (query.search && query.search.trim()) {
