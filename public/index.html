@@ -262,9 +262,40 @@
     <aside class="filters" aria-label="Filters">
       <div class="filters-head"><strong>Filters</strong><button class="btn-text" type="button" data-clear-filters>Clear</button></div>
       <div class="field"><label for="fCat">Category</label>
-        <select class="select" id="fCat"><option value="all">All categories</option><option>Development</option><option>Design</option><option>Marketing</option><option>Writing</option><option>Video</option></select></div>
+        <select class="select" id="fCat">
+          <option value="all">All categories</option>
+          <option value="Web & Software Development">Web & Software Development</option>
+          <option value="Mobile App Development">Mobile App Development</option>
+          <option value="UI/UX & Graphic Design">UI/UX & Graphic Design</option>
+          <option value="Digital Marketing & SEO">Digital Marketing & SEO</option>
+          <option value="Content Writing & Copywriting">Content Writing & Copywriting</option>
+          <option value="Video Editing & Animation">Video Editing & Animation</option>
+          <option value="AI & Machine Learning">AI & Machine Learning</option>
+          <option value="Virtual Assistant & Admin">Virtual Assistant & Admin</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field"><label for="fJobType">Job Type</label>
+        <select class="select" id="fJobType">
+          <option value="all">All job types</option>
+          <option value="FULL_TIME">Full-time</option>
+          <option value="PART_TIME">Part-time</option>
+          <option value="CONTRACT">Contract-based</option>
+          <option value="FREELANCE">Freelance / Project-based</option>
+          <option value="TEMPORARY">Temporary</option>
+        </select>
+      </div>
+      <div class="field"><label for="fPayMethod">Payment Method</label>
+        <select class="select" id="fPayMethod">
+          <option value="all">All payment methods</option>
+          <option value="FIXED">Fixed Price</option>
+          <option value="HOURLY">Hourly Rate</option>
+          <option value="WEEKLY">Weekly Compensation</option>
+          <option value="MONTHLY">Monthly Compensation</option>
+        </select>
+      </div>
       <div class="field range-field">
-        <div class="range-head"><span class="lbl" id="fPriceLbl">Price range</span><output class="range-out" id="fPriceOut">PKR 0 – 100,000+</output></div>
+        <div class="range-head"><span class="lbl" id="fPriceLbl">Budget / Rate range</span><output class="range-out" id="fPriceOut">PKR 0 – 100,000+</output></div>
         <div class="range" id="fPrice" data-min="0" data-max="100000" data-step="1000" role="group" aria-labelledby="fPriceLbl">
           <span class="range-track"></span><span class="range-fill"></span>
           <span class="range-thumb" role="slider" tabindex="0" data-thumb="min" aria-label="Minimum price"></span>
@@ -272,10 +303,27 @@
         </div>
         <div class="range-scale" aria-hidden="true"><span>PKR 0</span><span>PKR 100,000+</span></div>
       </div>
+      <div class="field"><label for="fExpLevel">Experience Level</label>
+        <select class="select" id="fExpLevel">
+          <option value="all">All experience levels</option>
+          <option value="ENTRY">Entry Level</option>
+          <option value="INTERMEDIATE">Intermediate</option>
+          <option value="EXPERT">Expert</option>
+        </select>
+      </div>
+      <div class="field"><label for="fLocType">Workplace / Remote</label>
+        <select class="select" id="fLocType">
+          <option value="all">All locations</option>
+          <option value="REMOTE">Remote only</option>
+          <option value="HYBRID">Hybrid</option>
+          <option value="ON_SITE">On-site</option>
+        </select>
+      </div>
       <div class="field"><label for="fTrust">Client trust</label>
-        <select class="select" id="fTrust"><option value="any">Any client</option><option value="verified">Verified only</option></select></div>
+        <select class="select" id="fTrust"><option value="any">Any client</option><option value="verified">Verified clients only</option></select>
+      </div>
       <div class="check-wrap field">
-        <label class="check" for="fSafe"><input type="checkbox" id="fSafe"> SafePay jobs</label>
+        <label class="check" for="fSafe"><input type="checkbox" id="fSafe"> SafePay jobs only</label>
         <p class="help">Jobs marked SafePay require funded milestones before protected work starts.</p>
       </div>
     </aside>
@@ -1496,11 +1544,11 @@
 </div>
 
 <div class="modal" id="m-post-job" hidden role="dialog" aria-modal="true" aria-labelledby="postJobModalTitle">
-  <div class="modal-card wide" style="max-width:620px">
+  <div class="modal-card wide" style="max-width:680px;max-height:92vh;overflow-y:auto">
     <button class="m-close" type="button" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
-    <span class="eyebrow">Client Workspace</span>
+    <span class="eyebrow" id="postJobModalEyebrow">Client Workspace</span>
     <h2 id="postJobModalTitle" style="font-size:22px;margin-top:4px">Post a Job</h2>
-    <p class="sub" style="margin-bottom:18px">Publish your project requirements to hire verified Pakistani specialists with protected SafePay milestones.</p>
+    <p class="sub" id="postJobModalSub" style="margin-bottom:18px">Publish your project requirements to hire verified Pakistani specialists with protected SafePay milestones.</p>
     
     <div id="postJobSpecialistAlert" style="display:none;background:rgba(18,165,111,0.08);border:1px solid rgba(18,165,111,0.3);border-radius:8px;padding:12px;margin-bottom:16px;">
       <div style="font-weight:600;color:var(--forest,#0b3b2d);font-size:14px;display:flex;align-items:center;gap:6px">
@@ -1512,10 +1560,11 @@
     </div>
 
     <form id="postJobForm" data-form="postJob">
+      <input type="hidden" id="postJobEditId" value="">
       <div class="form-grid">
         <div class="field full">
           <label for="postJobTitle">Job Title <span style="color:#d93025">*</span></label>
-          <input class="input" type="text" id="postJobTitle" placeholder="e.g. Full Stack Developer for Next.js Marketplace" required maxlength="120">
+          <input class="input" type="text" id="postJobTitle" placeholder="e.g. Senior Full Stack Developer (React & NestJS)" required maxlength="140">
         </div>
         
         <div class="field">
@@ -1534,24 +1583,112 @@
         </div>
 
         <div class="field">
-          <label for="postJobBudget">Budget (PKR) <span style="color:#d93025">*</span></label>
-          <input class="input" type="number" id="postJobBudget" placeholder="e.g. 50000" min="500" step="500" required>
+          <label for="postJobType">Employment Arrangement <span style="color:#d93025">*</span></label>
+          <select class="input" id="postJobType" required>
+            <option value="FREELANCE">Freelance / Project-based</option>
+            <option value="CONTRACT">Contract-based</option>
+            <option value="FULL_TIME">Full-time</option>
+            <option value="PART_TIME">Part-time</option>
+            <option value="TEMPORARY">Temporary</option>
+          </select>
+        </div>
+
+        <div class="field full">
+          <label for="postJobPaymentMethod">Payment Method <span style="color:#d93025">*</span></label>
+          <select class="input" id="postJobPaymentMethod" required>
+            <option value="FIXED">Fixed Price (Total Project Budget)</option>
+            <option value="HOURLY">Hourly Rate (PKR / Hour)</option>
+            <option value="WEEKLY">Weekly Compensation (PKR / Week)</option>
+            <option value="MONTHLY">Monthly Compensation (PKR / Month)</option>
+          </select>
+        </div>
+
+        <!-- Conditional Payment Fields: Fixed Budget -->
+        <div class="field full" id="postJobFixedWrap">
+          <label for="postJobBudget">Project Budget (PKR) <span style="color:#d93025">*</span></label>
+          <input class="input" type="number" id="postJobBudget" placeholder="e.g. 55000" min="500" step="500" value="50000">
+          <small class="help" style="font-size:11px;color:var(--ink-3)">Agreed fixed budget for the complete scope of deliverables.</small>
+        </div>
+
+        <!-- Conditional Payment Fields: Hourly -->
+        <div class="field full" id="postJobHourlyWrap" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div>
+              <label for="postJobHourlyMin">Min Hourly (PKR) <span style="color:#d93025">*</span></label>
+              <input class="input" type="number" id="postJobHourlyMin" placeholder="e.g. 1000" min="100" step="50">
+            </div>
+            <div>
+              <label for="postJobHourlyMax">Max Hourly (PKR)</label>
+              <input class="input" type="number" id="postJobHourlyMax" placeholder="e.g. 2000" min="100" step="50">
+            </div>
+            <div>
+              <label for="postJobWeeklyHours">Hours / Week</label>
+              <input class="input" type="number" id="postJobWeeklyHours" placeholder="e.g. 30" min="1" max="100">
+            </div>
+          </div>
+          <small class="help" style="font-size:11px;color:var(--ink-3);display:block;margin-top:4px">Specify an hourly rate or range, plus expected weekly hours (optional).</small>
+        </div>
+
+        <!-- Conditional Payment Fields: Weekly -->
+        <div class="field full" id="postJobWeeklyWrap" style="display:none">
+          <label for="postJobWeeklyRate">Weekly Rate (PKR) <span style="color:#d93025">*</span></label>
+          <input class="input" type="number" id="postJobWeeklyRate" placeholder="e.g. 25000" min="1000" step="500">
+          <small class="help" style="font-size:11px;color:var(--ink-3)">Recurring weekly compensation for regular engagement.</small>
+        </div>
+
+        <!-- Conditional Payment Fields: Monthly -->
+        <div class="field full" id="postJobMonthlyWrap" style="display:none">
+          <label for="postJobMonthlyRate">Monthly Salary (PKR) <span style="color:#d93025">*</span></label>
+          <input class="input" type="number" id="postJobMonthlyRate" placeholder="e.g. 80000" min="5000" step="1000">
+          <small class="help" style="font-size:11px;color:var(--ink-3)">Agreed recurring monthly compensation.</small>
         </div>
 
         <div class="field">
-          <label for="postJobDays">Delivery Timeline (Days) <span style="color:#d93025">*</span></label>
-          <input class="input" type="number" id="postJobDays" min="1" max="365" value="14" required>
+          <label for="postJobExpLevel">Experience Level</label>
+          <select class="input" id="postJobExpLevel">
+            <option value="NOT_SPECIFIED">Any / Not Specified</option>
+            <option value="ENTRY">Entry Level</option>
+            <option value="INTERMEDIATE">Intermediate</option>
+            <option value="EXPERT">Expert</option>
+          </select>
         </div>
 
         <div class="field">
+          <label for="postJobLocType">Workplace Location</label>
+          <select class="input" id="postJobLocType">
+            <option value="REMOTE">Remote (Work from Anywhere)</option>
+            <option value="HYBRID">Hybrid</option>
+            <option value="ON_SITE">On-site</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="postJobDays">Estimated Timeline (Days)</label>
+          <input class="input" type="number" id="postJobDays" min="1" max="365" value="14">
+        </div>
+
+        <div class="field">
+          <label for="postJobLocation">City / Location Preference</label>
+          <input class="input" type="text" id="postJobLocation" placeholder="e.g. Lahore, Islamabad, Pakistan">
+        </div>
+
+        <div class="field full">
           <label for="postJobSkills">Required Skills <span style="color:#d93025">*</span></label>
-          <input class="input" type="text" id="postJobSkills" placeholder="e.g. React, NestJS, PostgreSQL" required>
-          <small class="help" style="font-size:11px;color:var(--ink-3)">Separate multiple skills with commas</small>
+          <input class="input" type="text" id="postJobSkills" placeholder="e.g. React, NestJS, TypeScript, PostgreSQL" required>
+          <small class="help" style="font-size:11px;color:var(--ink-3)">Separate multiple skills with commas (e.g. Figma, UI Design, Responsive)</small>
+        </div>
+
+        <div class="field full">
+          <label class="check" for="postJobSafePay" style="font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="postJobSafePay" checked style="accent-color:var(--brand,#12a56f);width:18px;height:18px">
+            <span>Protect contract with SafePay™ milestone escrow</span>
+          </label>
+          <small class="help" style="font-size:11px;color:var(--ink-3);display:block;margin-left:26px">Funds remain protected in escrow and are released only upon milestone approval.</small>
         </div>
 
         <div class="field full">
           <label for="postJobDescription">Job Description <span style="color:#d93025">*</span></label>
-          <textarea class="input" id="postJobDescription" rows="5" style="height:auto;padding:10px;resize:vertical" placeholder="Describe the project scope, key deliverables, technical requirements, and expectations..." required minlength="20"></textarea>
+          <textarea class="input" id="postJobDescription" rows="6" style="height:auto;padding:10px;resize:vertical;font-family:inherit" placeholder="Describe the role, deliverables, expectations, and any specific requirements..." required minlength="20"></textarea>
         </div>
       </div>
 

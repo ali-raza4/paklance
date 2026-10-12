@@ -81,11 +81,84 @@
     return skills;
   }
 
+  function formatJobType(t){
+    if (t === 'FULL_TIME') return 'Full-time';
+    if (t === 'PART_TIME') return 'Part-time';
+    if (t === 'CONTRACT') return 'Contract-based';
+    if (t === 'FREELANCE') return 'Freelance / Project';
+    if (t === 'TEMPORARY') return 'Temporary';
+    return t ? String(t) : 'Freelance / Project';
+  }
+
+  function formatPayMethod(m){
+    if (m === 'HOURLY') return 'Hourly Rate';
+    if (m === 'WEEKLY') return 'Weekly';
+    if (m === 'MONTHLY') return 'Monthly';
+    if (m === 'FIXED') return 'Fixed Price';
+    return m ? String(m) : 'Fixed Price';
+  }
+
+  function formatBudgetDisplay(j){
+    var curr = j.currency || 'PKR';
+    if (j.paymentMethod === 'HOURLY'){
+      var min = j.hourlyMin, max = j.hourlyMax;
+      var rateStr = '';
+      if (min != null && max != null && min !== max){
+        rateStr = curr + ' ' + Number(min).toLocaleString() + ' – ' + Number(max).toLocaleString() + ' / hr';
+      } else if (min != null || max != null){
+        var r = min != null ? min : max;
+        rateStr = curr + ' ' + Number(r).toLocaleString() + ' / hr';
+      } else {
+        rateStr = curr + ' Hourly';
+      }
+      var sub = j.weeklyHours ? (j.weeklyHours + ' hrs/week expected') : 'Hourly rate';
+      return { main: rateStr, sub: sub, label: 'Hourly Rate' };
+    }
+    if (j.paymentMethod === 'WEEKLY'){
+      var wRate = j.weeklyRate != null ? j.weeklyRate : j.budget;
+      return {
+        main: curr + ' ' + Number(wRate).toLocaleString() + ' / week',
+        sub: 'Weekly recurring compensation',
+        label: 'Weekly Salary'
+      };
+    }
+    if (j.paymentMethod === 'MONTHLY'){
+      var mRate = j.monthlyRate != null ? j.monthlyRate : j.budget;
+      return {
+        main: curr + ' ' + Number(mRate).toLocaleString() + ' / month',
+        sub: 'Monthly recurring compensation',
+        label: 'Monthly Salary'
+      };
+    }
+    return {
+      main: curr + ' ' + Number(j.budget || 0).toLocaleString(),
+      sub: 'Total project budget',
+      label: 'Fixed Budget'
+    };
+  }
+
+  function formatTimeAgo(iso){
+    if (!iso) return '';
+    try {
+      var d = new Date(iso);
+      var now = new Date();
+      var diffMs = now - d;
+      var diffSec = Math.floor(diffMs / 1000);
+      if (diffSec < 60) return 'Just now';
+      var diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return diffMin + 'm ago';
+      var diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return diffHr + 'h ago';
+      var diffDays = Math.floor(diffHr / 24);
+      if (diffDays < 30) return diffDays + 'd ago';
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch(e){ return ''; }
+  }
+
   // Normalise NestJS Job entity to the shape the UI templates expect.
-  // NestJS returns flat Job[] array; old frontend expected { jobs, clientLabel, safepay, category, isSample, milestones[] }
   function fromApiJob(j){
     var clientName = (j.client && (j.client.name || (j.client.email ? j.client.email.split('@')[0] : null))) || 'Client';
-    var clientCity = (j.client && j.client.city) || j.city || 'Pakistan';
+    var clientCity = (j.client && j.client.city) || j.location || j.city || 'Pakistan';
     var isClientVerified = !!(j.clientVerified || (j.client && (j.client.isVerified || j.client.isEmailVerified || (j.client.verification && j.client.verification.status === 'APPROVED'))));
     var cat = j.category || inferCategory(j.title, j.description);
     var skills = extractSkills(j);
@@ -94,23 +167,38 @@
     var ms = Array.isArray(j.milestones) && j.milestones.length
       ? j.milestones.map(function(m){ return [m.title, Number(m.amount)]; })
       : [['Project milestone', Number(j.budget) || 0]];
+
     return {
-      id:          String(j.id),
-      clientId:    j.clientId || j.client_id || (j.client && (j.client.id || j.client.userId)) || null,
-      clientEmail: (j.client && j.client.email) || null,
-      title:       j.title || 'Untitled Job',
-      client:    clientName,
-      city:      clientCity,
-      cat:       cat,
-      budget:    Number(j.budget) || 0,
-      type:      j.type || 'Fixed price',
-      verified:  isClientVerified,
-      safepay:   !!(j.safepay !== undefined ? j.safepay : true),
-      skills:    skills,
-      desc:      j.description || j.desc || '',
-      ms:        ms,
-      proposals: proposalsCount,
-      sample:    j.isSample === false ? false : undefined
+      id:              String(j.id),
+      clientId:        j.clientId || j.client_id || (j.client && (j.client.id || j.client.userId)) || null,
+      clientEmail:     (j.client && j.client.email) || null,
+      title:           j.title || 'Untitled Job',
+      client:          clientName,
+      city:            clientCity,
+      cat:             cat,
+      jobType:         j.jobType || 'FREELANCE',
+      paymentMethod:   j.paymentMethod || 'FIXED',
+      budget:          Number(j.budget) || 0,
+      hourlyMin:       j.hourlyMin != null ? Number(j.hourlyMin) : null,
+      hourlyMax:       j.hourlyMax != null ? Number(j.hourlyMax) : null,
+      weeklyHours:     j.weeklyHours != null ? Number(j.weeklyHours) : null,
+      weeklyRate:      j.weeklyRate != null ? Number(j.weeklyRate) : null,
+      monthlyRate:     j.monthlyRate != null ? Number(j.monthlyRate) : null,
+      currency:        j.currency || 'PKR',
+      deliveryDays:    j.deliveryDays != null ? Number(j.deliveryDays) : null,
+      duration:        j.duration || null,
+      experienceLevel: j.experienceLevel || null,
+      locationType:    j.locationType || null,
+      location:        j.location || null,
+      type:            formatPayMethod(j.paymentMethod || 'FIXED'),
+      verified:        isClientVerified,
+      safepay:         !!(j.safepay === true),
+      skills:          skills,
+      desc:            j.description || j.desc || '',
+      ms:              ms,
+      proposals:       proposalsCount,
+      createdAt:       j.createdAt || null,
+      sample:          j.isSample === false ? false : undefined
     };
   }
   // Normalise Profile/User entity to the shape the talent card templates expect.
@@ -330,17 +418,63 @@
   /* ---------- jobs ---------- */
   // sampleChip: only show for explicitly sample-flagged items (isSample !== false means from built-in fallback)
   function sampleChip(x, label){ return x.sample === false ? '' : ''; }
-  function tagsHtml(list){ return (list || []).map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join(''); }
   function jobCard(j){
+    var bInfo = formatBudgetDisplay(j);
+    var typeLabel = formatJobType(j.jobType);
+    var payLabel = formatPayMethod(j.paymentMethod);
+    var timeAgo = formatTimeAgo(j.createdAt);
+
+    // Limit skill tags to top 4 + "+N more" badge
+    var skillsList = Array.isArray(j.skills) ? j.skills : [];
+    var visibleSkills = skillsList.slice(0, 4);
+    var extraSkills = skillsList.length - 4;
+    var tagsHtml = visibleSkills.map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join('');
+    if (extraSkills > 0){
+      tagsHtml += '<span class="tag-more">+' + extraSkills + ' more</span>';
+    }
+
+    var curUser = (PaklanceAuth && PaklanceAuth.getUser) ? PaklanceAuth.getUser() : null;
+    var isAdmin = curUser && (String(curUser.role || '').toUpperCase() === 'ADMIN');
+    var isOwner = !!(curUser && (
+      (j.clientId && curUser.id === j.clientId) ||
+      (j.clientEmail && curUser.email && j.clientEmail.toLowerCase() === curUser.email.toLowerCase()) ||
+      isAdmin
+    ));
+    var editBtn = isOwner ? '<button class="btn btn-outline btn-sm" type="button" data-edit-job="' + esc(j.id) + '" style="margin-right:6px">Edit</button>' : '';
+
     return '<article class="job-card">' +
-      '<div class="job-top"><h3 style="cursor:pointer" data-job="' + esc(j.id) + '">' + esc(j.title) + '</h3>' + sampleChip(j) + '</div>' +
-      '<div class="job-meta"><span>' + esc(j.client) + ' · ' + esc(j.city) + '</span><span>' + esc(j.cat) + '</span>' +
-        (j.verified ? '<span class="ok"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Verified client</span>' : '<span>Client not yet verified</span>') + '</div>' +
-      '<p>' + esc(j.desc) + '</p>' +
-      '<div class="tags">' + tagsHtml(j.skills) + '</div>' +
-      '<div class="job-foot"><div class="budget"><span>Budget</span><strong>' + fmt(j.budget) + '</strong></div>' +
-        (j.safepay ? '<span class="chip chip-safe"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-shield"/></svg>SafePay</span>' : '') +
-        '<button class="btn btn-outline btn-sm" type="button" data-job="' + esc(j.id) + '">View job</button></div>' +
+      '<div class="job-card-header">' +
+        '<div style="min-width:0;flex:1">' +
+          '<h3 class="job-card-title" data-job="' + esc(j.id) + '">' + esc(j.title) + '</h3>' +
+          '<div class="job-pill-row">' +
+            '<span class="job-pill job-pill-cat">' + esc(j.cat) + '</span>' +
+            (j.jobType ? '<span class="job-pill job-pill-type">' + esc(typeLabel) + '</span>' : '') +
+            '<span class="job-pill job-pill-pay">' + esc(payLabel) + '</span>' +
+            (j.locationType ? '<span class="job-pill job-pill-remote">' + (j.locationType === 'REMOTE' ? 'Remote' : (j.locationType === 'HYBRID' ? 'Hybrid' : 'On-site')) + '</span>' : '') +
+            (j.experienceLevel && j.experienceLevel !== 'NOT_SPECIFIED' ? '<span class="job-pill job-pill-exp">' + (j.experienceLevel === 'ENTRY' ? 'Entry Level' : (j.experienceLevel === 'INTERMEDIATE' ? 'Intermediate' : 'Expert')) + '</span>' : '') +
+            (j.safepay ? '<span class="job-pill job-pill-safe"><svg class="ic ic-xs" aria-hidden="true" style="color:#047857;margin-right:2px"><use href="#i-shield"/></svg>SafePay</span>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="job-meta">' +
+        '<span class="client-name">' + esc(j.client) + (j.city ? ' · ' + esc(j.city) : '') + '</span>' +
+        (j.verified ? '<span class="ok"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Verified Client</span>' : '') +
+        (timeAgo ? '<span class="time">' + esc(timeAgo) + '</span>' : '') +
+        '<span>' + (j.proposals ? (j.proposals + ' proposals') : '0 proposals') + '</span>' +
+      '</div>' +
+      '<p class="job-card-desc">' + esc(j.desc) + '</p>' +
+      '<div class="tags">' + tagsHtml + '</div>' +
+      '<div class="job-foot">' +
+        '<div class="budget-wrap">' +
+          '<span>' + esc(bInfo.label) + '</span>' +
+          '<strong>' + esc(bInfo.main) + '</strong>' +
+          '<small>' + esc(bInfo.sub) + '</small>' +
+        '</div>' +
+        '<div class="job-foot-actions">' +
+          editBtn +
+          '<button class="btn btn-primary btn-sm" type="button" data-job="' + esc(j.id) + '">View Job</button>' +
+        '</div>' +
+      '</div>' +
     '</article>';
   }
   /* ---------- price range slider (Find work filters) ----------
@@ -408,26 +542,86 @@
   }
 
   function renderJobs(){
-    var cat = $('#fCat').value, price = priceRange.get(), ver = $('#fTrust').value === 'verified',
-        safe = $('#fSafe').checked, q = $('#jSearch').value.trim().toLowerCase(), sort = $('#jSort').value;
+    var cat = $('#fCat') ? $('#fCat').value : 'all';
+    var jobType = $('#fJobType') ? $('#fJobType').value : 'all';
+    var payMethod = $('#fPayMethod') ? $('#fPayMethod').value : 'all';
+    var expLevel = $('#fExpLevel') ? $('#fExpLevel').value : 'all';
+    var locType = $('#fLocType') ? $('#fLocType').value : 'all';
+    var price = priceRange ? priceRange.get() : { min: 0, max: null };
+    var ver = $('#fTrust') && $('#fTrust').value === 'verified';
+    var safe = $('#fSafe') && $('#fSafe').checked;
+    var q = $('#jSearch') ? $('#jSearch').value.trim().toLowerCase() : '';
+    var sort = $('#jSort') ? $('#jSort').value : 'new';
+
     var list = JOBS.filter(function(j){
-      var hay = (j.title + ' ' + j.cat + ' ' + j.city + ' ' + j.client + ' ' + j.skills.join(' ')).toLowerCase();
-      return (cat === 'all' || j.cat === cat) && j.budget >= price.min && (price.max === null || j.budget <= price.max) &&
-        (!ver || j.verified) && (!safe || j.safepay) && (!q || hay.indexOf(q) > -1);
+      // Category filter
+      if (cat !== 'all' && j.cat !== cat) return false;
+      // Job Type filter
+      if (jobType !== 'all' && j.jobType !== jobType) return false;
+      // Payment Method filter
+      if (payMethod !== 'all' && j.paymentMethod !== payMethod) return false;
+      // Experience Level filter
+      if (expLevel !== 'all' && j.experienceLevel !== expLevel) return false;
+      // Workplace Location filter
+      if (locType !== 'all' && j.locationType !== locType) return false;
+      // Client trust filter
+      if (ver && !j.verified) return false;
+      // SafePay filter
+      if (safe && !j.safepay) return false;
+
+      // Price / Budget / Rate filter
+      var effectivePrice = j.budget;
+      if (j.paymentMethod === 'HOURLY') effectivePrice = (j.hourlyMin != null ? j.hourlyMin : (j.hourlyMax != null ? j.hourlyMax : j.budget));
+      else if (j.paymentMethod === 'WEEKLY') effectivePrice = (j.weeklyRate != null ? j.weeklyRate : j.budget);
+      else if (j.paymentMethod === 'MONTHLY') effectivePrice = (j.monthlyRate != null ? j.monthlyRate : j.budget);
+
+      if (effectivePrice < price.min) return false;
+      if (price.max !== null && effectivePrice > price.max) return false;
+
+      // Search query
+      if (q){
+        var hay = (j.title + ' ' + (j.cat || '') + ' ' + (j.city || '') + ' ' + (j.client || '') + ' ' + (j.desc || '') + ' ' + (j.skills || []).join(' ')).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
     });
-    if (sort === 'high') list.sort(function(a,b){ return b.budget - a.budget; });
-    if (sort === 'low') list.sort(function(a,b){ return a.budget - b.budget; });
+
+    if (sort === 'high') {
+      list.sort(function(a,b){
+        var pa = a.budget || a.hourlyMax || a.monthlyRate || 0;
+        var pb = b.budget || b.hourlyMax || b.monthlyRate || 0;
+        return pb - pa;
+      });
+    }
+    if (sort === 'low') {
+      list.sort(function(a,b){
+        var pa = a.budget || a.hourlyMin || a.monthlyRate || 0;
+        var pb = b.budget || b.hourlyMin || b.monthlyRate || 0;
+        return pa - pb;
+      });
+    }
     var n = list.length;
     $('#jobCount').textContent = n ? (n + ' job' + (n === 1 ? '' : 's')) : 'No matching jobs';
     $('#jobList').innerHTML = n ? list.map(jobCard).join('') :
-      '<div class="empty"><h3>No jobs match these filters yet</h3><p>Try a wider price range or another category. New verified jobs are added as clients join Paklance.</p>' +
-      '<div class="hero-ctas"><button class="btn btn-outline btn-sm" type="button" data-clear-filters>Clear filters</button><button class="btn btn-primary btn-sm" type="button" data-open="auth" data-signup>Post a Job</button></div></div>';
+      '<div class="empty"><h3>No jobs match these filters yet</h3><p>Try clearing some filters or searching for different keywords. New verified jobs are added regularly on Paklance.</p>' +
+      '<div class="hero-ctas"><button class="btn btn-outline btn-sm" type="button" data-clear-filters>Clear filters</button><button class="btn btn-primary btn-sm" type="button" data-post-job>Post a Job</button></div></div>';
     syncJobCats();
   }
+
   function clearFilters(){
-    $('#fCat').value = 'all'; priceRange.reset(); $('#fTrust').value = 'any'; $('#fSafe').checked = false; $('#jSearch').value = ''; $('#jSort').value = 'new';
+    if ($('#fCat')) $('#fCat').value = 'all';
+    if ($('#fJobType')) $('#fJobType').value = 'all';
+    if ($('#fPayMethod')) $('#fPayMethod').value = 'all';
+    if ($('#fExpLevel')) $('#fExpLevel').value = 'all';
+    if ($('#fLocType')) $('#fLocType').value = 'all';
+    if (priceRange) priceRange.reset();
+    if ($('#fTrust')) $('#fTrust').value = 'any';
+    if ($('#fSafe')) $('#fSafe').checked = false;
+    if ($('#jSearch')) $('#jSearch').value = '';
+    if ($('#jSort')) $('#jSort').value = 'new';
     renderJobs();
   }
+
   function renderJobDetail(){
     var j = currentJob; if (!j) return;
     var real = j.sample === false;
@@ -443,12 +637,23 @@
       (isClientRole && j.clientId === curUser.id)
     ));
 
+    var bInfo = formatBudgetDisplay(j);
+    var typeLabel = formatJobType(j.jobType);
+    var payLabel = formatPayMethod(j.paymentMethod);
+    var expLabel = j.experienceLevel && j.experienceLevel !== 'NOT_SPECIFIED'
+      ? (j.experienceLevel === 'ENTRY' ? 'Entry Level' : (j.experienceLevel === 'INTERMEDIATE' ? 'Intermediate' : 'Expert'))
+      : 'Any Experience Level';
+    var locLabel = j.locationType
+      ? (j.locationType === 'REMOTE' ? 'Remote (Work anywhere)' : (j.locationType === 'HYBRID' ? 'Hybrid' : 'On-site'))
+      : (j.location || 'Remote');
+
     var asideActionHtml = '';
     if (isOwner){
       asideActionHtml =
         '<div class="chip chip-verified" style="display:block;text-align:center;padding:10px;margin-bottom:8px;font-weight:600">' +
           '<svg class="ic ic-xs" aria-hidden="true" style="margin-right:6px"><use href="#i-check"/></svg>Your Posted Job' +
         '</div>' +
+        '<button class="btn btn-outline btn-block" type="button" data-edit-job="' + esc(j.id) + '" style="margin-bottom:8px">Edit Job Details</button>' +
         '<button class="btn btn-primary btn-block" type="button" data-scroll-proposals>View Proposals (' + esc(proposalCountText) + ')</button>';
     } else {
       asideActionHtml =
@@ -473,23 +678,54 @@
         '</section>';
     }
 
+    var milestonesHtml = '';
+    if (j.safepay && Array.isArray(j.ms) && j.ms.length){
+      milestonesHtml = '<div style="margin-top:24px"><h4 style="margin:0 0 10px 0;text-transform:uppercase;font-size:12px;letter-spacing:.08em;color:var(--muted)">Milestones &amp; SafePay™</h4><ol class="milestones" style="margin-top:0">' + j.ms.map(function(m, i){
+        return '<li class="ms"><span class="ms-no">' + (i + 1) + '</span><div><strong>' + esc(m[0]) + '</strong><span class="ms-sub">' + fmt(m[1]) + '</span></div>' +
+          '<span class="chip chip-safe"><svg class="ic ic-xs" aria-hidden="true" style="margin-right:4px"><use href="#i-shield"/></svg>SafePay Protected</span></li>';
+      }).join('') + '</ol></div>';
+    }
+
+    var postedDateStr = j.createdAt ? new Date(j.createdAt).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) : 'Recently posted';
+
     $('#jobDetail').innerHTML =
       '<article class="card">' +
-        '<div class="job-top"><div><span class="eyebrow">' + esc(j.cat) + '</span><h2 style="margin-top:6px">' + esc(j.title) + '</h2></div>' + sampleChip(j) + '</div>' +
-        '<div class="job-meta" style="margin-top:10px"><span>' + esc(j.client) + ' · ' + esc(j.city) + '</span>' + (j.verified ? '<span class="ok"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Verified client</span>' : '<span>Client not yet verified</span>') + '</div>' +
-        '<div class="job-description" style="margin-top:14px;white-space:pre-line;line-height:1.6;color:var(--ink-2)">' + esc(j.desc) + '</div>' +
-        '<h4>Skills</h4><div class="tags">' + tagsHtml(j.skills) + '</div>' +
-        '<h4>Milestones</h4><ol class="milestones" style="margin-top:0">' + j.ms.map(function(m, i){
-          return '<li class="ms"><span class="ms-no">' + (i + 1) + '</span><div><strong>' + esc(m[0]) + '</strong><span class="ms-sub">' + fmt(m[1]) + '</span></div>' +
-            (j.safepay ? '<span class="chip chip-safe">SafePay</span>' : '<span class="chip chip-muted">Direct</span>') + '</li>';
-        }).join('') + '</ol>' +
+        '<div class="job-top">' +
+          '<div style="min-width:0;flex:1">' +
+            '<div class="job-pill-row" style="margin-bottom:8px">' +
+              '<span class="job-pill job-pill-cat">' + esc(j.cat) + '</span>' +
+              '<span class="job-pill job-pill-type">' + esc(typeLabel) + '</span>' +
+              '<span class="job-pill job-pill-pay">' + esc(payLabel) + '</span>' +
+              (j.safepay ? '<span class="job-pill job-pill-safe"><svg class="ic ic-xs" aria-hidden="true" style="color:#047857;margin-right:4px"><use href="#i-shield"/></svg>SafePay Protected</span>' : '') +
+            '</div>' +
+            '<h2 style="margin:0 0 8px 0;font-size:24px;font-weight:700;line-height:1.3;color:#0F172A">' + esc(j.title) + '</h2>' +
+          '</div>' +
+        '</div>' +
+        '<div class="job-meta" style="margin-top:6px;padding-bottom:14px;border-bottom:1px solid var(--line-2)">' +
+          '<span class="client-name">' + esc(j.client) + (j.city ? ' · ' + esc(j.city) : '') + '</span>' +
+          (j.verified ? '<span class="ok"><svg class="ic ic-xs" aria-hidden="true"><use href="#i-check"/></svg>Verified Client</span>' : '<span style="color:var(--muted)">Client not yet verified</span>') +
+          '<span class="time">Posted ' + esc(postedDateStr) + '</span>' +
+          '<span>' + esc(proposalCountText) + '</span>' +
+        '</div>' +
+        '<div style="margin-top:20px">' +
+          '<h4 style="margin:0 0 10px 0;text-transform:uppercase;font-size:12px;letter-spacing:.08em;color:var(--muted)">Job Description</h4>' +
+          '<div class="job-description" style="white-space:pre-line;line-height:1.7;color:var(--ink-2);font-size:15px">' + esc(j.desc) + '</div>' +
+        '</div>' +
+        '<div style="margin-top:24px">' +
+          '<h4 style="margin:0 0 10px 0;text-transform:uppercase;font-size:12px;letter-spacing:.08em;color:var(--muted)">Required Skills</h4>' +
+          '<div class="tags">' + (j.skills || []).map(function(s){ return '<span class="tag" style="font-size:13px;padding:5px 12px">' + esc(s) + '</span>'; }).join('') + '</div>' +
+        '</div>' +
+        milestonesHtml +
         proposalsSectionHtml +
       '</article>' +
       '<aside class="side"><div class="card">' +
-        '<div class="kv"><span>Budget</span><strong>' + fmt(j.budget) + '</strong></div>' +
-        '<div class="kv"><span>Type</span><strong>' + esc(j.type) + '</strong></div>' +
-        '<div class="kv"><span>Milestones</span><strong>' + j.ms.length + '</strong></div>' +
-        '<div class="kv"><span>Payment</span><strong>' + (j.safepay ? 'SafePay protected' : 'Agreed directly') + '</strong></div>' +
+        '<div class="kv"><span>' + esc(bInfo.label) + '</span><strong>' + esc(bInfo.main) + '</strong></div>' +
+        (bInfo.sub ? '<div class="kv"><span>Payment Terms</span><strong style="font-size:13px">' + esc(bInfo.sub) + '</strong></div>' : '') +
+        '<div class="kv"><span>Employment Type</span><strong>' + esc(typeLabel) + '</strong></div>' +
+        '<div class="kv"><span>Experience Level</span><strong>' + esc(expLabel) + '</strong></div>' +
+        '<div class="kv"><span>Workplace</span><strong>' + esc(locLabel) + '</strong></div>' +
+        (j.deliveryDays ? '<div class="kv"><span>Timeline</span><strong>' + j.deliveryDays + ' days</strong></div>' : '') +
+        '<div class="kv"><span>Payment Escrow</span><strong>' + (j.safepay ? 'SafePay Protected' : 'Direct') + '</strong></div>' +
         '<div class="kv"><span>Proposals</span><strong>' + esc(proposalCountText) + '</strong></div>' +
         asideActionHtml +
         (j.clientId ? '<button class="btn btn-outline btn-block pk-contact-btn" style="margin-top:8px" type="button" data-msg-user-id="' + esc(j.clientId) + '" data-msg-user-name="' + esc(j.client || 'Client') + '" data-msg-user-role="Client">Message Client</button>' : '') +
@@ -907,6 +1143,19 @@
   function keep(key, el){ if (el && SAMPLE[key] == null) SAMPLE[key] = el.innerHTML; return el; }
   function signedIn(){ return LIVE && !!PaklanceAuth.getUser(); }
 
+  function syncPostJobPaymentMethodUI(){
+    var sel = $('#postJobPaymentMethod');
+    var m = sel ? sel.value : 'FIXED';
+    var fWrap = $('#postJobFixedWrap');
+    var hWrap = $('#postJobHourlyWrap');
+    var wWrap = $('#postJobWeeklyWrap');
+    var moWrap = $('#postJobMonthlyWrap');
+    if (fWrap) fWrap.style.display = m === 'FIXED' ? 'block' : 'none';
+    if (hWrap) hWrap.style.display = m === 'HOURLY' ? 'block' : 'none';
+    if (wWrap) wWrap.style.display = m === 'WEEKLY' ? 'block' : 'none';
+    if (moWrap) moWrap.style.display = m === 'MONTHLY' ? 'block' : 'none';
+  }
+
   function openPostJobModal(spec){
     var u = PaklanceAuth.getUser();
     if (!u){
@@ -915,10 +1164,24 @@
       return;
     }
     var isClient = String(u.role || '').toLowerCase() === 'client';
-    if (!isClient){
+    var isAdmin = String(u.role || '').toUpperCase() === 'ADMIN';
+    if (!isClient && !isAdmin){
       toast('Only client accounts can post jobs. Switch to or create a client account to hire talent.');
       return;
     }
+
+    var editIdEl = $('#postJobEditId');
+    if (editIdEl) editIdEl.value = '';
+    var titleEl = $('#postJobModalTitle');
+    if (titleEl) titleEl.textContent = 'Post a Job';
+    var subEl = $('#postJobModalSub');
+    if (subEl) subEl.textContent = 'Publish your project requirements to hire verified Pakistani specialists with protected SafePay milestones.';
+    var submitBtn = $('#btnSubmitPostJob');
+    if (submitBtn) submitBtn.textContent = 'Publish Job';
+
+    var formEl = $('#postJobForm');
+    if (formEl) formEl.reset();
+
     var alertEl = $('#postJobSpecialistAlert');
     var nameEl = $('#postJobSpecialistName');
     var idEl = $('#postJobSpecialistId');
@@ -931,6 +1194,71 @@
       if (nameEl) nameEl.textContent = '';
       if (alertEl) alertEl.style.display = 'none';
     }
+
+    syncPostJobPaymentMethodUI();
+    openModal('post-job');
+  }
+
+  function openEditJobModal(jobId){
+    var u = PaklanceAuth.getUser();
+    if (!u){
+      toast('Please log in to edit this job.');
+      PaklanceAuth.open('login');
+      return;
+    }
+    var j = JOBS.filter(function(x){ return String(x.id) === String(jobId); })[0];
+    if (!j && currentJob && String(currentJob.id) === String(jobId)) j = currentJob;
+    if (!j){
+      toast('Job not found.');
+      return;
+    }
+
+    var isClientRole = String(u.role || '').toLowerCase() === 'client';
+    var isAdmin = String(u.role || '').toUpperCase() === 'ADMIN';
+    var isOwner = !!(
+      (j.clientId && u.id === j.clientId) ||
+      (j.clientEmail && u.email && j.clientEmail.toLowerCase() === u.email.toLowerCase()) ||
+      isAdmin ||
+      (isClientRole && j.clientId === u.id)
+    );
+
+    if (!isOwner){
+      toast('You do not have permission to edit this job.');
+      return;
+    }
+
+    var editIdEl = $('#postJobEditId');
+    if (editIdEl) editIdEl.value = j.id;
+    var titleEl = $('#postJobModalTitle');
+    if (titleEl) titleEl.textContent = 'Edit Job Details';
+    var subEl = $('#postJobModalSub');
+    if (subEl) subEl.textContent = 'Update the requirements, employment type, or payment terms for this job listing.';
+    var submitBtn = $('#btnSubmitPostJob');
+    if (submitBtn) submitBtn.textContent = 'Save Changes';
+
+    // Populate all modal fields with existing job data
+    if ($('#postJobTitle')) $('#postJobTitle').value = j.title || '';
+    if ($('#postJobCategory')) $('#postJobCategory').value = j.cat || 'Web & Software Development';
+    if ($('#postJobType')) $('#postJobType').value = j.jobType || 'FREELANCE';
+    if ($('#postJobPaymentMethod')) $('#postJobPaymentMethod').value = j.paymentMethod || 'FIXED';
+    if ($('#postJobBudget')) $('#postJobBudget').value = j.budget || 50000;
+    if ($('#postJobHourlyMin')) $('#postJobHourlyMin').value = j.hourlyMin || '';
+    if ($('#postJobHourlyMax')) $('#postJobHourlyMax').value = j.hourlyMax || '';
+    if ($('#postJobWeeklyHours')) $('#postJobWeeklyHours').value = j.weeklyHours || '';
+    if ($('#postJobWeeklyRate')) $('#postJobWeeklyRate').value = j.weeklyRate || '';
+    if ($('#postJobMonthlyRate')) $('#postJobMonthlyRate').value = j.monthlyRate || '';
+    if ($('#postJobExpLevel')) $('#postJobExpLevel').value = j.experienceLevel || 'NOT_SPECIFIED';
+    if ($('#postJobLocType')) $('#postJobLocType').value = j.locationType || 'REMOTE';
+    if ($('#postJobLocation')) $('#postJobLocation').value = j.location || j.city || '';
+    if ($('#postJobDays')) $('#postJobDays').value = j.deliveryDays || 14;
+    if ($('#postJobSkills')) $('#postJobSkills').value = (j.skills || []).join(', ');
+    if ($('#postJobSafePay')) $('#postJobSafePay').checked = !!j.safepay;
+    if ($('#postJobDescription')) $('#postJobDescription').value = j.desc || '';
+
+    var alertEl = $('#postJobSpecialistAlert');
+    if (alertEl) alertEl.style.display = 'none';
+
+    syncPostJobPaymentMethodUI();
     openModal('post-job');
   }
 
@@ -1373,8 +1701,13 @@
 
   /* ---------- clicks ---------- */
   document.addEventListener('click', function(e){
-    var el = e.target.closest('[data-open],[data-close],[data-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job],[data-post-job]');
+    var el = e.target.closest('[data-open],[data-close],[data-job],[data-edit-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job],[data-post-job]');
     if (!el) return;
+    if (el.hasAttribute('data-edit-job')){
+      var editJobId = el.getAttribute('data-edit-job');
+      openEditJobModal(editJobId);
+      return;
+    }
     if (el.hasAttribute('data-post-job')){
       var m = $('#mobileMenu');
       if (m && !m.hidden){
@@ -1511,53 +1844,110 @@
       var u = PaklanceAuth.getUser();
       if (!u) return needUser('Log in with your client account to post a job.');
       var isClient = String(u.role || '').toLowerCase() === 'client';
-      if (!isClient){
+      var isAdmin = String(u.role || '').toUpperCase() === 'ADMIN';
+      if (!isClient && !isAdmin){
         toast('Only client accounts can post jobs. Switch to or create a client account to hire talent.');
         return Promise.resolve();
       }
 
+      var editId = (v('postJobEditId') || '').trim();
       var title = (v('postJobTitle') || '').trim();
       var category = v('postJobCategory') || 'Web & Software Development';
-      var budget = Number(v('postJobBudget')) || 0;
+      var jobType = v('postJobType') || 'FREELANCE';
+      var paymentMethod = v('postJobPaymentMethod') || 'FIXED';
       var days = Number(v('postJobDays')) || 14;
       var skills = (v('postJobSkills') || '').trim();
       var desc = (v('postJobDescription') || '').trim();
+      var expLevel = v('postJobExpLevel') || 'NOT_SPECIFIED';
+      var locType = v('postJobLocType') || 'REMOTE';
+      var locationStr = (v('postJobLocation') || '').trim();
+      var safepayChecked = $('#postJobSafePay') ? $('#postJobSafePay').checked : true;
       var inviteSpecialistId = (v('postJobSpecialistId') || '').trim();
 
       if (!title){ toast('Please provide a job title.'); return Promise.resolve(); }
-      if (!budget || budget < 500){ toast('Please specify a valid budget (minimum PKR 500).'); return Promise.resolve(); }
-      if (!days || days < 1){ toast('Please specify a valid delivery timeline.'); return Promise.resolve(); }
       if (!skills){ toast('Please provide required skills.'); return Promise.resolve(); }
       if (!desc || desc.length < 20){ toast('Please provide a detailed job description (at least 20 characters).'); return Promise.resolve(); }
+
+      var budget = 0;
+      var hourlyMin = null, hourlyMax = null, weeklyHours = null, weeklyRate = null, monthlyRate = null;
+
+      if (paymentMethod === 'HOURLY'){
+        hourlyMin = Number(v('postJobHourlyMin')) || 0;
+        hourlyMax = Number(v('postJobHourlyMax')) || 0;
+        weeklyHours = Number(v('postJobWeeklyHours')) || null;
+        if (!hourlyMin || hourlyMin < 50){ toast('Please specify a valid minimum hourly rate (at least PKR 50).'); return Promise.resolve(); }
+        if (hourlyMax && hourlyMax < hourlyMin){ toast('Maximum hourly rate cannot be less than minimum rate.'); return Promise.resolve(); }
+        budget = (hourlyMax || hourlyMin) * (weeklyHours || 20);
+      } else if (paymentMethod === 'WEEKLY'){
+        weeklyRate = Number(v('postJobWeeklyRate')) || 0;
+        if (!weeklyRate || weeklyRate < 500){ toast('Please specify a valid weekly compensation (minimum PKR 500).'); return Promise.resolve(); }
+        budget = weeklyRate;
+      } else if (paymentMethod === 'MONTHLY'){
+        monthlyRate = Number(v('postJobMonthlyRate')) || 0;
+        if (!monthlyRate || monthlyRate < 2000){ toast('Please specify a valid monthly salary (minimum PKR 2,000).'); return Promise.resolve(); }
+        budget = monthlyRate;
+      } else {
+        // FIXED
+        budget = Number(v('postJobBudget')) || 0;
+        if (!budget || budget < 500){ toast('Please specify a valid project budget (minimum PKR 500).'); return Promise.resolve(); }
+      }
 
       var btn = $('#btnSubmitPostJob');
       if (btn) btn.disabled = true;
 
-      var fullDescription = desc + '\n\nCategory: ' + category + '\nRequired Skills: ' + skills + '\nDelivery Timeline: ' + days + ' days';
-
       var payload = {
         title: title,
-        description: fullDescription,
-        budget: budget,
+        description: desc,
         category: category,
+        jobType: jobType,
+        paymentMethod: paymentMethod,
+        budget: budget,
+        currency: 'PKR',
+        hourlyMin: hourlyMin || undefined,
+        hourlyMax: hourlyMax || undefined,
+        weeklyHours: weeklyHours || undefined,
+        weeklyRate: weeklyRate || undefined,
+        monthlyRate: monthlyRate || undefined,
+        experienceLevel: expLevel,
+        locationType: locType,
+        location: locationStr || undefined,
+        safepay: safepayChecked,
         skills: skills.split(',').map(function(s){ return s.trim(); }).filter(Boolean),
         deliveryDays: days
       };
 
-      return api('POST', '/jobs', payload).then(function(created){
-        closeModals();
-        toast('Job posted successfully! It is now live on the marketplace.');
-        var normalized = fromApiJob(created);
-        normalized.clientId = u.id;
-        normalized.clientEmail = u.email;
-        normalized.client = u.fullName || 'Client';
-        JOBS.unshift(normalized);
+      var requestPromise = editId
+        ? api('PATCH', '/jobs/' + encodeURIComponent(editId), payload)
+        : api('POST', '/jobs', payload);
 
-        if (inviteSpecialistId && typeof PaklanceMessages !== 'undefined'){
-          var inviteMsg = 'Hello! I just posted a new project: "' + title + '" (Budget: ' + fmt(budget) + ') and would love to invite you to submit a proposal or discuss the project.';
-          PaklanceMessages.sendMessageTo(inviteSpecialistId, inviteMsg).then(function(){
-            toast('Job posted and direct invitation sent to specialist!');
-          }).catch(function(){});
+      return requestPromise.then(function(saved){
+        closeModals();
+        var normalized = fromApiJob(saved);
+        if (editId){
+          toast('Job updated successfully!');
+          for (var i = 0; i < JOBS.length; i++){
+            if (String(JOBS[i].id) === String(editId)){
+              JOBS[i] = normalized;
+              break;
+            }
+          }
+          if (currentJob && String(currentJob.id) === String(editId)){
+            currentJob = normalized;
+            renderJobDetail();
+          }
+        } else {
+          toast('Job posted successfully! It is now live on the marketplace.');
+          normalized.clientId = u.id;
+          normalized.clientEmail = u.email;
+          normalized.client = u.fullName || 'Client';
+          JOBS.unshift(normalized);
+
+          if (inviteSpecialistId && typeof PaklanceMessages !== 'undefined'){
+            var inviteMsg = 'Hello! I just posted a new project: "' + title + '" (Budget: ' + fmt(budget) + ') and would love to invite you to submit a proposal or discuss the project.';
+            PaklanceMessages.sendMessageTo(inviteSpecialistId, inviteMsg).then(function(){
+              toast('Job posted and direct invitation sent to specialist!');
+            }).catch(function(){});
+          }
         }
 
         var formEl = $('#postJobForm');
@@ -1566,6 +1956,8 @@
         if (alertEl) alertEl.style.display = 'none';
         var specIdInput = $('#postJobSpecialistId');
         if (specIdInput) specIdInput.value = '';
+        var editIdInput = $('#postJobEditId');
+        if (editIdInput) editIdInput.value = '';
 
         renderDashboard();
         renderJobs();
@@ -1703,7 +2095,12 @@
   });
 
   var priceRange = RangeSlider($('#fPrice'), renderJobs);
-  ['fCat','fTrust','fSafe','jSort'].forEach(function(id){ $('#' + id).addEventListener('change', renderJobs); });
+  ['fCat','fJobType','fPayMethod','fExpLevel','fLocType','fTrust','fSafe','jSort'].forEach(function(id){
+    var el = $('#' + id);
+    if (el) el.addEventListener('change', renderJobs);
+  });
+  var postJobPayMethodEl = $('#postJobPaymentMethod');
+  if (postJobPayMethodEl) postJobPayMethodEl.addEventListener('change', syncPostJobPaymentMethodUI);
   $('#jSearch').addEventListener('input', renderJobs);
   ['tAvail','tRate'].forEach(function(id){ $('#' + id).addEventListener('change', renderTalent); });
   $('#tSearch').addEventListener('input', renderTalent);
