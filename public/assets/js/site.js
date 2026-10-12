@@ -21,7 +21,17 @@
 
   /* ---------- API ---------- */
   // Read JWT token stored by auth.js (same localStorage key)
-  function _siteGetToken(){ try { return localStorage.getItem('pk_access_token') || null; } catch(e){ return null; } }
+  function _siteGetToken(){
+    try {
+      var tok = localStorage.getItem('pk_access_token') || localStorage.getItem('token');
+      if (tok) return tok;
+      if (window.PaklanceAuth && typeof window.PaklanceAuth.getUser === 'function') {
+        var u = window.PaklanceAuth.getUser();
+        if (u && (u.token || u.accessToken)) return u.token || u.accessToken;
+      }
+      return null;
+    } catch(e){ return null; }
+  }
   function api(method, path, body){
     var headers = {};
     var tok = _siteGetToken();
@@ -3300,30 +3310,95 @@
       var uploadBtn = $('#blogFormUploadBtn');
       var fileInp = $('#blogFormCoverFile');
       if (uploadBtn && fileInp) {
-        uploadBtn.onclick = function(){ fileInp.click(); };
+        uploadBtn.onclick = function(e){
+          if (e) e.preventDefault();
+          fileInp.click();
+        };
         fileInp.onchange = function(){
-          var file = this.files[0];
+          var file = this.files && this.files[0];
           if (!file) return;
+
+          // 1. Validate file format (JPG, JPEG, PNG, WebP, GIF, SVG)
+          var allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+          var ext = (file.name || '').split('.').pop().toLowerCase();
+          var allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'];
+          var isAllowed = allowedTypes.indexOf(file.type) !== -1 || allowedExts.indexOf(ext) !== -1;
+          if (!isAllowed) {
+            toast('Unsupported image format. Please select a JPG, JPEG, PNG, or WebP image.');
+            this.value = '';
+            return;
+          }
+
+          // 2. Validate file size (Max 5MB)
+          var MAX_SIZE = 5 * 1024 * 1024;
+          if (file.size > MAX_SIZE) {
+            toast('Image file exceeds the 5MB size limit. Please choose a smaller image.');
+            this.value = '';
+            return;
+          }
+
+          // 3. Show instant preview before upload finishes
+          var localBlobUrl = null;
+          if (window.URL && typeof window.URL.createObjectURL === 'function') {
+            try {
+              localBlobUrl = URL.createObjectURL(file);
+              var pImg = $('#blogCoverPreviewImg');
+              var pPlaceholder = $('#blogCoverPreviewPlaceholder');
+              if (pImg && pPlaceholder) {
+                pImg.src = localBlobUrl;
+                pImg.style.display = 'block';
+                pPlaceholder.style.display = 'none';
+              }
+            } catch(ex){}
+          }
+
+          // 4. Update button loading state
+          var origBtnHtml = uploadBtn.innerHTML;
+          uploadBtn.disabled = true;
+          uploadBtn.textContent = 'Uploading...';
+          toast('Uploading cover image from device...');
+
+          // 5. Build FormData with both 'file' and 'image'
           var formData = new FormData();
+          formData.append('file', file);
           formData.append('image', file);
-          toast('Uploading cover image...');
-          var userObj = PaklanceAuth.getUser();
-          var token = (userObj && (userObj.token || userObj.accessToken)) || localStorage.getItem('pk_access_token') || localStorage.getItem('token');
-          fetch('https://paklance-backend-updated.vercel.app/api/admin/blogs/upload-image', {
+
+          var tok = _siteGetToken();
+          var authHeader = tok ? { 'Authorization': 'Bearer ' + tok } : {};
+          var uploadUrl = '/api/admin/blogs/upload-image';
+          if (!LIVE || location.hostname === 'localhost' || location.protocol === 'file:') {
+            uploadUrl = 'https://paklance-backend-updated.vercel.app/api/admin/blogs/upload-image';
+          }
+
+          fetch(uploadUrl, {
             method: 'POST',
-            headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+            headers: authHeader,
             body: formData
           }).then(function(r){
-            if (!r.ok) throw new Error('Upload failed (' + r.status + ')');
+            if (!r.ok) {
+              return r.json().catch(function(){ return {}; }).then(function(errData){
+                throw new Error(errData.message || ('Upload failed (' + r.status + ')'));
+              });
+            }
             return r.json();
           }).then(function(d){
-            if (d.url){
+            if (d && d.url){
               $('#blogFormCoverUrl').value = d.url;
               updateCoverPreview();
               toast('Cover image uploaded successfully!');
+            } else {
+              throw new Error('Server did not return image URL.');
             }
           }).catch(function(e){
             toast('Image upload failed: ' + (e.message || ''));
+            updateCoverPreview();
+          }).finally(function(){
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = origBtnHtml;
+            if (localBlobUrl && window.URL && typeof window.URL.revokeObjectURL === 'function') {
+              try { URL.revokeObjectURL(localBlobUrl); } catch(ex2){}
+            }
+            fileInp.value = '';
           });
         };
       }
@@ -3380,29 +3455,62 @@
           };
 
           inlineFileInp.onchange = function(){
-            var file = this.files[0];
+            var file = this.files && this.files[0];
             if (!file) return;
+
+            // Validate format and size
+            var allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+            var ext = (file.name || '').split('.').pop().toLowerCase();
+            var allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'];
+            var isAllowed = allowedTypes.indexOf(file.type) !== -1 || allowedExts.indexOf(ext) !== -1;
+            if (!isAllowed) {
+              toast('Unsupported image format. Please select a JPG, JPEG, PNG, or WebP image.');
+              this.value = '';
+              return;
+            }
+
+            var MAX_SIZE = 5 * 1024 * 1024;
+            if (file.size > MAX_SIZE) {
+              toast('Image file exceeds the 5MB size limit. Please choose a smaller image.');
+              this.value = '';
+              return;
+            }
+
             var formData = new FormData();
+            formData.append('file', file);
             formData.append('image', file);
             toast('Uploading article image...');
-            var userObj = PaklanceAuth.getUser();
-            var token = (userObj && (userObj.token || userObj.accessToken)) || localStorage.getItem('pk_access_token') || localStorage.getItem('token');
-            fetch('https://paklance-backend-updated.vercel.app/api/admin/blogs/upload-image', {
+
+            var tok = _siteGetToken();
+            var authHeader = tok ? { 'Authorization': 'Bearer ' + tok } : {};
+            var uploadUrl = '/api/admin/blogs/upload-image';
+            if (!LIVE || location.hostname === 'localhost' || location.protocol === 'file:') {
+              uploadUrl = 'https://paklance-backend-updated.vercel.app/api/admin/blogs/upload-image';
+            }
+
+            fetch(uploadUrl, {
               method: 'POST',
-              headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+              headers: authHeader,
               body: formData
             }).then(function(r){
-              if (!r.ok) throw new Error('Upload failed (' + r.status + ')');
+              if (!r.ok) {
+                return r.json().catch(function(){ return {}; }).then(function(errData){
+                  throw new Error(errData.message || ('Upload failed (' + r.status + ')'));
+                });
+              }
               return r.json();
             }).then(function(d){
-              if (d.url){
+              if (d && d.url){
                 insertInlineImage(d.url);
                 toast('Image inserted into article!');
+              } else {
+                throw new Error('Server did not return image URL.');
               }
             }).catch(function(e){
               toast('Image upload failed: ' + (e.message || ''));
+            }).finally(function(){
+              inlineFileInp.value = '';
             });
-            this.value = '';
           };
         }
 
@@ -3748,15 +3856,20 @@
     if (removeBtn) removeBtn.style.display = url ? 'inline-block' : 'none';
     if (!img || !placeholder) return;
     if (url){
-      img.src = url;
-      img.style.display = 'block';
-      placeholder.style.display = 'none';
+      img.onload = function(){
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+      };
       img.onerror = function(){
         img.style.display = 'none';
         placeholder.style.display = 'block';
         placeholder.textContent = 'Invalid URL';
       };
+      img.src = url;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
     } else {
+      img.src = '';
       img.style.display = 'none';
       placeholder.style.display = 'block';
       placeholder.textContent = 'No Image';
