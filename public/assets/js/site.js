@@ -12,6 +12,51 @@
   var CFG = { fees: { clientPercent: 3, specialistPercent: 10 }, googleClientId: PROD_GOOGLE_CLIENT_ID };
   var noop = function(){};
 
+  /* Centralized Social Media Configuration */
+  window.PaklanceSocial = {
+    links: {
+      tiktok: '',
+      instagram: '',
+      linkedin: '',
+      facebook: '',
+      pinterest: '',
+      twitter: ''
+    },
+    updateLinks: function(newLinks){
+      if (!newLinks) return;
+      Object.assign(this.links, newLinks);
+      this.sync();
+    },
+    sync: function(){
+      var self = this;
+      $$('[data-social]').forEach(function(el){
+        var net = el.getAttribute('data-social');
+        var url = self.links[net];
+        if (url && url.trim()){
+          el.href = url.trim();
+          el.target = '_blank';
+          el.rel = 'noopener noreferrer';
+        } else {
+          el.href = '#';
+          el.removeAttribute('target');
+          el.removeAttribute('rel');
+        }
+      });
+    }
+  };
+
+  document.addEventListener('click', function(e){
+    var s = e.target.closest && e.target.closest('[data-social]');
+    if (!s) return;
+    var net = s.getAttribute('data-social');
+    var url = window.PaklanceSocial && window.PaklanceSocial.links && window.PaklanceSocial.links[net];
+    if (!url || !url.trim()){
+      e.preventDefault();
+      var labels = { tiktok: 'TikTok', instagram: 'Instagram', linkedin: 'LinkedIn', facebook: 'Facebook', pinterest: 'Pinterest', twitter: 'X (Twitter)' };
+      toast('Paklance ' + (labels[net] || net) + ' profile will be linked soon.');
+    }
+  });
+
   /* Job and talent data — populated from the production API on load.
      Arrays start empty so no placeholder content is shown while the API responds. */
   var JOBS = [];
@@ -394,7 +439,9 @@
     if (r === 'blog') PaklanceBlog.renderIndex(); else if (r === 'article') PaklanceBlog.renderArticle(blogSlug); else PaklanceBlog.leave();
     $('#mobileMenu').hidden = true; $('#burger').setAttribute('aria-expanded','false');
     window.scrollTo(0,0);
-    if (r !== 'home'){ var shownView = $('[data-view="' + r + '"]'); enterView(shownView); reveal(shownView); }   // the homepage has its own heading motion
+    var shownView = $('[data-view="' + r + '"]');
+    enterView(shownView);
+    reveal(shownView);
   }
   function go(r){ if (location.hash === '#' + r) route(); else location.hash = r; }
   window.addEventListener('hashchange', route);
@@ -2713,11 +2760,18 @@
     if (!('IntersectionObserver' in window)) { heads.forEach(function(h){ h.classList.add('rv-in'); }); return; }
     var io = new IntersectionObserver(function(entries){
       entries.forEach(function(e){
-        if (e.isIntersecting && e.intersectionRatio >= 0.2) e.target.classList.add('rv-in');
-        else if (!e.isIntersecting) e.target.classList.remove('rv-in');
+        if (e.isIntersecting){
+          e.target.classList.add('rv-in');
+        }
       });
-    }, { threshold: [0, 0.2] });
-    heads.forEach(function(h){ io.observe(h); });
+    }, { rootMargin: '0px 0px -4% 0px', threshold: 0.05 });
+    heads.forEach(function(h){
+      var r = h.getBoundingClientRect();
+      if (r.height > 0 && r.top < window.innerHeight && r.bottom > 0){
+        h.classList.add('rv-in');
+      }
+      io.observe(h);
+    });
   })();
 
   /* ---------- How Paklance works: live walk-through ----------
@@ -2758,13 +2812,17 @@
       later(function(){ activate(2); pill.classList.add('is-wait'); status.textContent = 'Reviewing the work…'; }, 6500);
       later(function(){ pill.classList.remove('is-wait'); pill.classList.add('is-released'); status.textContent = DONE_TEXT; }, 7700);
       later(function(){ finish(2); }, 8600);
-      later(function(){ if (++loops < 3) run(); else setState('complete'); }, 11500);   // loop 3 times, then hold the finished picture
+      later(function(){ if (++loops < 3) run(); else { running = false; setState('complete'); } }, 11500);   // loop 3 times, then hold the finished picture
     }
     function stop(){ running = false; setState('complete'); }
     function sync(){ var go = onScreen && !document.hidden && !$('[data-view="home"]').hidden; if (go && !running){ loops = 0; run(); } else if (!go && running) stop(); }
     stop();
     if ('IntersectionObserver' in window) {
-      new IntersectionObserver(function(entries){ onScreen = entries[entries.length - 1].intersectionRatio >= 0.35; sync(); }, { threshold: [0, 0.35] }).observe(tl);
+      new IntersectionObserver(function(entries){
+        var e = entries[entries.length - 1];
+        onScreen = Boolean(e && e.isIntersecting);
+        sync();
+      }, { rootMargin: '0px 0px -4% 0px', threshold: 0.1 }).observe(tl);
     } else { onScreen = true; sync(); }
     document.addEventListener('visibilitychange', sync);
   })();
