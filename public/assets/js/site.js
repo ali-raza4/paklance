@@ -465,6 +465,10 @@
   /* ---------- jobs ---------- */
   // sampleChip: only show for explicitly sample-flagged items (isSample !== false means from built-in fallback)
   function sampleChip(x, label){ return x.sample === false ? '' : ''; }
+  function tagsHtml(list){
+    if (!Array.isArray(list)) return '';
+    return list.map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join('');
+  }
   function jobCard(j){
     var bInfo = formatBudgetDisplay(j);
     var typeLabel = formatJobType(j.jobType);
@@ -475,9 +479,9 @@
     var skillsList = Array.isArray(j.skills) ? j.skills : [];
     var visibleSkills = skillsList.slice(0, 4);
     var extraSkills = skillsList.length - 4;
-    var tagsHtml = visibleSkills.map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join('');
+    var jobTags = visibleSkills.map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join('');
     if (extraSkills > 0){
-      tagsHtml += '<span class="tag-more">+' + extraSkills + ' more</span>';
+      jobTags += '<span class="tag-more">+' + extraSkills + ' more</span>';
     }
 
     var curUser = (PaklanceAuth && PaklanceAuth.getUser) ? PaklanceAuth.getUser() : null;
@@ -510,7 +514,7 @@
         '<span>' + (j.proposals ? (j.proposals + ' proposals') : '0 proposals') + '</span>' +
       '</div>' +
       '<p class="job-card-desc">' + esc(j.desc) + '</p>' +
-      '<div class="tags">' + tagsHtml + '</div>' +
+      '<div class="tags">' + jobTags + '</div>' +
       '<div class="job-foot">' +
         '<div class="budget-wrap">' +
           '<span>' + esc(bInfo.label) + '</span>' +
