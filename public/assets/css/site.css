@@ -1327,11 +1327,10 @@ a.pc-btn{display:inline-flex;align-items:center}
 .blog-helpful-thanks{display:flex;align-items:center;gap:8px;margin:0;font-weight:600;color:var(--brand)}
 @media (prefers-reduced-motion:reduce){.blog-check,.blog-check-bar i,.blog-helpful-btns button{transition:none}}
 
-/* ===== ENGAGEMENT: page entrance, reveal on scroll, richer inner pages =====
-   Motion uses only opacity and transform (cheap for the browser) and is switched off for "reduce motion". */
-.rc-on .rc{opacity:0;transform:translateY(18px);transition:opacity .55s cubic-bezier(.2,.7,.2,1),transform .55s cubic-bezier(.2,.7,.2,1);transition-delay:calc(var(--rc,0) * 70ms)}
-.rc-on .rc.rc-in{opacity:1;transform:none}
-@media print{.rc-on .rc{opacity:1!important;transform:none!important}}
+@keyframes rcAutoReveal{to{opacity:1;transform:none}}
+.rc-on .rc{opacity:0;transform:translateY(18px);transition:opacity .55s cubic-bezier(.2,.7,.2,1),transform .55s cubic-bezier(.2,.7,.2,1);transition-delay:calc(var(--rc,0) * 70ms);animation:rcAutoReveal .35s forwards;animation-delay:1.2s}
+.rc-on .rc.rc-in{opacity:1;transform:none;animation:none}
+@media print{.rc-on .rc{opacity:1!important;transform:none!important;animation:none!important}}
 /* hover lift on things you can click ("translate" stacks with the reveal transform) */
 .job-card,.t-card,.plan,.next-card{transition:translate .22s ease,box-shadow .22s ease,border-color .22s ease,opacity .55s cubic-bezier(.2,.7,.2,1),transform .55s cubic-bezier(.2,.7,.2,1)}
 .job-card:hover,.t-card:hover,.plan:hover,.next-card:hover{translate:0 -3px;box-shadow:0 14px 30px rgba(1,65,28,.09);border-color:#BFD8C7}

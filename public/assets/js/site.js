@@ -435,6 +435,8 @@
     var bnKey = (navKey === 'jobs' || navKey === 'talent') ? 'find' : navKey;
     $$('[data-bn]').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-bn') === bnKey); });
     if (r === 'job' && currentJob) renderJobDetail();
+    if (r === 'jobs') renderJobs();
+    if (r === 'talent') renderTalent();
     if (r === 'person'){ if (own) renderMyProfile(); else renderPerson(); }
     if (r === 'blog') PaklanceBlog.renderIndex(); else if (r === 'article') PaklanceBlog.renderArticle(blogSlug); else PaklanceBlog.leave();
     $('#mobileMenu').hidden = true; $('#burger').setAttribute('aria-expanded','false');
@@ -2647,7 +2649,14 @@
           rvIO.unobserve(e.target);
         }
       });
-    }, { rootMargin: '0px 0px 80px 0px', threshold: 0.01 });
+    rvIO = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){
+          e.target.classList.add('rc-in');
+          rvIO.unobserve(e.target);
+        }
+      });
+    }, { rootMargin: '120px 0px 120px 0px', threshold: 0.01 });
   }
   // Cards already on screen when a page opens show straight away (nothing to wait for); cards further down glide in as they're scrolled to.
   function reveal(root){
@@ -2661,8 +2670,8 @@
     all.forEach(function(el){
       if (el.classList.contains('rc-in')) return;
       var r = el.getBoundingClientRect();
-      // If visible, above the fold, or in the current viewport: show immediately
-      if (r.height > 0 && r.top < fold + 40 && r.bottom > -40){
+      // If visible, above the fold, or near current viewport: show immediately
+      if (r.height > 0 && r.top < fold + 80 && r.bottom > -80){
         el.classList.add('rc-in');
         if (rvIO) try { rvIO.unobserve(el); } catch(e){}
       } else if (!el.classList.contains('rc')){
@@ -2672,19 +2681,23 @@
         rvIO.observe(el);
       }
     });
+    setTimeout(revealPending, 250);
+    setTimeout(revealPending, 800);
   }
   if (!reduceMotion && typeof window !== 'undefined'){
     var revealPending = function(){
       var fold = window.innerHeight;
       $$('.rc:not(.rc-in)').forEach(function(el){
         var r = el.getBoundingClientRect();
-        if (r.height > 0 && r.top < fold + 80 && r.bottom > -80){
+        if (r.height > 0 && r.top < fold + 120 && r.bottom > -120){
           el.classList.add('rc-in');
           if (rvIO) try { rvIO.unobserve(el); } catch(e){}
         }
       });
     };
     window.addEventListener('scroll', revealPending, { passive: true });
+    window.addEventListener('wheel', revealPending, { passive: true });
+    window.addEventListener('touchmove', revealPending, { passive: true });
     window.addEventListener('resize', revealPending, { passive: true });
   }
   // Fade in only the top block of the page (header / hero): animating the whole, very tall page is costly on phones.
