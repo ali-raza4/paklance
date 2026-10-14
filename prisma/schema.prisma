@@ -17,6 +17,8 @@ model User {
   createdAt                      DateTime            @default(now())
   updatedAt                      DateTime            @updatedAt
   isEmailVerified                Boolean             @default(false)
+  isDeleted                      Boolean             @default(false)
+  deletedAt                      DateTime?
   emailVerifyOtp                 String?
   emailVerifyExpires             DateTime?
   emailVerifyLastSentAt         DateTime?

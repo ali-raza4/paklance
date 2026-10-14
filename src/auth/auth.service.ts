@@ -214,6 +214,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if ((user as any).isDeleted) {
+      throw new UnauthorizedException('This account has been deleted or deactivated.');
+    }
+
     if (!user.isEmailVerified) {
       throw new UnauthorizedException(
         'Email not verified. Please verify your email before logging in.',

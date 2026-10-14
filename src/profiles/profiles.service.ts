@@ -98,10 +98,11 @@ export class ProfilesService {
       where: { id: userId },
       select: {
         ...SAFE_SCALAR_SELECT,
+        isDeleted: true,
         portfolioItems: true,
       },
     });
-    if (!user) throw new NotFoundException('Profile not found');
+    if (!user || (user as any).isDeleted) throw new NotFoundException('Profile not found');
     const rate = user.hourlyRate != null ? Number(user.hourlyRate) : null;
     const video = this.formatVideo(user);
     return {
@@ -155,6 +156,7 @@ export class ProfilesService {
     const q = (query.q || query.search || '').trim();
     return this.prisma.user.findMany({
       where: {
+        isDeleted: false,
         ...(q
           ? {
               OR: [

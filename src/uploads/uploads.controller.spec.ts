@@ -36,7 +36,7 @@ describe('UploadsController & StorageService', () => {
       stream: null as any,
     };
 
-    const result = await controller.uploadFile(mockFile);
+    const result = await controller.uploadFile([mockFile]);
     expect(result).toHaveProperty('url');
     expect(result.url).toBe(`data:image/jpeg;base64,${jpgBuffer.toString('base64')}`);
   });
@@ -56,7 +56,7 @@ describe('UploadsController & StorageService', () => {
       stream: null as any,
     };
 
-    const result = await controller.uploadFile(mockFile);
+    const result = await controller.uploadFile([mockFile]);
     expect(result).toHaveProperty('url');
     expect(result.url).toBe(`data:image/png;base64,${pngBuffer.toString('base64')}`);
   });
@@ -76,7 +76,7 @@ describe('UploadsController & StorageService', () => {
       stream: null as any,
     };
 
-    const result = await controller.uploadFile(mockFile);
+    const result = await controller.uploadFile([mockFile]);
     expect(result).toHaveProperty('url');
     expect(result.url).toBe(`data:image/webp;base64,${webpBuffer.toString('base64')}`);
   });
@@ -96,7 +96,7 @@ describe('UploadsController & StorageService', () => {
       stream: null as any,
     };
 
-    await expect(controller.uploadFile(mockFile)).rejects.toThrow(BadRequestException);
+    await expect(controller.uploadFile([mockFile])).rejects.toThrow(BadRequestException);
   });
 
   it('should reject oversized files (>5MB)', async () => {
@@ -114,6 +114,6 @@ describe('UploadsController & StorageService', () => {
       stream: null as any,
     };
 
-    await expect(controller.uploadFile(mockFile)).rejects.toThrow(BadRequestException);
+    await expect(controller.uploadFile([mockFile])).rejects.toThrow(BadRequestException);
   });
 });

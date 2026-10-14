@@ -43,13 +43,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         hourlyRate: true,
         availability: true,
         isEmailVerified: true,
+        isDeleted: true,
         createdAt: true,
         updatedAt: true,
       },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('User no longer exists');
+    if (!user || (user as any).isDeleted) {
+      throw new UnauthorizedException('Account no longer exists or has been deleted');
     }
 
     return user;

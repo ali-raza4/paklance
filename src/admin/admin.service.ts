@@ -34,6 +34,7 @@ export class AdminService {
 
   async getAllUsers() {
     return this.prisma.user.findMany({
+      where: { isDeleted: false },
       select: {
         id: true,
         email: true,

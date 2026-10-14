@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -11,14 +12,19 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Role } from '@prisma/client';
 import { AdminService } from './admin.service';
+import { UsersService } from '../users/users.service';
 
 @ApiTags('Admin Controls')
 @ApiBearerAuth()
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly usersService: UsersService,
+  ) {}
 
   @ApiOperation({ summary: 'Get overall platform statistics' })
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,6 +48,17 @@ export class AdminController {
   @Get('users/:id')
   getUserById(@Param('id') id: string) {
     return this.adminService.getUserById(id);
+  }
+
+  @ApiOperation({ summary: 'Admin delete user account' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Delete('users/:id')
+  deleteUser(@Param('id') id: string, @CurrentUser() adminUser: any) {
+    return this.usersService.deleteUser(id, {
+      isSelf: false,
+      adminId: adminUser?.id,
+    });
   }
 
   @ApiOperation({ summary: 'Get all raised disputes' })

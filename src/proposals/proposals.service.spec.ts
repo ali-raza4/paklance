@@ -19,6 +19,9 @@ const mockPrismaService = {
     findFirst: jest.fn(),
     create: jest.fn(),
   },
+  user: {
+    findUnique: jest.fn(),
+  },
   escrow: {
     create: jest.fn(),
   },
@@ -71,6 +74,11 @@ describe('ProposalsService', () => {
 
       expect(mockPrismaService.job.findUnique).toHaveBeenCalledWith({
         where: { id: 'job-1' },
+        include: {
+          client: {
+            select: { id: true, email: true },
+          },
+        },
       });
       expect(result).toHaveLength(1);
       expect(result[0].User.name).toBe('Ali Khan');

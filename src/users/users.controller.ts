@@ -63,10 +63,29 @@ export class UsersController {
   }
 
   @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Delete('me')
+  deleteMyAccount(
+    @CurrentUser() user: any,
+    @Body() body?: { password?: string },
+  ) {
+    return this.usersService.deleteUser(user.id, {
+      isSelf: true,
+      password: body?.password,
+    });
+  }
+
+  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() adminUser: any,
+  ) {
+    return this.usersService.deleteUser(id, {
+      isSelf: false,
+      adminId: adminUser?.id,
+    });
   }
 }
