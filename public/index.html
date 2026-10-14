@@ -196,7 +196,7 @@
   <section class="section rails-section" aria-label="Payment methods">
     <div class="wrap">
       <div class="spot rv-label" id="railSpot" data-fix="3">
-        <span class="spot-label">Designed for local payment rails</span>
+        <span class="spot-label"><strong>Designed for local payment rails</strong></span>
         <div class="spot-pills" role="group" aria-label="Payment methods">
           <button type="button" class="spot-pill on" data-spot="0" aria-pressed="true">Raast</button>
           <button type="button" class="spot-pill" data-spot="1" aria-pressed="false">NayaPay</button>
@@ -1206,12 +1206,8 @@
     <div class="foot-bottom-bar">
       <p class="foot-bottom">© 2026 Paklance · All rights reserved · English · اردو</p>
       <div class="foot-socials" role="navigation" aria-label="Paklance social media channels">
-        <a class="foot-social-link" href="#" data-social="tiktok" aria-label="Paklance on TikTok" title="TikTok"><svg aria-hidden="true" focusable="false"><use href="#i-tiktok"/></svg></a>
-        <a class="foot-social-link" href="#" data-social="instagram" aria-label="Paklance on Instagram" title="Instagram"><svg aria-hidden="true" focusable="false"><use href="#i-instagram"/></svg></a>
-        <a class="foot-social-link" href="#" data-social="linkedin" aria-label="Paklance on LinkedIn" title="LinkedIn"><svg aria-hidden="true" focusable="false"><use href="#i-linkedin"/></svg></a>
-        <a class="foot-social-link" href="#" data-social="facebook" aria-label="Paklance on Facebook" title="Facebook"><svg aria-hidden="true" focusable="false"><use href="#i-facebook"/></svg></a>
-        <a class="foot-social-link" href="#" data-social="pinterest" aria-label="Paklance on Pinterest" title="Pinterest"><svg aria-hidden="true" focusable="false"><use href="#i-pinterest"/></svg></a>
-        <a class="foot-social-link" href="#" data-social="twitter" aria-label="Paklance on X (Twitter)" title="X (Twitter)"><svg aria-hidden="true" focusable="false"><use href="#i-x-twitter"/></svg></a>
+        <a class="foot-social-link" href="https://instagram.com/paklance.comm?srtk=MXV6NHppc3l1cXJkMw%3D%3D" target="_blank" rel="noopener noreferrer" data-social="instagram" aria-label="Paklance on Instagram" title="Instagram"><svg aria-hidden="true" focusable="false"><use href="#i-instagram"/></svg></a>
+        <a class="foot-social-link" href="https://www.linkedin.com/company/paklance/" target="_blank" rel="noopener noreferrer" data-social="linkedin" aria-label="Paklance on LinkedIn" title="LinkedIn"><svg aria-hidden="true" focusable="false"><use href="#i-linkedin"/></svg></a>
       </div>
     </div>
   </div>
@@ -1763,6 +1759,67 @@
     </div>
     <div id="adminDetailFooter" style="margin-top:24px;display:flex;justify-content:flex-end;align-items:center;gap:10px;border-top:1px solid var(--line-2);padding-top:16px">
       <button class="btn btn-outline" type="button" data-close>Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ADMIN USER DELETION CONFIRMATION MODAL ===================== -->
+<div class="modal" id="m-admin-delete-user" hidden role="dialog" aria-modal="true" aria-labelledby="adminDeleteUserTitle">
+  <div class="modal-card" style="max-width:520px;padding:28px">
+    <button class="m-close" type="button" data-close aria-label="Close dialog"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <div style="width:40px;height:40px;border-radius:50%;background:#FEE4E2;color:#D92D20;display:grid;place-items:center;flex-shrink:0">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+      </div>
+      <div>
+        <h2 id="adminDeleteUserTitle" style="font-size:18px;margin:0;color:#B42318">Delete User Account</h2>
+        <span style="font-size:12.5px;color:var(--muted)">Admin Authorization Required</span>
+      </div>
+    </div>
+    <p style="margin:12px 0 6px;font-size:14.5px;line-height:1.5;color:var(--ink)">
+      Are you sure you want to delete or deactivate account for <strong id="adminDeleteUserName">this user</strong> (<span id="adminDeleteUserEmail" style="color:var(--muted)"></span>)?
+    </p>
+    <p style="margin:0 0 16px;font-size:13px;color:var(--muted);line-height:1.4">
+      If this user has no contractual history, their account and data will be permanently removed. If they have past financial or contract records, their profile will be deactivated and anonymized to protect ledger integrity.
+    </p>
+    <div id="adminDeleteUserError" class="alert alert-danger" style="display:none;margin-bottom:14px;font-size:13.5px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+      <button class="btn btn-outline" type="button" data-close>Cancel</button>
+      <button class="btn btn-danger" type="button" id="adminDeleteUserConfirmBtn" style="background:#D92D20;border-color:#D92D20;color:#fff">Yes, Delete Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== USER SELF-SERVICE DELETE MY ACCOUNT MODAL ===================== -->
+<div class="modal" id="m-user-delete-self" hidden role="dialog" aria-modal="true" aria-labelledby="userDeleteSelfTitle">
+  <div class="modal-card" style="max-width:520px;padding:28px">
+    <button class="m-close" type="button" data-close aria-label="Close dialog"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <div style="width:40px;height:40px;border-radius:50%;background:#FEE4E2;color:#D92D20;display:grid;place-items:center;flex-shrink:0">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+      </div>
+      <div>
+        <h2 id="userDeleteSelfTitle" style="font-size:18px;margin:0;color:#B42318">Delete My Account</h2>
+        <span style="font-size:12.5px;color:var(--muted)">Permanent Action</span>
+      </div>
+    </div>
+    <p style="margin:12px 0 6px;font-size:14.5px;line-height:1.5;color:var(--ink)">
+      Are you sure you want to permanently delete your Paklance account?
+    </p>
+    <ul style="font-size:13px;color:var(--muted);line-height:1.5;margin:8px 0 16px;padding-left:18px">
+      <li>Your profile will be removed from all public listings and search results.</li>
+      <li>Any open uncontracted jobs or pending proposals will be closed.</li>
+      <li>You will be logged out and cannot log in with this account again.</li>
+      <li>Accounts with active contracts, open disputes, or pending balances cannot be deleted until those matters are resolved.</li>
+    </ul>
+    <div style="margin-bottom:16px">
+      <label for="userDeletePasswordInput" style="display:block;font-size:13.5px;font-weight:600;margin-bottom:6px">Confirm your account password (optional if using Google login):</label>
+      <input type="password" id="userDeletePasswordInput" class="input" placeholder="Enter your current password" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px">
+    </div>
+    <div id="userDeleteSelfError" class="alert alert-danger" style="display:none;margin-bottom:14px;font-size:13.5px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+      <button class="btn btn-outline" type="button" data-close>Cancel</button>
+      <button class="btn btn-danger" type="button" id="userDeleteSelfConfirmBtn" style="background:#D92D20;border-color:#D92D20;color:#fff">Permanently Delete Account</button>
     </div>
   </div>
 </div>

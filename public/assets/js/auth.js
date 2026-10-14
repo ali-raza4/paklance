@@ -1509,7 +1509,8 @@ window.PaklanceProfile = (function () {
         (m.memberSince ? '<p class="pp-since">Member since ' + esc(fullDate(m.memberSince)) + '</p>' : '') +
       '</div>' +
       '<div class="card"><h3 class="pp-side-h">Delivery record</h3>' + deliveryHtml(m.delivery) + '</div>' +
-      (owner ? '<a class="btn btn-outline btn-block" href="#dashboard">Back to dashboard</a>' : '<a class="btn btn-outline btn-block" href="#match">Get matched instead</a>') +
+      (owner ? '<a class="btn btn-outline btn-block" href="#dashboard">Back to dashboard</a>' +
+               '<div class="pp-danger-zone" style="margin-top:20px;padding:16px;border:1px solid #FDA29B;border-radius:12px;background:#FFF5F5"><strong style="display:block;color:#B42318;font-size:13.5px;margin-bottom:4px">Account Management</strong><p style="font-size:12.5px;color:#7A271A;margin:0 0 12px;line-height:1.4">Permanently remove or deactivate your profile, services, and personal data.</p><button type="button" class="btn btn-sm btn-outline-danger btn-block" data-delete-account style="color:#B42318;border-color:#FDA29B;background:#fff">Delete My Account</button></div>' : '<a class="btn btn-outline btn-block" href="#match">Get matched instead</a>') +
     '</aside>';
 
     el.innerHTML = head + '<div class="card pp-main">' + main + '</div>' + side;

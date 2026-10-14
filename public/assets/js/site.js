@@ -657,6 +657,7 @@
       '<div class="empty"><h3>No jobs match these filters yet</h3><p>Try clearing some filters or searching for different keywords. New verified jobs are added regularly on Paklance.</p>' +
       '<div class="hero-ctas"><button class="btn btn-outline btn-sm" type="button" data-clear-filters>Clear filters</button><button class="btn btn-primary btn-sm" type="button" data-post-job>Post a Job</button></div></div>';
     syncJobCats();
+    reveal($('#jobsView'));
   }
 
   function clearFilters(){
@@ -970,6 +971,7 @@
     }).join('') :
       '<div class="empty" style="grid-column:1/-1"><h3>No specialists match these filters</h3><p>Try another skill or a higher rate, or let Paklance Match™ build a shortlist for you.</p><div class="hero-ctas"><a class="btn btn-primary btn-sm" href="#match">Get matched</a></div></div>';
     syncTalentCats();
+    reveal($('#talentView'));
   }
   /* ---------- profile page extra data (services, history, ratings, stats) ---------- */
   function it(kind, title, x){ return Object.assign({ kind: kind, title: title }, x || {}); }
@@ -1186,6 +1188,79 @@
     onModalOpen(id);
   }
   $$('.modal').forEach(function(m){ m.addEventListener('click', function(e){ if (e.target === m) closeModals(); }); });
+
+  /* ---------- account deletion handlers (admin deletion & self deletion) ---------- */
+  (function(){
+    document.addEventListener('click', function(e){
+      var btnAdminConfirm = e.target.closest('#adminDeleteUserConfirmBtn');
+      if (btnAdminConfirm){
+        if (!pendingAdminDeleteUserId) return;
+        btnAdminConfirm.disabled = true;
+        btnAdminConfirm.textContent = 'Deleting account...';
+        var errEl = $('#adminDeleteUserError');
+        if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+
+        api('DELETE', '/admin/users/' + encodeURIComponent(pendingAdminDeleteUserId))
+          .catch(function(err1){
+            return api('DELETE', '/users/' + encodeURIComponent(pendingAdminDeleteUserId));
+          })
+          .then(function(res){
+            btnAdminConfirm.disabled = false;
+            btnAdminConfirm.textContent = 'Yes, Delete Account';
+            closeModals();
+            toast(res && res.message ? res.message : 'User account deleted successfully.');
+            loadAdminDashboardData(true);
+          })
+          .catch(function(err){
+            btnAdminConfirm.disabled = false;
+            btnAdminConfirm.textContent = 'Yes, Delete Account';
+            if (errEl){
+              errEl.textContent = err.message || 'Failed to delete user account.';
+              errEl.style.display = 'block';
+            } else {
+              toast('Error: ' + (err.message || 'Failed to delete user.'));
+            }
+          });
+        return;
+      }
+
+      var btnSelfConfirm = e.target.closest('#userDeleteSelfConfirmBtn');
+      if (btnSelfConfirm){
+        btnSelfConfirm.disabled = true;
+        btnSelfConfirm.textContent = 'Deleting your account...';
+        var errEl2 = $('#userDeleteSelfError');
+        if (errEl2) { errEl2.textContent = ''; errEl2.style.display = 'none'; }
+        var pwInput = $('#userDeletePasswordInput');
+        var pw = pwInput ? pwInput.value.trim() : '';
+
+        api('DELETE', '/users/me', pw ? { password: pw } : {})
+          .then(function(res){
+            btnSelfConfirm.disabled = false;
+            btnSelfConfirm.textContent = 'Permanently Delete Account';
+            closeModals();
+            try {
+              localStorage.removeItem('pk_access_token');
+              localStorage.removeItem('pk_user');
+              if (window.PaklanceAuth && PaklanceAuth.clear) PaklanceAuth.clear();
+            } catch(e){}
+            alert(res && res.message ? res.message : 'Your account has been deleted successfully.');
+            location.hash = '#';
+            location.reload();
+          })
+          .catch(function(err){
+            btnSelfConfirm.disabled = false;
+            btnSelfConfirm.textContent = 'Permanently Delete Account';
+            if (errEl2){
+              errEl2.textContent = err.message || 'Failed to delete account. Please resolve active obligations first.';
+              errEl2.style.display = 'block';
+            } else {
+              toast('Error: ' + (err.message || 'Failed to delete account.'));
+            }
+          });
+        return;
+      }
+    });
+  })();
 
   /* ---------- live data inside modals (signed-in users) ---------- */
   var SAMPLE = {};                   // the design's sample markup, restored when there is no real data
@@ -1751,9 +1826,30 @@
   }
 
   /* ---------- clicks ---------- */
+  var pendingAdminDeleteUserId = null;
   document.addEventListener('click', function(e){
-    var el = e.target.closest('[data-open],[data-close],[data-job],[data-edit-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job],[data-post-job]');
+    var el = e.target.closest('[data-open],[data-close],[data-job],[data-edit-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job],[data-post-job],[data-admin-delete-user],[data-delete-account]');
     if (!el) return;
+    if (el.hasAttribute('data-admin-delete-user')){
+      var uid = el.getAttribute('data-admin-delete-user');
+      var uname = el.getAttribute('data-user-name') || 'this user';
+      var uemail = el.getAttribute('data-user-email') || '';
+      pendingAdminDeleteUserId = uid;
+      var nameEl = $('#adminDeleteUserName'); if (nameEl) nameEl.textContent = uname;
+      var emailEl = $('#adminDeleteUserEmail'); if (emailEl) emailEl.textContent = uemail;
+      var errEl = $('#adminDeleteUserError');
+      if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+      openModal('admin-delete-user');
+      return;
+    }
+    if (el.hasAttribute('data-delete-account')){
+      var errEl = $('#userDeleteSelfError');
+      if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+      var pwInput = $('#userDeletePasswordInput');
+      if (pwInput) pwInput.value = '';
+      openModal('user-delete-self');
+      return;
+    }
     if (el.hasAttribute('data-edit-job')){
       var editJobId = el.getAttribute('data-edit-job');
       openEditJobModal(editJobId);
@@ -2264,7 +2360,8 @@
       (u.skills && u.skills.length ? ('<h4>Your skills</h4><div class="tags">' + u.skills.map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join('') + '</div>') : '') +
       (isClient ? '<button class="btn btn-primary btn-block" type="button" data-post-job style="margin-top:18px"><svg class="ic ic-sm" aria-hidden="true" style="margin-right:6px"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Post a New Job</button>' : '') +
       '<a class="btn ' + (isClient ? 'btn-outline' : 'btn-primary') + ' btn-block" href="#profile" style="margin-top:' + (isClient ? '10px' : '18px') + '">View my profile</a>' +
-      (!isClient ? '<button class="btn btn-outline btn-block" type="button" data-edit-skills style="margin-top:10px">Edit skills</button>' : '');
+      (!isClient ? '<button class="btn btn-outline btn-block" type="button" data-edit-skills style="margin-top:10px">Edit skills</button>' : '') +
+      '<div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--line)"><button class="btn btn-sm btn-outline-danger btn-block" type="button" data-delete-account style="color:#B42318;border-color:#FDA29B" title="Permanently delete your account">Delete My Account</button></div>';
     $('#dashChecklist').innerHTML =
       '<li class="ok">Account created</li><li class="ok">Email verified</li><li class="ok">Full name added</li>' +
       (isClient ? '<li class="ok">Client account active</li>' : '<li class="ok">Skills added</li>') +
@@ -2544,24 +2641,51 @@
   if (!reduceMotion && 'IntersectionObserver' in window){
     document.documentElement.classList.add('rc-on');
     rvIO = new IntersectionObserver(function(entries){
-      entries.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('rc-in'); rvIO.unobserve(e.target); } });
-    }, { rootMargin: '0px 0px -6% 0px', threshold: 0.06 });
+      entries.forEach(function(e){
+        if (e.isIntersecting){
+          e.target.classList.add('rc-in');
+          rvIO.unobserve(e.target);
+        }
+      });
+    }, { rootMargin: '0px 0px 80px 0px', threshold: 0.01 });
   }
   // Cards already on screen when a page opens show straight away (nothing to wait for); cards further down glide in as they're scrolled to.
   function reveal(root){
     if (!root) return;
-    var list = $$(RV_SEL, root).filter(function(el){ return !el.classList.contains('rc') && !el.classList.contains('rc-in'); });
-    if (!rvIO){ list.forEach(function(el){ el.classList.add('rc-in'); }); return; }
+    var all = $$(RV_SEL, root);
+    if (!rvIO){
+      all.forEach(function(el){ el.classList.add('rc-in'); });
+      return;
+    }
     var fold = window.innerHeight;
-    var below = list.filter(function(el){ var r = el.getBoundingClientRect(); return r.height > 0 && r.top > fold - 40; });   // one layout read for the batch
-    list.forEach(function(el){ if (below.indexOf(el) < 0 && el.getBoundingClientRect().height > 0) el.classList.add('rc-in'); });
-    below.forEach(function(el){
-      var i = el.parentNode ? Array.prototype.indexOf.call(el.parentNode.children, el) : 0;
-      el.style.setProperty('--rc', Math.min(Math.max(i, 0), 5));     // small stagger inside a grid
-      el.classList.add('rc'); rvIO.observe(el);
+    all.forEach(function(el){
+      if (el.classList.contains('rc-in')) return;
+      var r = el.getBoundingClientRect();
+      // If visible, above the fold, or in the current viewport: show immediately
+      if (r.height > 0 && r.top < fold + 40 && r.bottom > -40){
+        el.classList.add('rc-in');
+        if (rvIO) try { rvIO.unobserve(el); } catch(e){}
+      } else if (!el.classList.contains('rc')){
+        var i = el.parentNode ? Array.prototype.indexOf.call(el.parentNode.children, el) : 0;
+        el.style.setProperty('--rc', Math.min(Math.max(i, 0), 5));     // small stagger inside a grid
+        el.classList.add('rc');
+        rvIO.observe(el);
+      }
     });
-    // hidden now (e.g. the other How-it-works tab): reveal when shown
-    list.forEach(function(el){ if (el.getBoundingClientRect().height === 0){ el.classList.add('rc'); rvIO.observe(el); } });
+  }
+  if (!reduceMotion && typeof window !== 'undefined'){
+    var revealPending = function(){
+      var fold = window.innerHeight;
+      $$('.rc:not(.rc-in)').forEach(function(el){
+        var r = el.getBoundingClientRect();
+        if (r.height > 0 && r.top < fold + 80 && r.bottom > -80){
+          el.classList.add('rc-in');
+          if (rvIO) try { rvIO.unobserve(el); } catch(e){}
+        }
+      });
+    };
+    window.addEventListener('scroll', revealPending, { passive: true });
+    window.addEventListener('resize', revealPending, { passive: true });
   }
   // Fade in only the top block of the page (header / hero): animating the whole, very tall page is costly on phones.
   function enterView(v){
@@ -2768,10 +2892,10 @@
           e.target.classList.add('rv-in');
         }
       });
-    }, { rootMargin: '0px 0px -4% 0px', threshold: 0.05 });
+    }, { rootMargin: '0px 0px 80px 0px', threshold: 0.01 });
     heads.forEach(function(h){
       var r = h.getBoundingClientRect();
-      if (r.height > 0 && r.top < window.innerHeight && r.bottom > 0){
+      if (r.height > 0 && r.top < window.innerHeight + 80 && r.bottom > -80){
         h.classList.add('rv-in');
       }
       io.observe(h);
@@ -3987,6 +4111,8 @@
       return;
     }
 
+    var curAdmin = (window.PaklanceAuth && PaklanceAuth.getUser) ? PaklanceAuth.getUser() : null;
+
     tbody.innerHTML = filtered.map(function(u){
       var r = String(u.role || 'SPECIALIST').toUpperCase();
       var roleClass = r === 'ADMIN' ? 'role-admin' : (r === 'CLIENT' ? 'role-client' : 'role-specialist');
@@ -3996,6 +4122,10 @@
       var joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
       var avail = esc(u.availability || 'AVAILABLE');
       var init = initials(u.name || u.fullName || u.email);
+      var canDelete = r !== 'ADMIN' && (!curAdmin || u.id !== curAdmin.id);
+      var delBtn = canDelete
+        ? '<button class="btn btn-sm btn-outline admin-delete-user-btn" type="button" data-admin-delete-user="' + esc(u.id) + '" data-user-name="' + name + '" data-user-email="' + email + '" style="color:#B42318;border-color:#FDA29B;margin-left:6px" title="Delete or deactivate user account">Delete</button>'
+        : '';
 
       return '<tr class="admin-clickable-row" data-detail-type="user" data-detail-id="' + esc(u.id) + '">' +
         '<td>' +
@@ -4008,7 +4138,7 @@
         '<td><span class="status-badge ' + (verified ? 'status-verified' : 'status-pending') + '">' + (verified ? '✓ Verified' : '⏳ Unverified') + '</span></td>' +
         '<td style="color:var(--muted);font-size:13px">' + joined + '</td>' +
         '<td><span style="font-size:12.5px;color:var(--ink)">' + avail + '</span></td>' +
-        '<td style="text-align:right"><button class="btn btn-sm btn-outline admin-view-btn" type="button" data-detail-type="user" data-detail-id="' + esc(u.id) + '">View Details</button></td>' +
+        '<td style="text-align:right;white-space:nowrap"><button class="btn btn-sm btn-outline admin-view-btn" type="button" data-detail-type="user" data-detail-id="' + esc(u.id) + '">View Details</button>' + delBtn + '</td>' +
       '</tr>';
     }).join('');
 
@@ -5724,7 +5854,10 @@
           (u.bio ? '<div class="admin-detail-section"><h4>About & Bio</h4><div class="admin-detail-body">' + esc(u.bio) + '</div></div>' : '') +
           '<div class="admin-detail-section"><h4>Verified Skills</h4><div style="margin-top:6px">' + skillsHtml + '</div></div>';
 
+        var curAdmin = (window.PaklanceAuth && PaklanceAuth.getUser) ? PaklanceAuth.getUser() : null;
+        var canDel = r !== 'ADMIN' && (!curAdmin || u.id !== curAdmin.id);
         footer.innerHTML =
+          (canDel ? '<button class="btn btn-outline-danger admin-delete-user-btn" type="button" data-admin-delete-user="' + esc(u.id) + '" data-user-name="' + esc(u.name || u.fullName || '') + '" data-user-email="' + esc(u.email || '') + '" style="color:#B42318;border-color:#FDA29B">Delete Account</button>' : '') +
           (r === 'SPECIALIST' ? '<a class="btn btn-outline" href="#person?id=' + encodeURIComponent(u.id) + '" onclick="closeModals()">View Public Profile</a>' : '') +
           '<button class="btn btn-outline" type="button" data-close>Close</button>';
       }).catch(function(err){
