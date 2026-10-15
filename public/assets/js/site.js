@@ -251,6 +251,8 @@
     var name = t.name || t.fullName || 'Specialist';
     var parts = name.trim().split(/\s+/).filter(Boolean);
     var init = ((parts[0]||'').charAt(0) + (parts.length>1?(parts[parts.length-1]||'').charAt(0):'')).toUpperCase() || '?';
+    var comp = (window.calculateProfileCompletion && calculateProfileCompletion(t)) || { percentage: (t.profileCompletion != null ? t.profileCompletion : 100), isCompleteEnoughForPublic: true };
+    var compPct = t.profileCompletion != null ? t.profileCompletion : comp.percentage;
     return {
       id:     t.id || t.userId,
       userId: t.userId || t.id,
@@ -267,7 +269,9 @@
       verified: !!(t.verified),
       sample: t.isSample === false ? false : undefined,
       photo:  t.avatarUrl || t.photo || null,
-      rating: t.rating || null
+      rating: t.rating || null,
+      completion: compPct,
+      isCompleteEnough: compPct > 50
     };
   }
   function replace(arr, items){ arr.length = 0; items.forEach(function(x){ arr.push(x); }); }
@@ -948,6 +952,8 @@
   function renderTalent(){
     var q = $('#tSearch').value.trim().toLowerCase(), av = $('#tAvail').value, rate = +$('#tRate').value;
     var list = TALENT.filter(function(t){
+      // Rule 1: A freelancer's profile completion must be strictly greater than 50% to be visible
+      if (t.completion != null && t.completion <= 50) return false;
       var hay = (t.name + ' ' + t.role + ' ' + t.city + ' ' + t.cat + ' ' + t.skills.join(' ')).toLowerCase();
       return (!q || hay.indexOf(q) > -1) && (av === 'any' || t.avail === 'Available now') && (!rate || t.rate <= rate);
     });
@@ -1107,11 +1113,29 @@
       }).then(function(r){
         if (currentPerson === t || (currentPerson && (String(currentPerson.id) === String(targetId) || String(currentPerson.userId) === String(targetId)))) {
           var talentData = (r && (r.talent || r.profile)) || r || {};
+          var curUser = PaklanceAuth && PaklanceAuth.getUser ? PaklanceAuth.getUser() : null;
+          var isOwner = curUser && (curUser.id === targetId || curUser.userId === targetId);
+          var isAdmin = curUser && String(curUser.role).toUpperCase() === 'ADMIN';
+          var comp = (window.calculateProfileCompletion && calculateProfileCompletion(talentData)) || { percentage: (talentData.profileCompletion != null ? talentData.profileCompletion : 100) };
+          var compPct = talentData.profileCompletion != null ? talentData.profileCompletion : comp.percentage;
+          if (compPct <= 50 && !isOwner && !isAdmin) {
+            el.innerHTML = '<div class="empty" style="padding:48px 20px;text-align:center"><h3>Profile Not Publicly Visible</h3><p style="color:var(--muted);margin:8px 0 16px">This freelancer profile is currently incomplete (completion ≤ 50%) and cannot be viewed publicly.</p><div class="hero-ctas"><a class="btn btn-primary btn-sm" href="#talent">Browse Visible Freelancers</a></div></div>';
+            toast('This profile is incomplete and not publicly visible.');
+            return;
+          }
           var pageData = (r && r.page) || {};
           PaklanceProfile.renderPage(el, apiPersonModel(talentData, pageData));
         }
       }).catch(function(err){
         if (currentPerson === t || (currentPerson && (String(currentPerson.id) === String(targetId) || String(currentPerson.userId) === String(targetId)))) {
+          var curUser = PaklanceAuth && PaklanceAuth.getUser ? PaklanceAuth.getUser() : null;
+          var isOwner = curUser && (curUser.id === targetId || curUser.userId === targetId);
+          var isAdmin = curUser && String(curUser.role).toUpperCase() === 'ADMIN';
+          if (t && t.completion != null && t.completion <= 50 && !isOwner && !isAdmin) {
+            el.innerHTML = '<div class="empty" style="padding:48px 20px;text-align:center"><h3>Profile Not Publicly Visible</h3><p style="color:var(--muted);margin:8px 0 16px">This freelancer profile is currently incomplete (completion ≤ 50%) and cannot be viewed publicly.</p><div class="hero-ctas"><a class="btn btn-primary btn-sm" href="#talent">Browse Visible Freelancers</a></div></div>';
+            toast('This profile is incomplete and not publicly visible.');
+            return;
+          }
           if (PROFILE_EXTRA[t.id]){
             PaklanceProfile.renderPage(el, personModel(t));
           } else {
@@ -1223,43 +1247,6 @@
               toast('Error: ' + (err.message || 'Failed to delete user.'));
             }
           });
-        return;
-      }
-
-      var btnSelfConfirm = e.target.closest('#userDeleteSelfConfirmBtn');
-      if (btnSelfConfirm){
-        btnSelfConfirm.disabled = true;
-        btnSelfConfirm.textContent = 'Deleting your account...';
-        var errEl2 = $('#userDeleteSelfError');
-        if (errEl2) { errEl2.textContent = ''; errEl2.style.display = 'none'; }
-        var pwInput = $('#userDeletePasswordInput');
-        var pw = pwInput ? pwInput.value.trim() : '';
-
-        api('DELETE', '/users/me', pw ? { password: pw } : {})
-          .then(function(res){
-            btnSelfConfirm.disabled = false;
-            btnSelfConfirm.textContent = 'Permanently Delete Account';
-            closeModals();
-            try {
-              localStorage.removeItem('pk_access_token');
-              localStorage.removeItem('pk_user');
-              if (window.PaklanceAuth && PaklanceAuth.clear) PaklanceAuth.clear();
-            } catch(e){}
-            alert(res && res.message ? res.message : 'Your account has been deleted successfully.');
-            location.hash = '#';
-            location.reload();
-          })
-          .catch(function(err){
-            btnSelfConfirm.disabled = false;
-            btnSelfConfirm.textContent = 'Permanently Delete Account';
-            if (errEl2){
-              errEl2.textContent = err.message || 'Failed to delete account. Please resolve active obligations first.';
-              errEl2.style.display = 'block';
-            } else {
-              toast('Error: ' + (err.message || 'Failed to delete account.'));
-            }
-          });
-        return;
       }
     });
   })();
@@ -1830,7 +1817,7 @@
   /* ---------- clicks ---------- */
   var pendingAdminDeleteUserId = null;
   document.addEventListener('click', function(e){
-    var el = e.target.closest('[data-open],[data-close],[data-job],[data-edit-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job],[data-post-job],[data-admin-delete-user],[data-delete-account]');
+    var el = e.target.closest('[data-open],[data-close],[data-job],[data-edit-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job],[data-post-job],[data-admin-delete-user]');
     if (!el) return;
     if (el.hasAttribute('data-admin-delete-user')){
       var uid = el.getAttribute('data-admin-delete-user');
@@ -1842,14 +1829,6 @@
       var errEl = $('#adminDeleteUserError');
       if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
       openModal('admin-delete-user');
-      return;
-    }
-    if (el.hasAttribute('data-delete-account')){
-      var errEl = $('#userDeleteSelfError');
-      if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
-      var pwInput = $('#userDeletePasswordInput');
-      if (pwInput) pwInput.value = '';
-      openModal('user-delete-self');
       return;
     }
     if (el.hasAttribute('data-edit-job')){
@@ -2149,6 +2128,7 @@
     match: function(){
       var skills = v('mSkills').trim().toLowerCase();
       var filtered = TALENT.filter(function(t){
+        if (t.completion != null && t.completion <= 50) return false;
         if (!skills) return true;
         return t.skills.some(function(s){ return s.toLowerCase().indexOf(skills) > -1; });
       }).slice(0, 5).map(function(t){
@@ -2362,14 +2342,27 @@
       (u.skills && u.skills.length ? ('<h4>Your skills</h4><div class="tags">' + u.skills.map(function(s){ return '<span class="tag">' + esc(s) + '</span>'; }).join('') + '</div>') : '') +
       (isClient ? '<button class="btn btn-primary btn-block" type="button" data-post-job style="margin-top:18px"><svg class="ic ic-sm" aria-hidden="true" style="margin-right:6px"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Post a New Job</button>' : '') +
       '<a class="btn ' + (isClient ? 'btn-outline' : 'btn-primary') + ' btn-block" href="#profile" style="margin-top:' + (isClient ? '10px' : '18px') + '">View my profile</a>' +
-      (!isClient ? '<button class="btn btn-outline btn-block" type="button" data-edit-skills style="margin-top:10px">Edit skills</button>' : '') +
-      '<div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--line)"><button class="btn btn-sm btn-outline-danger btn-block" type="button" data-delete-account style="color:#B42318;border-color:#FDA29B" title="Permanently delete your account">Delete My Account</button></div>';
+      (!isClient ? '<button class="btn btn-outline btn-block" type="button" data-edit-skills style="margin-top:10px">Edit skills</button>' : '');
     $('#dashChecklist').innerHTML =
       '<li class="ok">Account created</li><li class="ok">Email verified</li><li class="ok">Full name added</li>' +
       (isClient ? '<li class="ok">Client account active</li>' : '<li class="ok">Skills added</li>') +
       (u.photo ? '<li class="ok">Profile photo added</li>' : '<li>Add a profile photo <button type="button" class="chip chip-muted pc-chip-btn" data-pc-open="photo">Add photo</button></li>') +
       '<li id="dashProfileStep">Complete your profile <span class="chip chip-muted">Next</span></li>';
     PaklanceProfile.mount($('#dashTracker'), { video: $('#dashVideo') });
+
+    var wrap = $('#dashVisibilityNoticeWrap');
+    if (wrap){
+      var role = String(u.role || '').toUpperCase();
+      var isSpecialist = !isClient && (role === 'SPECIALIST' || role === 'FREELANCER');
+      if (isSpecialist){
+        var comp = window.calculateProfileCompletion ? window.calculateProfileCompletion(u, u.portfolioItems || []) : { percentage: 0 };
+        var pctEl = $('#dashNoticePct');
+        if (pctEl) pctEl.textContent = comp.percentage + '%';
+        wrap.style.display = comp.percentage <= 50 ? 'block' : 'none';
+      } else {
+        wrap.style.display = 'none';
+      }
+    }
 
     var jobsCard = $('#dashJobs') ? $('#dashJobs').closest('.card') : null;
     var jobsCardHead = jobsCard ? jobsCard.querySelector('.cc-top') : null;
@@ -3014,9 +3007,25 @@
   PaklanceProfile.init({
     notify: toast,
     onUpdate: function(s){        // keep the "Your setup" checklist in step with the tracker
-      var li = $('#dashProfileStep'); if (!li) return;
-      li.classList.toggle('ok', s.done === s.total);
-      li.querySelector('.chip').textContent = s.done + ' of ' + s.total + ' done';
+      var li = $('#dashProfileStep');
+      if (li) {
+        li.classList.toggle('ok', s.done === s.total);
+        li.querySelector('.chip').textContent = s.done + ' of ' + s.total + ' done';
+      }
+      var wrap = $('#dashVisibilityNoticeWrap');
+      if (wrap) {
+        var u = PaklanceAuth ? PaklanceAuth.getUser() : null;
+        var role = u ? String(u.role || '').toUpperCase() : '';
+        var isSpecialist = role === 'SPECIALIST' || role === 'FREELANCER';
+        if (isSpecialist) {
+          var pct = (s && typeof s.percent === 'number') ? s.percent : (window.calculateProfileCompletion ? window.calculateProfileCompletion(u).percentage : 0);
+          var pctEl = $('#dashNoticePct');
+          if (pctEl) pctEl.textContent = pct + '%';
+          wrap.style.display = pct <= 50 ? 'block' : 'none';
+        } else {
+          wrap.style.display = 'none';
+        }
+      }
     }
   });
 
@@ -3605,6 +3614,8 @@
     blogSearchQuery: '',
     blogStatusFilter: 'ALL',
     blogCategoryFilter: 'ALL',
+    compFilter: 'ALL',
+    sortCompletionDir: null,
     loading: false
   };
   window.adminData = adminData;
@@ -3741,6 +3752,36 @@
           renderAdminUsersTable();
         };
       });
+
+      // Completion filter pills (Users)
+      var compPills = adminView.querySelectorAll('[data-comp-filter]');
+      compPills.forEach(function(pill){
+        pill.onclick = function(){
+          compPills.forEach(function(p){ p.classList.remove('active'); });
+          pill.classList.add('active');
+          adminData.compFilter = pill.getAttribute('data-comp-filter') || 'ALL';
+          renderAdminUsersTable();
+        };
+      });
+
+      // Sort by completion percentage
+      var sortCompHeader = $('#adminSortCompletion');
+      if (sortCompHeader) {
+        sortCompHeader.onclick = function(){
+          if (!adminData.sortCompletionDir) {
+            adminData.sortCompletionDir = 'desc';
+          } else if (adminData.sortCompletionDir === 'desc') {
+            adminData.sortCompletionDir = 'asc';
+          } else {
+            adminData.sortCompletionDir = null;
+          }
+          var icon = sortCompHeader.querySelector('span');
+          if (icon) {
+            icon.textContent = adminData.sortCompletionDir === 'desc' ? '▼' : (adminData.sortCompletionDir === 'asc' ? '▲' : '↕');
+          }
+          renderAdminUsersTable();
+        };
+      }
 
       // Search input (Users)
       var searchInput = $('#adminUserSearch');
@@ -4103,6 +4144,14 @@
     var filtered = adminData.users.filter(function(u){
       var roleMatch = adminData.roleFilter === 'ALL' || String(u.role || '').toUpperCase() === adminData.roleFilter;
       if (!roleMatch) return false;
+
+      var compPct = (typeof u.profileCompletion === 'number')
+        ? u.profileCompletion
+        : (window.calculateProfileCompletion ? window.calculateProfileCompletion(u, u.portfolioItems || []).percentage : 0);
+
+      if (adminData.compFilter === 'INCOMPLETE' && compPct > 50) return false;
+      if (adminData.compFilter === 'COMPLETE' && compPct <= 50) return false;
+
       if (!adminData.searchQuery) return true;
       var q = adminData.searchQuery;
       var name = String(u.name || u.fullName || '').toLowerCase();
@@ -4112,8 +4161,16 @@
       return name.indexOf(q) > -1 || email.indexOf(q) > -1 || role.indexOf(q) > -1 || headline.indexOf(q) > -1;
     });
 
+    if (adminData.sortCompletionDir) {
+      filtered.sort(function(a, b){
+        var aPct = (typeof a.profileCompletion === 'number') ? a.profileCompletion : (window.calculateProfileCompletion ? window.calculateProfileCompletion(a, a.portfolioItems || []).percentage : 0);
+        var bPct = (typeof b.profileCompletion === 'number') ? b.profileCompletion : (window.calculateProfileCompletion ? window.calculateProfileCompletion(b, b.portfolioItems || []).percentage : 0);
+        return adminData.sortCompletionDir === 'asc' ? (aPct - bPct) : (bPct - aPct);
+      });
+    }
+
     if (!filtered.length){
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No users match the selected criteria.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">No users match the selected criteria.</td></tr>';
       return;
     }
 
@@ -4133,6 +4190,27 @@
         ? '<button class="btn btn-sm btn-outline admin-delete-user-btn" type="button" data-admin-delete-user="' + esc(u.id) + '" data-user-name="' + name + '" data-user-email="' + email + '" style="color:#B42318;border-color:#FDA29B;margin-left:6px" title="Delete or deactivate user account">Delete</button>'
         : '';
 
+      var compPct = (typeof u.profileCompletion === 'number')
+        ? u.profileCompletion
+        : (window.calculateProfileCompletion ? window.calculateProfileCompletion(u, u.portfolioItems || []).percentage : 0);
+      var barColor = compPct > 50 ? '#12B76A' : (compPct >= 40 ? '#F79009' : '#F04438');
+      var badgeHtml = compPct <= 50
+        ? '<span class="status-badge" style="background:#FEF3F2;color:#B42318;font-size:10.5px;padding:2px 6px;margin-left:6px" title="Profile completion is 50% or below (hidden from public listings)">Hidden (≤50%)</span>'
+        : '<span class="status-badge" style="background:#ECFDF3;color:#027A48;font-size:10.5px;padding:2px 6px;margin-left:6px" title="Profile completion is greater than 50% (visible to clients)">Visible</span>';
+
+      var compTd =
+        '<td>' +
+          '<div style="min-width:130px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:4px">' +
+              '<strong style="color:var(--ink)">' + compPct + '%</strong>' +
+              badgeHtml +
+            '</div>' +
+            '<div style="height:6px;width:100%;background:#EAECF0;border-radius:3px;overflow:hidden">' +
+              '<div style="height:100%;width:' + compPct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.3s"></div>' +
+            '</div>' +
+          '</div>' +
+        '</td>';
+
       return '<tr class="admin-clickable-row" data-detail-type="user" data-detail-id="' + esc(u.id) + '">' +
         '<td>' +
           '<div style="display:flex;align-items:center;gap:10px">' +
@@ -4141,6 +4219,7 @@
           '</div>' +
         '</td>' +
         '<td><span class="role-badge ' + roleClass + '">' + r + '</span></td>' +
+        compTd +
         '<td><span class="status-badge ' + (verified ? 'status-verified' : 'status-pending') + '">' + (verified ? '✓ Verified' : '⏳ Unverified') + '</span></td>' +
         '<td style="color:var(--muted);font-size:13px">' + joined + '</td>' +
         '<td><span style="font-size:12.5px;color:var(--ink)">' + avail + '</span></td>' +
@@ -5845,12 +5924,34 @@
           ? u.skills.map(function(s){ return '<span class="admin-skill-pill">' + esc(s) + '</span>'; }).join('')
           : '<span style="color:var(--muted)">No skills listed</span>';
 
+        var comp = (u.profileCompletionDetails && typeof u.profileCompletionDetails.percentage === 'number')
+          ? u.profileCompletionDetails
+          : (window.calculateProfileCompletion ? window.calculateProfileCompletion(u, u.portfolioItems || []) : { percentage: (typeof u.profileCompletion === 'number' ? u.profileCompletion : 0), missingFields: [] });
+        var compPct = comp.percentage;
+        var barColor = compPct > 50 ? '#12B76A' : (compPct >= 40 ? '#F79009' : '#F04438');
+        var visLabel = (r === 'SPECIALIST' && compPct <= 50)
+          ? '<span style="color:#B42318;font-weight:600;font-size:12px">Hidden from public listings (≤50%)</span>'
+          : '<span style="color:#027A48;font-weight:600;font-size:12px">Visible to clients</span>';
+        var missingHtml = comp.missingFields && comp.missingFields.length
+          ? '<div style="margin-top:6px;font-size:12px;color:var(--muted)">Missing fields: ' + comp.missingFields.map(function(m){ return '<code>' + esc(m) + '</code>'; }).join(', ') + '</div>'
+          : '';
+
         content.innerHTML =
           '<div class="admin-detail-meta-grid">' +
             '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Full Name</span><span class="admin-detail-meta-val">' + esc(u.name || u.fullName || '—') + '</span></div>' +
             '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Email Address</span><span class="admin-detail-meta-val">' + esc(u.email || '—') + '</span></div>' +
             '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Assigned Role</span><span class="admin-detail-meta-val"><span class="role-badge role-' + r.toLowerCase() + '">' + r + '</span></span></div>' +
             '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Email Verified</span><span class="admin-detail-meta-val">' + (verified ? '✓ Verified' : '⏳ Pending') + '</span></div>' +
+            '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Profile Completion</span><span class="admin-detail-meta-val">' +
+              '<div style="display:flex;align-items:center;gap:10px;margin-top:2px">' +
+                '<strong style="font-size:14px;color:var(--ink)">' + compPct + '%</strong>' +
+                '<div style="flex:1;max-width:140px;height:7px;background:#EAECF0;border-radius:4px;overflow:hidden">' +
+                  '<div style="height:100%;width:' + compPct + '%;background:' + barColor + '"></div>' +
+                '</div>' +
+                visLabel +
+              '</div>' +
+              missingHtml +
+            '</span></div>' +
             '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Date Joined</span><span class="admin-detail-meta-val">' + joined + '</span></div>' +
             '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Hourly Rate</span><span class="admin-detail-meta-val">' + rate + '</span></div>' +
             '<div class="admin-detail-meta-item"><span class="admin-detail-meta-label">Availability</span><span class="admin-detail-meta-val">' + esc(u.availability || 'AVAILABLE') + '</span></div>' +

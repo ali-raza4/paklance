@@ -698,6 +698,25 @@
   </div>
   <!-- Profile completion tracker: filled by PaklanceProfile.mount() -->
   <div class="wrap"><section class="pc-tracker" id="dashTracker" aria-label="Profile completion" hidden></section></div>
+  <!-- Freelancer Profile Visibility Notice (displayed when completion <= 50%) -->
+  <div class="wrap" id="dashVisibilityNoticeWrap" style="display:none;margin-bottom:18px">
+    <div class="card" style="border:1.5px solid #F79009;background:#FFFAEB;padding:18px 22px;border-radius:14px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap">
+      <div style="display:flex;gap:14px;align-items:flex-start;max-width:820px">
+        <div style="width:38px;height:38px;border-radius:10px;background:#FEDF89;color:#B54708;display:grid;place-items:center;font-size:18px;flex-shrink:0" aria-hidden="true">
+          ⚠️
+        </div>
+        <div>
+          <h3 style="font-size:16px;font-weight:700;color:#B54708;margin:0 0 4px">Complete Your Profile to Stay Visible</h3>
+          <p style="margin:0;font-size:13.5px;line-height:1.55;color:#7A271A">
+            Your profile is currently <strong id="dashVisibilityNoticePct">0%</strong> complete. Complete more than 50% of your profile to appear in the Freelancer section and remain visible to potential clients. Update your profile to restore your visibility.
+          </p>
+        </div>
+      </div>
+      <div style="flex-shrink:0">
+        <a class="btn btn-primary btn-sm" href="#profile" id="dashCompleteProfileBtn" style="white-space:nowrap;padding:9px 18px;font-size:13.5px;font-weight:600">Complete My Profile</a>
+      </div>
+    </div>
+  </div>
   <div class="wrap dash">
     <aside class="card dash-profile" id="dashProfile"></aside>
     <div class="dash-main">
@@ -931,11 +950,15 @@
           <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:240px">
             <input type="text" id="adminUserSearch" placeholder="Search users by name, email, or role..." class="admin-search-input">
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <button type="button" class="admin-filter-pill active" data-role-filter="ALL">All Roles</button>
             <button type="button" class="admin-filter-pill" data-role-filter="CLIENT">Clients</button>
             <button type="button" class="admin-filter-pill" data-role-filter="SPECIALIST">Specialists</button>
             <button type="button" class="admin-filter-pill" data-role-filter="ADMIN">Admins</button>
+            <span style="display:inline-block;width:1px;height:18px;background:var(--line);margin:0 4px"></span>
+            <button type="button" class="admin-filter-pill active" data-comp-filter="ALL">All Completion</button>
+            <button type="button" class="admin-filter-pill" data-comp-filter="INCOMPLETE" title="Users with 50% or less completion">Incomplete (≤50%)</button>
+            <button type="button" class="admin-filter-pill" data-comp-filter="COMPLETE" title="Users with more than 50% completion">Complete (&gt;50%)</button>
           </div>
         </div>
         <div class="admin-table-wrap">
@@ -944,6 +967,7 @@
               <tr>
                 <th>User</th>
                 <th>Role</th>
+                <th style="cursor:pointer;white-space:nowrap" id="adminSortCompletion" title="Click to sort by completion percentage">Profile Completion <span style="font-size:11px;opacity:0.7">⇅</span></th>
                 <th>Email Status</th>
                 <th>Joined</th>
                 <th>Availability</th>
@@ -951,7 +975,7 @@
               </tr>
             </thead>
             <tbody id="adminUsersTbody">
-              <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Loading user directory...</td></tr>
+              <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Loading user directory...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1790,39 +1814,6 @@
   </div>
 </div>
 
-<!-- ===================== USER SELF-SERVICE DELETE MY ACCOUNT MODAL ===================== -->
-<div class="modal" id="m-user-delete-self" hidden role="dialog" aria-modal="true" aria-labelledby="userDeleteSelfTitle">
-  <div class="modal-card" style="max-width:520px;padding:28px">
-    <button class="m-close" type="button" data-close aria-label="Close dialog"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-      <div style="width:40px;height:40px;border-radius:50%;background:#FEE4E2;color:#D92D20;display:grid;place-items:center;flex-shrink:0">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
-      </div>
-      <div>
-        <h2 id="userDeleteSelfTitle" style="font-size:18px;margin:0;color:#B42318">Delete My Account</h2>
-        <span style="font-size:12.5px;color:var(--muted)">Permanent Action</span>
-      </div>
-    </div>
-    <p style="margin:12px 0 6px;font-size:14.5px;line-height:1.5;color:var(--ink)">
-      Are you sure you want to permanently delete your Paklance account?
-    </p>
-    <ul style="font-size:13px;color:var(--muted);line-height:1.5;margin:8px 0 16px;padding-left:18px">
-      <li>Your profile will be removed from all public listings and search results.</li>
-      <li>Any open uncontracted jobs or pending proposals will be closed.</li>
-      <li>You will be logged out and cannot log in with this account again.</li>
-      <li>Accounts with active contracts, open disputes, or pending balances cannot be deleted until those matters are resolved.</li>
-    </ul>
-    <div style="margin-bottom:16px">
-      <label for="userDeletePasswordInput" style="display:block;font-size:13.5px;font-weight:600;margin-bottom:6px">Confirm your account password (optional if using Google login):</label>
-      <input type="password" id="userDeletePasswordInput" class="input" placeholder="Enter your current password" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px">
-    </div>
-    <div id="userDeleteSelfError" class="alert alert-danger" style="display:none;margin-bottom:14px;font-size:13.5px"></div>
-    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
-      <button class="btn btn-outline" type="button" data-close>Cancel</button>
-      <button class="btn btn-danger" type="button" id="userDeleteSelfConfirmBtn" style="background:#D92D20;border-color:#D92D20;color:#fff">Permanently Delete Account</button>
-    </div>
-  </div>
-</div>
 
 <!-- ===================== ADMIN BLOG EDITOR MODAL ===================== -->
 <div class="modal" id="m-admin-blog-editor" hidden role="dialog" aria-modal="true" aria-labelledby="adminBlogEditorTitle">

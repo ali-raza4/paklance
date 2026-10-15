@@ -1287,13 +1287,91 @@ window.PaklanceProfile = (function () {
   function pkTime(d) { var t = pkt(d); return ((t.h % 12) || 12) + ':' + (t.m < 10 ? '0' : '') + t.m + ' ' + (t.h < 12 ? 'AM' : 'PM'); }
   function hostOf(url) { return String(url || '').replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, ''); }
 
+  function calculateProfileCompletion(u, items) {
+    if (!u) return { percentage: 0, missingFields: [], totalExpected: 0, filledCount: 0, isCompleteEnoughForPublic: false };
+    items = items || (u.portfolioItems) || (data && data.items) || [];
+    var role = String(u.role || 'SPECIALIST').toUpperCase();
+    var name = String(u.name || u.fullName || '').trim();
+    var headline = String(u.headline || (data && data.profile && data.profile.headline) || '').trim();
+    var bio = String(u.bio || (data && data.profile && data.profile.bio) || '').trim();
+    var city = String(u.city || (data && data.profile && data.profile.city) || '').trim();
+    var country = String(u.country || (data && data.profile && data.profile.country) || '').trim();
+    var location = city || country;
+    var photo = String(u.avatarUrl || u.photo || '').trim();
+
+    var missing = [];
+    var totalExpected = 0;
+    var filled = 0;
+
+    // 1. Name
+    totalExpected++;
+    if (name.length > 0) filled++; else missing.push('Full Name');
+
+    // 2. Headline
+    totalExpected++;
+    if (headline.length > 0) filled++; else missing.push('Professional Headline');
+
+    // 3. Bio
+    totalExpected++;
+    if (bio.length > 0) filled++; else missing.push('Bio');
+
+    // 4. Location
+    totalExpected++;
+    if (location.length > 0) filled++; else missing.push('Location (City/Country)');
+
+    // 5. Avatar
+    totalExpected++;
+    if (photo.length > 0) filled++; else missing.push('Profile Picture');
+
+    if (role === 'SPECIALIST') {
+      // 6. Skills
+      totalExpected++;
+      var skills = Array.isArray(u.skills) ? u.skills.filter(function(s){ return typeof s === 'string' && s.trim().length > 0; }) : [];
+      if (skills.length > 0) filled++; else missing.push('Skills');
+
+      // 7. Hourly Rate
+      totalExpected++;
+      var rateNum = u.hourlyRate != null ? Number(u.hourlyRate) : (u.rate != null ? Number(u.rate) : 0);
+      if (!isNaN(rateNum) && rateNum > 0) filled++; else missing.push('Hourly Rate');
+
+      // 8. Portfolio
+      totalExpected++;
+      var hasPort = Array.isArray(items) && items.some(function(i){
+        var k = String(i.kind || 'portfolio').toLowerCase();
+        return k === 'portfolio' || k === 'services' || k === 'project' || k === 'experience' || k === 'education';
+      });
+      if (hasPort || (Array.isArray(items) && items.length > 0)) filled++; else missing.push('Portfolio');
+    }
+
+    var percentage = totalExpected > 0 ? Math.round((filled / totalExpected) * 100) : 0;
+    var isCompleteEnoughForPublic = role !== 'SPECIALIST' || percentage > 50;
+
+    return {
+      percentage: percentage,
+      missingFields: missing,
+      totalExpected: totalExpected,
+      filledCount: filled,
+      isCompleteEnoughForPublic: isCompleteEnoughForPublic
+    };
+  }
+  window.calculateProfileCompletion = calculateProfileCompletion;
+
   function summary() {
+    var u = user() || {};
+    var comp = calculateProfileCompletion(u, data ? data.items : []);
     var steps = {}, done = 0;
     STEPS.forEach(function (s) {
       var ok = !!data && (s.key === 'intro' ? !!(data.profile && data.profile.headline && data.profile.bio) : itemsOf(s.key).length > 0);
       steps[s.key] = ok; if (ok) done++;
     });
-    return { done: done, total: STEPS.length, percent: Math.round((done / STEPS.length) * 100), steps: steps };
+    return {
+      done: done,
+      total: STEPS.length,
+      percent: comp.percentage,
+      isCompleteEnough: comp.isCompleteEnoughForPublic,
+      missing: comp.missingFields,
+      steps: steps
+    };
   }
 
   /* ---------- loading the signed-in user's profile (shared by the dashboard and the profile page) ---------- */
@@ -1509,8 +1587,7 @@ window.PaklanceProfile = (function () {
         (m.memberSince ? '<p class="pp-since">Member since ' + esc(fullDate(m.memberSince)) + '</p>' : '') +
       '</div>' +
       '<div class="card"><h3 class="pp-side-h">Delivery record</h3>' + deliveryHtml(m.delivery) + '</div>' +
-      (owner ? '<a class="btn btn-outline btn-block" href="#dashboard">Back to dashboard</a>' +
-               '<div class="pp-danger-zone" style="margin-top:20px;padding:16px;border:1px solid #FDA29B;border-radius:12px;background:#FFF5F5"><strong style="display:block;color:#B42318;font-size:13.5px;margin-bottom:4px">Account Management</strong><p style="font-size:12.5px;color:#7A271A;margin:0 0 12px;line-height:1.4">Permanently remove or deactivate your profile, services, and personal data.</p><button type="button" class="btn btn-sm btn-outline-danger btn-block" data-delete-account style="color:#B42318;border-color:#FDA29B;background:#fff">Delete My Account</button></div>' : '<a class="btn btn-outline btn-block" href="#match">Get matched instead</a>') +
+      (owner ? '<a class="btn btn-outline btn-block" href="#dashboard">Back to dashboard</a>' : '<a class="btn btn-outline btn-block" href="#match">Get matched instead</a>') +
     '</aside>';
 
     el.innerHTML = head + '<div class="card pp-main">' + main + '</div>' + side;
@@ -1993,6 +2070,6 @@ window.PaklanceProfile = (function () {
     });
   }
 
-  return { init: init, mount: mount, mountPage: mountPage, renderPage: renderPage, summary: summary, open: open, avatar: avatar, steps: STEPS.map(function (s) { return s.key; }) };
+  return { init: init, mount: mount, mountPage: mountPage, renderPage: renderPage, summary: summary, calculateCompletion: calculateProfileCompletion, open: open, avatar: avatar, steps: STEPS.map(function (s) { return s.key; }) };
 })();
 /* ===== PAKLANCE AUTH MODULE: JS END ===== */
