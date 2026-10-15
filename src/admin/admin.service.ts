@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { calculateProfileCompletion } from '../profiles/profile-completion.util';
 
 @Injectable()
 export class AdminService {
@@ -33,7 +34,7 @@ export class AdminService {
   }
 
   async getAllUsers() {
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: { isDeleted: false },
       select: {
         id: true,
@@ -43,9 +44,31 @@ export class AdminService {
         isEmailVerified: true,
         createdAt: true,
         headline: true,
+        bio: true,
+        city: true,
+        country: true,
+        avatarUrl: true,
+        hourlyRate: true,
+        skills: true,
         availability: true,
+        portfolioItems: {
+          select: {
+            id: true,
+            kind: true,
+            title: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return users.map((user) => {
+      const completion = calculateProfileCompletion(user);
+      return {
+        ...user,
+        profileCompletion: completion.percentage,
+        profileCompletionDetails: completion,
+      };
     });
   }
 
@@ -55,16 +78,34 @@ export class AdminService {
       select: {
         id: true,
         email: true,
+        name: true,
         role: true,
         createdAt: true,
         headline: true,
         bio: true,
+        city: true,
+        country: true,
+        avatarUrl: true,
+        hourlyRate: true,
         skills: true,
         availability: true,
+        isEmailVerified: true,
+        portfolioItems: {
+          select: {
+            id: true,
+            kind: true,
+            title: true,
+          },
+        },
       },
     });
     if (!user) throw new NotFoundException('User not found');
-    return user;
+    const completion = calculateProfileCompletion(user);
+    return {
+      ...user,
+      profileCompletion: completion.percentage,
+      profileCompletionDetails: completion,
+    };
   }
 
   async getAllDisputes() {

@@ -65,14 +65,10 @@ export class UsersController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Delete('me')
-  deleteMyAccount(
-    @CurrentUser() user: any,
-    @Body() body?: { password?: string },
-  ) {
-    return this.usersService.deleteUser(user.id, {
-      isSelf: true,
-      password: body?.password,
-    });
+  deleteMyAccount() {
+    throw new ForbiddenException(
+      'Self-service account deletion has been disabled. Please contact Paklance support or an administrator to request account removal.',
+    );
   }
 
   @ApiBearerAuth()

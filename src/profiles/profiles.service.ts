@@ -8,6 +8,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreatePortfolioItemDto } from './dto/create-portfolio-item.dto';
 import { SearchProfilesDto } from './dto/search-profiles.dto';
 import { Availability } from '@prisma/client';
+import { calculateProfileCompletion } from './profile-completion.util';
 
 /**
  * Whitelist of safe scalar user fields for API responses.
@@ -93,7 +94,10 @@ export class ProfilesService {
     return { kind: 'link', url: user.videoUrl };
   }
 
-  async getProfileByUserId(userId: string) {
+  async getProfileByUserId(
+    userId: string,
+    requestingUser?: { id: string; role?: string },
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -102,7 +106,22 @@ export class ProfilesService {
         portfolioItems: true,
       },
     });
-    if (!user || (user as any).isDeleted) throw new NotFoundException('Profile not found');
+    if (!user || (user as any).isDeleted)
+      throw new NotFoundException('Profile not found');
+
+    const completion = calculateProfileCompletion(user);
+
+    // Rule 1: If freelancer's completion is <= 50%, only admins and the owner can view
+    if (user.role === 'SPECIALIST' && completion.percentage <= 50) {
+      const isOwner = requestingUser && requestingUser.id === userId;
+      const isAdmin =
+        requestingUser &&
+        String(requestingUser.role).toUpperCase() === 'ADMIN';
+      if (!isOwner && !isAdmin) {
+        throw new NotFoundException('Profile not found');
+      }
+    }
+
     const rate = user.hourlyRate != null ? Number(user.hourlyRate) : null;
     const video = this.formatVideo(user);
     return {
@@ -113,6 +132,8 @@ export class ProfilesService {
       fullName: user.name,
       photo: user.avatarUrl,
       video,
+      profileCompletion: completion.percentage,
+      profileCompletionDetails: completion,
     };
   }
 
@@ -128,7 +149,8 @@ export class ProfilesService {
     if (dto.headline !== undefined) data.headline = dto.headline;
     if (dto.city !== undefined) data.city = dto.city;
     if (dto.country !== undefined) data.country = dto.country;
-    if (dto.skills !== undefined) data.skills = Array.isArray(dto.skills) ? dto.skills : [];
+    if (dto.skills !== undefined)
+      data.skills = Array.isArray(dto.skills) ? dto.skills : [];
 
     const rate = dto.hourlyRate ?? dto.hourly_rate ?? (dto as any).rate;
     if (rate !== undefined && !isNaN(Number(rate))) {
@@ -142,7 +164,7 @@ export class ProfilesService {
       data.availability = this.mapAvailability(dto.availability);
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data,
       select: {
@@ -150,13 +172,21 @@ export class ProfilesService {
         portfolioItems: true,
       },
     });
+
+    const completion = calculateProfileCompletion(updated);
+    return {
+      ...updated,
+      profileCompletion: completion.percentage,
+      profileCompletionDetails: completion,
+    };
   }
 
   async searchProfiles(query: SearchProfilesDto) {
     const q = (query.q || query.search || '').trim();
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         isDeleted: false,
+        role: 'SPECIALIST',
         ...(q
           ? {
               OR: [
@@ -177,8 +207,24 @@ export class ProfilesService {
           lte: query.maxRate ?? undefined,
         },
       },
-      select: PUBLIC_PROFILE_SELECT,
+      select: {
+        ...PUBLIC_PROFILE_SELECT,
+        role: true,
+        portfolioItems: true,
+      },
     });
+
+    // Rule 1: Strictly greater than 50% completion required for public visibility
+    return users
+      .map((u) => {
+        const completion = calculateProfileCompletion(u);
+        return {
+          ...u,
+          profileCompletion: completion.percentage,
+        };
+      })
+      .filter((u) => u.profileCompletion > 50)
+      .map(({ portfolioItems, ...safeUser }) => safeUser);
   }
 
   async addPortfolioItem(userId: string, dto: CreatePortfolioItemDto) {

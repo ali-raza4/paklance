@@ -155,12 +155,9 @@ export class UsersService {
 
     // 2. Authorization rules
     if (options.isSelf) {
-      if (options.password && user.passwordHash) {
-        const isMatch = await bcrypt.compare(options.password, user.passwordHash);
-        if (!isMatch) {
-          throw new BadRequestException('Incorrect password. Account deletion cancelled.');
-        }
-      }
+      throw new ForbiddenException(
+        'Self-service account deletion has been disabled. Please contact Paklance support or an administrator to request account removal.',
+      );
     } else {
       if (options.adminId && options.adminId === targetId) {
         throw new BadRequestException(

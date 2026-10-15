@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { calculateProfileCompletion } from '../profiles/profile-completion.util';
 
 @Injectable()
 export class MatchingService {
@@ -31,10 +32,16 @@ export class MatchingService {
     if (!job) throw new NotFoundException('Job not found');
 
     const freelancers = await this.prisma.user.findMany({
-      where: { role: 'SPECIALIST', availability: 'AVAILABLE' },
+      where: { role: 'SPECIALIST', availability: 'AVAILABLE', isDeleted: false },
+      include: { portfolioItems: true },
     });
 
-    const scored = freelancers.map((f) => ({
+    const visibleFreelancers = freelancers.filter((f) => {
+      const completion = calculateProfileCompletion(f);
+      return completion.percentage > 50;
+    });
+
+    const scored = visibleFreelancers.map((f) => ({
       userId: f.id,
       headline: f.headline,
       skills: f.skills,

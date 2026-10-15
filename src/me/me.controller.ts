@@ -25,6 +25,7 @@ import { ProfilesService } from '../profiles/profiles.service';
 import { PatchMeDto, PutProfileDto, PutVideoDto } from './me.dto';
 import { CreatePortfolioItemDto } from '../profiles/dto/create-portfolio-item.dto';
 import { Availability } from '@prisma/client';
+import { calculateProfileCompletion } from '../profiles/profile-completion.util';
 
 @ApiTags('Current User Profile')
 @Controller('me')
@@ -55,6 +56,7 @@ export class MeController {
 
   private formatUserResponse(user: any) {
     const rate = user.hourlyRate != null ? Number(user.hourlyRate) : null;
+    const completion = calculateProfileCompletion(user);
     return {
       user: {
         id: user.id,
@@ -75,6 +77,8 @@ export class MeController {
         isEmailVerified: user.isEmailVerified,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        profileCompletion: completion.percentage,
+        profileCompletionDetails: completion,
       },
     };
   }
@@ -217,6 +221,11 @@ export class MeController {
       projectUrl: item.projectUrl || item.url || null,
     }));
 
+    const completion = calculateProfileCompletion({
+      ...user,
+      portfolioItems: formattedItems,
+    });
+
     return {
       profile: {
         headline: user.headline || null,
@@ -235,6 +244,8 @@ export class MeController {
       items: formattedItems,
       portfolioItems: formattedItems,
       video: this.formatVideoResponse(user),
+      profileCompletion: completion.percentage,
+      profileCompletionDetails: completion,
     };
   }
 

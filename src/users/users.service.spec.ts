@@ -113,21 +113,18 @@ describe('UsersService - Account Deletion', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('rejects self deletion if password confirmation is incorrect', async () => {
-    const hashed = await bcrypt.hash('CorrectPass123', 10);
+  it('strictly rejects self-service deletion with ForbiddenException', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
-      passwordHash: hashed,
-      role: 'CLIENT',
+      role: 'SPECIALIST',
       isDeleted: false,
     });
 
     await expect(
       service.deleteUser('user-1', {
         isSelf: true,
-        password: 'WrongPassword',
       }),
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('prevents admin from deleting their own account in admin console', async () => {
@@ -158,13 +155,13 @@ describe('UsersService - Account Deletion', () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'user-contract',
       passwordHash: null,
-      role: 'FREELANCER',
+      role: 'SPECIALIST',
       isDeleted: false,
     });
     mockPrisma.contract.findFirst.mockResolvedValue({ id: 'c-1', status: 'IN_PROGRESS' });
 
     await expect(
-      service.deleteUser('user-contract', { isSelf: true }),
+      service.deleteUser('user-contract', { adminId: 'admin-1' }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -172,7 +169,7 @@ describe('UsersService - Account Deletion', () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'user-wallet',
       passwordHash: null,
-      role: 'FREELANCER',
+      role: 'SPECIALIST',
       isDeleted: false,
     });
     mockPrisma.contract.findFirst.mockResolvedValue(null);
@@ -183,7 +180,7 @@ describe('UsersService - Account Deletion', () => {
     });
 
     await expect(
-      service.deleteUser('user-wallet', { isSelf: true }),
+      service.deleteUser('user-wallet', { adminId: 'admin-1' }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -200,7 +197,7 @@ describe('UsersService - Account Deletion', () => {
     mockPrisma.dispute.findFirst.mockResolvedValue({ id: 'd-1', status: 'OPEN' });
 
     await expect(
-      service.deleteUser('user-dispute', { isSelf: true }),
+      service.deleteUser('user-dispute', { adminId: 'admin-1' }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -210,7 +207,7 @@ describe('UsersService - Account Deletion', () => {
       email: 'history@test.com',
       name: 'John Doe',
       passwordHash: 'hashed',
-      role: 'FREELANCER',
+      role: 'SPECIALIST',
       isDeleted: false,
     });
     mockPrisma.contract.findFirst.mockResolvedValue(null);
@@ -237,13 +234,13 @@ describe('UsersService - Account Deletion', () => {
     );
   });
 
-  it('hard deletes clean test user with no financial history', async () => {
+  it('hard deletes clean test user with no financial history via admin console', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'user-clean-test',
       email: 'clean@test.com',
       name: 'Test Account',
       passwordHash: 'hashed',
-      role: 'FREELANCER',
+      role: 'SPECIALIST',
       isDeleted: false,
     });
     mockPrisma.contract.findFirst.mockResolvedValue(null);
@@ -254,7 +251,7 @@ describe('UsersService - Account Deletion', () => {
     mockPrisma.payment.count.mockResolvedValue(0);
 
     const result = await service.deleteUser('user-clean-test', {
-      isSelf: true,
+      adminId: 'admin-1',
     });
 
     expect(result.method).toBe('hard_delete');
