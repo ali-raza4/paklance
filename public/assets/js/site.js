@@ -2649,13 +2649,6 @@
           rvIO.unobserve(e.target);
         }
       });
-    rvIO = new IntersectionObserver(function(entries){
-      entries.forEach(function(e){
-        if (e.isIntersecting){
-          e.target.classList.add('rc-in');
-          rvIO.unobserve(e.target);
-        }
-      });
     }, { rootMargin: '120px 0px 120px 0px', threshold: 0.01 });
   }
   // Cards already on screen when a page opens show straight away (nothing to wait for); cards further down glide in as they're scrolled to.
