@@ -1377,9 +1377,87 @@
     openModal('post-job');
   }
 
+  function maskAccount(acc) {
+    if (!acc) return '';
+    var s = String(acc).trim();
+    if (s.length <= 4) return s;
+    return s.slice(0, 4) + ' •••• •••• ' + s.slice(-4);
+  }
+
+  function loadWalletPaymentMethods() {
+    var box = $('#walletSavedMethods');
+    if (!box) return;
+    if (!signedIn()) {
+      box.innerHTML = '';
+      var addBtn = $('#walletAddPayoutBtn');
+      if (addBtn) addBtn.textContent = 'Add payout method';
+      return;
+    }
+    box.innerHTML = '<div style="padding:10px 0;font-size:12px;color:var(--muted)">Loading saved payment methods…</div>';
+    api('GET', '/wallet/payout-methods').then(function(r) {
+      var list = (r && (r.payoutMethods || r.data)) || (Array.isArray(r) ? r : []);
+      var addBtn = $('#walletAddPayoutBtn');
+      if (!list.length) {
+        box.innerHTML = '<div style="background:#f7faf8;border:1px dashed var(--line);border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px;color:var(--muted);">' +
+          'No saved payout account yet. Add your 1Link bank account or Raast ID to receive milestone releases.' +
+          '</div>';
+        if (addBtn) addBtn.textContent = 'Add payout method';
+        return;
+      }
+      if (addBtn) addBtn.textContent = 'Add another payout method';
+      box.innerHTML = '<div style="margin-bottom:16px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+          '<strong style="font-size:13px;color:var(--forest);">Saved Payment &amp; Payout Methods:</strong>' +
+          '<span class="chip chip-paid" style="font-size:10px;">' + list.length + ' Saved</span>' +
+        '</div>' +
+        list.map(function(pm) {
+          var num = pm.accountNumberMasked || maskAccount(pm.accountNumber);
+          var ch = (pm.channel === 'bank' || pm.type === 'BANK') ? 'Bank Account / 1Link' : 'Raast';
+          return '<div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+            '<div>' +
+              '<div style="display:flex;gap:6px;align-items:center;">' +
+                '<strong style="font-size:13px;color:var(--forest);">' + esc(pm.accountTitle || 'Account') + '</strong>' +
+                (pm.isDefault ? '<span class="chip chip-paid" style="font-size:10px;padding:2px 6px;">Default</span>' : '') +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' +
+                ch + (pm.bankName ? ' (' + esc(pm.bankName) + ')' : '') + ' · <span style="font-family:monospace;letter-spacing:0.5px;">' + esc(num) + '</span>' +
+              '</div>' +
+            '</div>' +
+            '<button class="btn btn-outline btn-xs" type="button" data-edit-payout="' + esc(pm.id) + '" style="font-size:11px;padding:4px 8px;">Edit Details</button>' +
+          '</div>';
+        }).join('') +
+        '</div>';
+
+      $$('#walletSavedMethods [data-edit-payout]').forEach(function(btn) {
+        btn.onclick = function() {
+          var pmId = btn.getAttribute('data-edit-payout');
+          var targetPm = list.find(function(p) { return String(p.id) === String(pmId); });
+          if (targetPm) {
+            if ($('#pTitle')) $('#pTitle').value = targetPm.accountTitle || '';
+            if ($('#pNum')) $('#pNum').value = targetPm.accountNumber || '';
+            if ($('#pBank')) $('#pBank').value = targetPm.bankName || '';
+            if ($('#pDef')) $('#pDef').checked = !!targetPm.isDefault;
+            if ($('#pCh')) {
+              var isRaast = targetPm.channel === 'raast' || targetPm.type === 'RAAST';
+              $('#pCh').selectedIndex = isRaast ? 3 : 0;
+            }
+          }
+          openModal('payout');
+        };
+      });
+    }).catch(function() {
+      box.innerHTML = '';
+    });
+  }
+
   function onModalOpen(id){
     if (!LIVE) return;
-    if (id === 'contract') loadContract();
+    if (id === 'wallet') loadWalletPaymentMethods();
+    else if (id === 'payout') {
+      var errEl = $('#payoutErr');
+      if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    }
+    else if (id === 'contract') loadContract();
     else if (id === 'notif') loadNotifs();
     else if (id === 'escrow') prepareEscrow();
     else if (id === 'dispute') prepareDispute();
@@ -1397,6 +1475,7 @@
       }
     }
   }
+
 
   var MS_VIEW = {
     released:          function(m){ return { cls:' done', sub: fmt(m.amount) + ' released', chip:'<span class="chip chip-paid">Paid</span>' }; },
@@ -1817,6 +1896,14 @@
   /* ---------- clicks ---------- */
   var pendingAdminDeleteUserId = null;
   document.addEventListener('click', function(e){
+    var backBtn = e.target.closest('[data-view="person"] .back');
+    if (backBtn && profileReturnContext && typeof profileReturnContext.returnAction === 'function') {
+      e.preventDefault();
+      var retFn = profileReturnContext.returnAction;
+      profileReturnContext = null;
+      retFn();
+      return;
+    }
     var el = e.target.closest('[data-open],[data-close],[data-job],[data-edit-job],[data-person],[data-clear-filters],[data-cat],[data-bn],[data-toast],[data-logout],[data-edit-skills],[data-apply],[data-approve],[data-submit-ms],[data-accept-proposal],[data-scroll-proposals],[data-hire-specialist],[data-show-contract],[data-view-contract-job],[data-post-job],[data-admin-delete-user]');
     if (!el) return;
     if (el.hasAttribute('data-admin-delete-user')){
@@ -2170,15 +2257,48 @@
     },
     payout: function(){
       if (!PaklanceAuth.getUser()) return needUser('Log in to add a payout method.');
-      // Production DTO: CreatePayoutMethodDto { type (enum), accountTitle, accountNumber, bankName?, isDefault? }
       var channelLabel = v('pCh');
+      var title = (v('pTitle') || '').trim();
+      var num = (v('pNum') || '').trim();
+      var bank = (v('pBank') || '').trim();
+      var errEl = $('#payoutErr');
+      if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+      if (!title) {
+        if (errEl) { errEl.textContent = 'Please enter an account title / beneficiary name.'; errEl.style.display = 'block'; }
+        else { toast('Please enter an account title.'); }
+        return Promise.resolve();
+      }
+      if (!num) {
+        if (errEl) { errEl.textContent = 'Please enter an account number, IBAN, or Raast ID.'; errEl.style.display = 'block'; }
+        else { toast('Please enter an account number or IBAN.'); }
+        return Promise.resolve();
+      }
+      var channelVal = payoutTypeEnum(channelLabel);
+      var saveBtn = $('#savePayoutBtn');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
       return api('POST', '/wallet/payout-methods', {
-        type:          payoutTypeEnum(channelLabel),
-        accountTitle:  v('pTitle'),
-        accountNumber: v('pNum'),
-        bankName:      v('pBank') || undefined,
+        type:          channelVal,
+        channel:       channelVal,
+        accountTitle:  title,
+        accountNumber: num,
+        bankName:      bank || undefined,
         isDefault:     $('#pDef').checked
-      }).then(function(){ closeModals(); toast('Payout method saved.'); });
+      }).then(function(){
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Payout Method'; }
+        closeModals();
+        toast('Payout method saved successfully.');
+        loadWalletPaymentMethods();
+        openModal('wallet');
+      }).catch(function(err){
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Payout Method'; }
+        var msg = (err && err.message) || 'Failed to save payout method. Please check your details.';
+        if (errEl) {
+          errEl.textContent = msg;
+          errEl.style.display = 'block';
+        } else {
+          toast(msg);
+        }
+      });
     },
     withdraw: function(){
       if (!PaklanceAuth.getUser()) return needUser('Log in to withdraw funds.');
@@ -3183,6 +3303,35 @@
     }
 
     // -------- user search & new message --------
+    function openRecipientProfile(recipient){
+      if (!recipient || !recipient.id) {
+        if (_toast) _toast('Profile is not available for this user.');
+        return;
+      }
+      var targetId = recipient.id;
+      var name = recipient.name || (recipient.email && recipient.email.split('@')[0]) || 'User';
+      // Setup back context so clicking back returns directly to this conversation
+      profileReturnContext = {
+        href: '#messages',
+        label: 'Back to conversation with ' + name,
+        returnAction: function(){
+          open(recipient);
+        }
+      };
+      // Close message modal
+      close();
+      var matchedPerson = TALENT.filter(function(t){ return String(t.id) === String(targetId) || String(t.userId) === String(targetId); })[0];
+      currentPerson = matchedPerson || {
+        id: targetId,
+        userId: targetId,
+        name: name,
+        role: recipient.role || recipient.headline || (String(recipient.rawRole || recipient.accountType).toUpperCase() === 'CLIENT' ? 'Client' : 'Specialist'),
+        headline: recipient.headline || recipient.role || '',
+        skills: recipient.skills || []
+      };
+      go('person/' + encodeURIComponent(targetId));
+    }
+
     function searchUsers(q){
       var listEl = el('pkMsgUsersList');
       if (!listEl) return;
@@ -3197,13 +3346,20 @@
           var name = u.name || (u.email && u.email.split('@')[0]) || 'User';
           var inits = initials(name);
           var av = u.avatarUrl
-            ? '<img src="' + escHtml(u.avatarUrl) + '" alt="">'
+            ? '<img src="' + escHtml(u.avatarUrl) + '" alt="' + escHtml(name) + '">'
             : escHtml(inits);
           var role = u.headline || u.role || u.email || '';
+          var rawRole = String(u.rawRole || u.role || '').toUpperCase();
+          var isClient = rawRole === 'CLIENT';
+          var accountType = u.accountType || (isClient ? 'Client' : 'Specialist / Freelancer');
+          var badgeCls = isClient ? 'chip-muted' : 'chip-verified';
           return '<div class="pk-msg-user-item" role="button" tabindex="0" data-new-user-id="' + escHtml(u.id) + '" data-new-user-name="' + escHtml(name) + '" data-new-user-role="' + escHtml(role) + '">' +
             '<span class="pk-msg-user-av">' + av + '</span>' +
             '<div class="pk-msg-user-info">' +
-              '<div class="pk-msg-user-name">' + escHtml(name) + '</div>' +
+              '<div class="pk-msg-user-name" style="display:flex;align-items:center;gap:6px">' +
+                '<span>' + escHtml(name) + '</span>' +
+                '<span class="chip ' + badgeCls + '" style="font-size:10px;padding:2px 6px;line-height:1">' + escHtml(accountType) + '</span>' +
+              '</div>' +
               '<div class="pk-msg-user-role">' + escHtml(role) + '</div>' +
             '</div>' +
           '</div>';
@@ -3311,7 +3467,7 @@
         var when = c.lastMessage ? fmtTime(c.lastMessage.createdAt) : '';
         var isActive = c.id === _activeConvId;
         return '<div class="pk-msg-conv-item' + (isActive ? ' active' : '') + '" role="option" aria-selected="' + isActive + '" data-conv-id="' + escHtml(c.id) + '" data-conv-name="' + escHtml(name) + '" tabindex="0">' +
-          '<span class="pk-msg-conv-av">' + av + '</span>' +
+          '<span class="pk-msg-conv-av" data-profile-uid="' + escHtml(other.id || '') + '" title="View ' + escHtml(name) + '’s profile" style="cursor:pointer">' + av + '</span>' +
           '<div class="pk-msg-conv-info">' +
             '<div class="pk-msg-conv-name">' + escHtml(name) + '</div>' +
             '<div class="pk-msg-conv-last">' + last + '</div>' +
@@ -3327,10 +3483,26 @@
       renderConvList();
       var name = _activeOtherUser.name || (_activeOtherUser.email && _activeOtherUser.email.split('@')[0]) || 'User';
       // Thread header
-      var head = el('pkMsgThreadHead'), av = el('pkMsgThreadAv'), nm = el('pkMsgThreadName'), role = el('pkMsgThreadRole');
+      var head = el('pkMsgThreadHead'), av = el('pkMsgThreadAv'), nm = el('pkMsgThreadName'), role = el('pkMsgThreadRole'), meta = el('pkMsgThreadMeta');
       if (head) head.hidden = false;
-      if (av) av.textContent = initials(name);
-      if (nm) nm.textContent = name;
+      if (av) {
+        av.textContent = initials(name);
+        av.setAttribute('title', 'View ' + name + '’s profile');
+        av.setAttribute('role', 'button');
+        av.setAttribute('tabindex', '0');
+        av.style.cursor = 'pointer';
+      }
+      if (nm) {
+        nm.textContent = name;
+        nm.setAttribute('title', 'View ' + name + '’s profile');
+        nm.setAttribute('role', 'button');
+        nm.setAttribute('tabindex', '0');
+        nm.style.cursor = 'pointer';
+      }
+      if (meta) {
+        meta.setAttribute('title', 'View ' + name + '’s profile');
+        meta.style.cursor = 'pointer';
+      }
       if (role) role.textContent = _activeOtherUser.role || _activeOtherUser.headline || '';
       // Show compose
       var compose = el('pkMsgCompose'), emptyPane = el('pkMsgThreadEmpty');
@@ -3464,6 +3636,24 @@
     function wireEvents(){
       // Conversation list click/keyboard
       document.addEventListener('click', function(e){
+        // Clicking header recipient name or avatar -> view profile (Instagram-style)
+        if (e.target.closest('#pkMsgThreadAv') || e.target.closest('#pkMsgThreadName') || e.target.closest('#pkMsgThreadMeta') || e.target.closest('.pk-msg-thread-meta')) {
+          if (_activeOtherUser && _activeOtherUser.id) {
+            openRecipientProfile(_activeOtherUser);
+          }
+          return;
+        }
+        // Conversation avatar click in list -> view profile
+        var avClick = e.target.closest('.pk-msg-conv-av[data-profile-uid]');
+        if (avClick) {
+          e.stopPropagation();
+          var puid = avClick.getAttribute('data-profile-uid');
+          var matchedConv = _conversations.filter(function(c){ return c.otherUser && String(c.otherUser.id) === String(puid); })[0];
+          if (matchedConv && matchedConv.otherUser) {
+            openRecipientProfile(matchedConv.otherUser);
+            return;
+          }
+        }
         var convItem = e.target.closest('.pk-msg-conv-item');
         if (convItem) {
           var cid = convItem.getAttribute('data-conv-id');
@@ -3541,7 +3731,18 @@
           clearTimeout(_userSearchTimer);
           _userSearchTimer = setTimeout(function(){
             var panel = el('pkMsgNewPanel');
-            if (panel && !panel.hidden) searchUsers(_searchQuery);
+            if (panel && !panel.hidden) {
+              searchUsers(_searchQuery);
+            } else if (_searchQuery.length >= 1) {
+              var anyMatch = _conversations.some(function(c){
+                var other = c.otherUser || {};
+                var name = (other.name || other.email || '').toLowerCase();
+                return name.indexOf(_searchQuery) > -1;
+              });
+              if (!anyMatch) {
+                toggleNewPanel(true);
+              }
+            }
           }, 250);
         });
       }

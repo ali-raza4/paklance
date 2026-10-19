@@ -307,11 +307,16 @@ async function handleUserSearch(req, res) {
 
   const results = users.map((u) => {
     const tp = talentMap.get(u.id);
+    const rawRole = String(u.role || '').toUpperCase();
+    const isClient = rawRole === 'CLIENT';
+    const accountType = isClient ? 'Client' : 'Specialist / Freelancer';
     return {
       id: u.id,
       name: u.full_name || (u.email && u.email.split('@')[0]) || 'User',
       email: u.email,
-      role: tp?.headline || u.role || 'Member',
+      role: tp?.headline || (isClient ? 'Client' : 'Specialist'),
+      rawRole: u.role,
+      accountType: accountType,
       headline: tp?.headline || null,
       avatarUrl: u.photo_url || null
     };

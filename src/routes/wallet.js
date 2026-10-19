@@ -30,6 +30,7 @@ router.use('/wallet', requireAuth);
 
 const methodOut = (p) => ({
   id: p.id,
+  type: p.channel,
   channel: p.channel,
   accountTitle: p.account_title,
   accountNumberMasked: pay.mask(p.account_number),
@@ -55,7 +56,7 @@ function readAccount(body) {
   const accountTitle = c.text('accountTitle', { min: 3, max: 100, label: 'Account title' });
   const bankName = c.text('bankName', { min: 2, max: 80, label: 'Bank name', optional: true });
   c.done();
-  const channel = pay.payoutChannel(body.channel);
+  const channel = pay.payoutChannel(body.channel || body.type);
   const accountNumber = pay.payoutAccount(channel, body.accountNumber);
   return { channel, accountTitle, accountNumber, bankName };
 }
@@ -82,18 +83,40 @@ router.get('/wallet/payout-methods', h(async (req, res) => {
 
 router.post('/wallet/payout-methods', h(async (req, res) => {
   const a = readAccount(req.body || {});
+  const existing = await db('payout_methods')
+    .where({ user_id: req.user.id, account_number: a.accountNumber })
+    .first();
+
   const count = await db.count(db('payout_methods').where({ user_id: req.user.id }));
-  if (count >= 10) throw E.conflict('LIMIT_REACHED', 'You can save up to 10 payout methods. Remove one first.');
+  if (!existing && count >= 10) throw E.conflict('LIMIT_REACHED', 'You can save up to 10 payout methods. Remove one first.');
+
   const makeDefault = !!(req.body && (req.body.isDefault === true || req.body.isDefault === 'true')) || count === 0;
-  const id = await db.transaction(async (trx) => {
-    if (makeDefault) await trx('payout_methods').where({ user_id: req.user.id }).update({ is_default: false });
-    return db.insertId(trx('payout_methods').insert({
-      user_id: req.user.id, channel: a.channel, account_title: a.accountTitle, account_number: a.accountNumber,
-      bank_name: a.bankName, is_default: makeDefault, created_at: db.now()
-    }));
-  });
+
+  let id;
+  if (existing) {
+    await db.transaction(async (trx) => {
+      if (makeDefault) await trx('payout_methods').where({ user_id: req.user.id }).update({ is_default: false });
+      await trx('payout_methods').where({ id: existing.id }).update({
+        channel: a.channel,
+        account_title: a.accountTitle,
+        bank_name: a.bankName,
+        is_default: makeDefault
+      });
+    });
+    id = existing.id;
+  } else {
+    id = await db.transaction(async (trx) => {
+      if (makeDefault) await trx('payout_methods').where({ user_id: req.user.id }).update({ is_default: false });
+      return db.insertId(trx('payout_methods').insert({
+        user_id: req.user.id, channel: a.channel, account_title: a.accountTitle, account_number: a.accountNumber,
+        bank_name: a.bankName, is_default: makeDefault, created_at: db.now()
+      }));
+    });
+  }
+
   const row = await db('payout_methods').where({ id }).first();
-  res.status(201).json({ payoutMethod: methodOut(row) });
+  const m = methodOut(row);
+  res.status(existing ? 200 : 201).json({ payoutMethod: m, ...m });
 }));
 
 router.post('/wallet/payout-methods/:id/default', h(async (req, res) => {

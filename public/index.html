@@ -1484,6 +1484,8 @@
     <h2 id="walletTitle">Supported Pakistani Payment Methods</h2>
     <p class="sub">Paklance uses official merchant gateway architecture for client payments and specialist payouts.</p>
     <div class="m-body">
+      <!-- Saved Payment & Payout Methods -->
+      <div id="walletSavedMethods"></div>
       <p class="alert alert-warn"><b>Live Gateway Integration Notice:</b> Live production merchant accounts for <b>JazzCash (Mobilink)</b> and <b>Easypaisa (Telenor Bank)</b> are currently in onboarding/partner integration. Simulated successful transactions are strictly disabled on production to prevent false accounting. All contract milestone payments are securely verified server-side before escrow release.</p>
       <div class="gw-list">
         <div class="gw-list" data-fix="3">
@@ -1494,7 +1496,7 @@
       </div>
     </div>
     <div class="m-actions">
-      <button class="btn btn-outline" type="button" data-open="payout">Add payout method</button>
+      <button class="btn btn-outline" type="button" data-open="payout" id="walletAddPayoutBtn">Add payout method</button>
       <button class="btn btn-outline" type="button" data-open="withdraw">Withdraw funds</button>
       <button class="btn btn-primary" type="button" data-close>Close</button>
     </div>
@@ -1519,7 +1521,7 @@
           <option disabled>Easypaisa (Telenor Bank IPG) — coming soon</option>
           <option selected>Direct Bank Transfer (1Link Enterprise)</option>
         </select>
-        <p class="help">JazzCash and Easypaisa can't be selected until merchant onboarding is complete.</p>
+        <p class="help">JazzCash and Easypaisa can’t be selected until merchant onboarding is complete.</p>
       </div>
       <p class="alert alert-info"><b>Official Gateway Protocol:</b> Payment session with HMAC-SHA256 signature verification will be initiated on the server.</p>
       <div class="m-actions" style="margin-top:4px">
@@ -1537,13 +1539,14 @@
     <h2 id="payoutTitle">Add Payout Method</h2>
     <p class="sub">Save your local Pakistani bank account or Raast ID for withdrawals. JazzCash and Easypaisa payouts are coming soon.</p>
     <form class="m-body" data-form="payout">
+      <div id="payoutErr" style="display:none;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:14px;"></div>
       <div class="field" data-fix="3"><label for="pCh">Payout Channel Type *</label>
         <select class="select" id="pCh"><option>Bank Account / 1Link (IBAN)</option><option disabled>JazzCash Mobile Wallet — coming soon</option><option disabled>Easypaisa Mobile Wallet — coming soon</option><option>Raast ID / Number</option></select></div>
       <div class="field"><label for="pTitle">Account Title / Beneficiary Name *</label><input class="input" id="pTitle"></div>
       <div class="field"><label for="pNum">Account / IBAN / Raast Number *</label><input class="input" id="pNum"></div>
       <div class="field"><label for="pBank">Bank Name</label><input class="input" id="pBank"></div>
       <label class="check" for="pDef"><input type="checkbox" id="pDef"> Set as my default withdrawal method</label>
-      <div class="m-actions" style="margin-top:4px"><button class="btn btn-outline" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Save Payout Method</button></div>
+      <div class="m-actions" style="margin-top:4px"><button class="btn btn-outline" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit" id="savePayoutBtn">Save Payout Method</button></div>
     </form>
   </div>
 </div>
