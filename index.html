@@ -8053,16 +8053,36 @@
           } catch (err) { console.warn('Profile load error:', err.message); }
         }
         if ($('#profilePage')) {
+          const returnChatBtn = window._chatReturnUser ? `
+            <div style="margin-bottom:16px;">
+              <button class="btn btn-primary" id="returnToChatBtn" style="font-size:13px;">
+                &larr; Back to conversation with ${escHtml(window._chatReturnUser.name || 'user')}
+              </button>
+            </div>` : '';
           $('#profilePage').innerHTML = `
             <div class="empty-state" style="padding:60px 20px;text-align:center">
-              <strong>Profile not found.</strong>
-              <p>This specialist profile could not be loaded. They may have deactivated their account or the link is invalid.</p>
+              ${returnChatBtn}
+              <strong>Profile not found or private.</strong>
+              <p>This user's full profile details could not be loaded, but your conversation is active.</p>
               <button class="btn btn-outline" data-route="talent">Browse specialists</button>
             </div>`;
+          if ($('#returnToChatBtn')) {
+            $('#returnToChatBtn').onclick = () => {
+              const u = window._chatReturnUser;
+              window._chatReturnUser = null;
+              route('messages', u);
+            };
+          }
         }
       }
 
       function _renderProfileUI(f) {
+        const returnChatHtml = window._chatReturnUser ? `
+          <div style="margin-bottom:14px;">
+            <button class="btn btn-outline btn-sm" id="returnToChatBtn" style="font-size:12px;display:inline-flex;align-items:center;gap:6px;">
+              &larr; Back to conversation with ${escHtml(window._chatReturnUser.name || 'user')}
+            </button>
+          </div>` : '';
         const initials = f.initials || (f.name || 'U').slice(0, 2).toUpperCase();
         const skillsHtml = (f.skills || []).map(s => `<span class="skill">${escHtml(s)}</span>`).join('');
         const portfolioHtml = (f.portfolio && f.portfolio.length > 0)
@@ -8074,7 +8094,14 @@
                 ${p.projectUrl ? `<a href="${escHtml(p.projectUrl)}" target="_blank" rel="noopener noreferrer" class="text-link" style="font-size:12px;margin-top:auto;font-weight:600;display:inline-block;">View Project &rarr;</a>` : ''}
               </div>`).join('')
           : '<p style="color:var(--muted);font-size:13px;grid-column:1/-1;margin:12px 0;">No portfolio projects showcased yet.</p>';
-        $('#profilePage').innerHTML = `<section class="profile-hero-card"><div class="profile-avatar">${escHtml(initials)}</div><div class="profile-title"><div class="freelancer-name"><h1>${escHtml(f.name)}</h1><span class="mini-check">&#10003;</span></div><p>${escHtml(f.role)} &middot; ${escHtml(f.city)}</p><div class="profile-tags"><span class="badge verified">&#10003; Verified</span><span class="badge verified">${escHtml(f.badge || 'Verified')}</span></div><div class="profile-assurance-strip"><div><strong>&#10003; Identity</strong><small>Verified status</small></div><div><strong>&#8705; NDA / IP</strong><small>Ready for contract</small></div><div><strong>&#9679; Availability</strong><small>${f.available ? 'Available now' : 'Booked'}</small></div></div></div><div class="profile-actions"><button class="btn btn-outline save-profile" id="saveProfile" aria-label="Save to shortlist">&#9825;</button><button class="btn btn-outline" id="messageSpecialistBtn">✉ Message</button><button class="btn btn-primary" id="hireBtn">Hire Me</button></div></section><div class="profile-layout"><div><section class="profile-panel"><h2>About</h2><p>${escHtml(f.bio || 'Specialist profile.')}</p><div class="skill-row">${skillsHtml}</div></section><section class="profile-panel"><h2>Selected work</h2><div class="portfolio-grid">${portfolioHtml}</div></section></div><aside><section class="profile-panel"><span class="micro-label">HOURLY RATE</span><div class="big-budget">${money(f.rate || 0)}/hr</div><div class="side-list"><div><span>Standing</span><strong>${escHtml(f.badge || 'Verified')}</strong></div><div><span>Availability</span><strong>${f.available ? 'Available now' : 'Booked'}</strong></div></div></section></aside></div>`;
+        $('#profilePage').innerHTML = `${returnChatHtml}<section class="profile-hero-card"><div class="profile-avatar">${escHtml(initials)}</div><div class="profile-title"><div class="freelancer-name"><h1>${escHtml(f.name)}</h1><span class="mini-check">&#10003;</span></div><p>${escHtml(f.role)} &middot; ${escHtml(f.city)}</p><div class="profile-tags"><span class="badge verified">&#10003; Verified</span><span class="badge verified">${escHtml(f.badge || 'Verified')}</span></div><div class="profile-assurance-strip"><div><strong>&#10003; Identity</strong><small>Verified status</small></div><div><strong>&#8705; NDA / IP</strong><small>Ready for contract</small></div><div><strong>&#9679; Availability</strong><small>${f.available ? 'Available now' : 'Booked'}</small></div></div></div><div class="profile-actions"><button class="btn btn-outline save-profile" id="saveProfile" aria-label="Save to shortlist">&#9825;</button><button class="btn btn-outline" id="messageSpecialistBtn">✉ Message</button><button class="btn btn-primary" id="hireBtn">Hire Me</button></div></section><div class="profile-layout"><div><section class="profile-panel"><h2>About</h2><p>${escHtml(f.bio || 'Specialist profile.')}</p><div class="skill-row">${skillsHtml}</div></section><section class="profile-panel"><h2>Selected work</h2><div class="portfolio-grid">${portfolioHtml}</div></section></div><aside><section class="profile-panel"><span class="micro-label">HOURLY RATE</span><div class="big-budget">${money(f.rate || 0)}/hr</div><div class="side-list"><div><span>Standing</span><strong>${escHtml(f.badge || 'Verified')}</strong></div><div><span>Availability</span><strong>${f.available ? 'Available now' : 'Booked'}</strong></div></div></section></aside></div>`;
+        if ($('#returnToChatBtn')) {
+          $('#returnToChatBtn').onclick = () => {
+            const u = window._chatReturnUser;
+            window._chatReturnUser = null;
+            route('messages', u);
+          };
+        }
         $('#hireBtn').onclick = () => openDirectHire(f);
         $('#saveProfile').onclick = () => { $('#saveProfile').textContent = '♥'; toast(`${f.name} added to shortlist`); };
         $('#messageSpecialistBtn').onclick = () => {
@@ -9238,6 +9265,13 @@
             </div>`).join('')
           : '<p style="color:var(--muted);font-size:12px;padding:12px 0">No transactions recorded yet.</p>';
 
+        function maskAccountNumber(acc) {
+          if (!acc) return '';
+          const s = String(acc).trim();
+          if (s.length <= 4) return s;
+          return s.slice(0, 4) + ' •••• •••• ' + s.slice(-4);
+        }
+
         const pmHtml = _savedPayoutMethods.length
           ? _savedPayoutMethods.map(pm => `
             <div class="proposal-row" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);">
@@ -9248,7 +9282,7 @@
                     <strong style="font-size:13px;color:var(--forest);">${escHtml(pm.accountTitle)}</strong>
                     ${pm.isDefault ? '<span class="badge verified" style="font-size:10px;padding:2px 6px;">Default</span>' : ''}
                   </div>
-                  <small style="color:var(--muted);font-size:11px;">${pm.type} &middot; ${escHtml(pm.accountNumber)} ${pm.bankName ? '(' + escHtml(pm.bankName) + ')' : ''}</small>
+                  <small style="color:var(--muted);font-size:11px;">${pm.type} &middot; ${escHtml(maskAccountNumber(pm.accountNumber))} ${pm.bankName ? '(' + escHtml(pm.bankName) + ')' : ''}</small>
                 </div>
               </div>
               <div style="display:flex;gap:6px;">
@@ -9650,8 +9684,12 @@
               <aside class="conversation-list">
                 <div class="conversation-head">
                   <h2>Conversations</h2>
-                  <span class="badge">${conversations.length}</span>
+                  <span class="badge" id="convCountBadge">${conversations.length}</span>
                 </div>
+                <div class="conv-search-bar" style="padding:10px 14px;border-bottom:1px solid var(--line);box-sizing:border-box;">
+                  <input type="search" id="convSearchInput" placeholder="Search conversations or users…" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--bg,#fff);color:var(--ink);" autocomplete="off" />
+                </div>
+                <div id="userSearchResults" style="display:none;max-height:220px;overflow-y:auto;border-bottom:2px solid var(--forest);background:var(--card-bg, #fff);"></div>
                 <div id="convListItems" style="flex:1 1 0%;overflow-y:auto;min-height:0;">
                   ${buildConvListHtml()}
                 </div>
@@ -9659,8 +9697,8 @@
               <section class="chat-pane">
                 <div class="chat-head" id="chatHeader">
                   <button class="btn btn-outline" id="backToConversationsBtn" aria-label="Back to conversations">&larr; Back</button>
-                  <span class="avatar" id="chatHeadAvatar" style="width:36px;height:36px;border-radius:50%;background:var(--forest);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;">${activeOtherUser ? escHtml((activeOtherUser.name || 'U').slice(0, 2).toUpperCase()) : '–'}</span>
-                  <div class="chat-head-user">
+                  <span class="avatar" id="chatHeadAvatar" style="width:36px;height:36px;border-radius:50%;background:var(--forest);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;cursor:pointer;" title="View Profile">${activeOtherUser ? escHtml((activeOtherUser.name || 'U').slice(0, 2).toUpperCase()) : '–'}</span>
+                  <div class="chat-head-user" id="chatHeadUserMeta" style="cursor:pointer;" title="View Profile">
                     <strong id="chatHeadName">${activeOtherUser ? escHtml(activeOtherUser.name || activeOtherUser.email || 'Direct Conversation') : 'Select a conversation'}</strong>
                     <small id="chatHeadRole">${activeOtherUser ? escHtml(formatRole(activeOtherUser.role, activeOtherUser.headline)) : 'Secure Messenger'}</small>
                   </div>
@@ -9685,6 +9723,124 @@
             $$('#convListItems .conversation-item').forEach(el => {
               el.classList.remove('active');
             });
+          };
+        }
+
+        if ($('#chatHeadAvatar')) {
+          $('#chatHeadAvatar').onclick = () => {
+            if (activeOtherUser && activeOtherUser.id) {
+              window._chatReturnUser = activeOtherUser;
+              route('profile', { id: activeOtherUser.id });
+            }
+          };
+        }
+        if ($('#chatHeadUserMeta')) {
+          $('#chatHeadUserMeta').onclick = () => {
+            if (activeOtherUser && activeOtherUser.id) {
+              window._chatReturnUser = activeOtherUser;
+              route('profile', { id: activeOtherUser.id });
+            }
+          };
+        }
+
+        let searchTimer = null;
+        const searchInput = $('#convSearchInput');
+        const userSearchResults = $('#userSearchResults');
+        if (searchInput) {
+          searchInput.oninput = (e) => {
+            const q = (e.target.value || '').trim();
+            const lowerQ = q.toLowerCase();
+            // Filter local conversations
+            if (!lowerQ) {
+              if (userSearchResults) { userSearchResults.style.display = 'none'; userSearchResults.innerHTML = ''; }
+              if ($('#convListItems')) $('#convListItems').innerHTML = buildConvListHtml();
+              bindConvClicks();
+              return;
+            }
+            const filteredConvs = conversations.filter(c => {
+              const other = c.otherUser || {};
+              const name = (other.name || other.email || '').toLowerCase();
+              const snippet = (c.lastMessage?.content || '').toLowerCase();
+              return name.includes(lowerQ) || snippet.includes(lowerQ);
+            });
+            if ($('#convListItems')) {
+              $('#convListItems').innerHTML = filteredConvs.length ? filteredConvs.map((c) => {
+                const other = c.otherUser || {};
+                const name = other.name || other.email?.split('@')[0] || 'User';
+                const initials = name.slice(0, 2).toUpperCase();
+                const lastSnippet = c.lastMessage?.content || 'No messages yet';
+                const isActive = c.id === activeConvId;
+                return `
+                  <div class="conversation-item ${isActive ? 'active' : ''}" data-conv-id="${escHtml(c.id)}" data-other-id="${escHtml(other.id)}">
+                    <span class="avatar" style="width:38px;height:38px;border-radius:50%;background:var(--forest);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;cursor:pointer;" title="View Profile">${escHtml(initials)}</span>
+                    <div class="conversation-copy">
+                      <div>
+                        <strong>${escHtml(name)}</strong>
+                        <time>${c.isDraft ? 'New' : timeAgo(c.updatedAt)}</time>
+                      </div>
+                      <p>${escHtml(lastSnippet)}</p>
+                    </div>
+                  </div>`;
+              }).join('') : '<p style="color:var(--muted);font-size:12px;padding:16px;text-align:center;">No existing conversations match.</p>';
+              bindConvClicks();
+            }
+
+            // Query backend user search API
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(async () => {
+              if (!userSearchResults) return;
+              try {
+                const res = await apiAuth('/users/search?q=' + encodeURIComponent(q));
+                if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+                  userSearchResults.style.display = 'block';
+                  userSearchResults.innerHTML = `
+                    <div style="padding:6px 12px;background:#f3f4f6;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;">Registered Users</div>
+                    ` + res.data.map(u => {
+                      const name = u.name || u.email?.split('@')[0] || 'User';
+                      const inits = (name || 'U').slice(0, 2).toUpperCase();
+                      const isClient = String(u.rawRole || u.role).toUpperCase() === 'CLIENT';
+                      const accountType = u.accountType || (isClient ? 'Client' : 'Specialist / Freelancer');
+                      const badgeCls = isClient ? 'badge' : 'badge verified';
+                      return `
+                        <div class="search-user-item" data-user-id="${escHtml(u.id)}" data-user-name="${escHtml(name)}" data-user-role="${escHtml(u.role)}" data-user-headline="${escHtml(u.headline || '')}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;">
+                          <span class="avatar" style="width:32px;height:32px;border-radius:50%;background:var(--forest);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">${escHtml(inits)}</span>
+                          <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                              <strong style="font-size:13px;color:var(--ink);">${escHtml(name)}</strong>
+                              <span class="${badgeCls}" style="font-size:10px;padding:1px 5px;">${escHtml(accountType)}</span>
+                            </div>
+                            <small style="color:var(--muted);font-size:11px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(u.headline || u.role || '')}</small>
+                          </div>
+                        </div>`;
+                    }).join('');
+                  $$('.search-user-item', userSearchResults).forEach(item => {
+                    item.onclick = () => {
+                      const uid = item.dataset.userId;
+                      const uname = item.dataset.userName;
+                      const urole = item.dataset.userRole;
+                      const uheadline = item.dataset.userHeadline;
+                      userSearchResults.style.display = 'none';
+                      searchInput.value = '';
+                      const existing = conversations.find(c => c.otherUser?.id === uid);
+                      if (existing) {
+                        loadMessages(existing.id, existing.otherUser, true);
+                      } else {
+                        const newUser = { id: uid, name: uname, role: urole, headline: uheadline };
+                        const draftId = `draft_${uid}`;
+                        activeOtherUser = newUser;
+                        activeConvId = draftId;
+                        loadMessages(draftId, newUser, true);
+                      }
+                    };
+                  });
+                } else {
+                  userSearchResults.style.display = 'none';
+                  userSearchResults.innerHTML = '';
+                }
+              } catch (err) {
+                userSearchResults.style.display = 'none';
+              }
+            }, 250);
           };
         }
 
@@ -9869,9 +10025,17 @@
         // Bind conversation item clicks
         function bindConvClicks() {
           $$('#convListItems .conversation-item').forEach(item => {
+            const avEl = item.querySelector('.avatar');
+            const cId = item.dataset.convId;
+            const conv = conversations.find(c => c.id === cId);
+            if (avEl && conv && conv.otherUser && conv.otherUser.id) {
+              avEl.onclick = (e) => {
+                e.stopPropagation();
+                window._chatReturnUser = conv.otherUser;
+                route('profile', { id: conv.otherUser.id });
+              };
+            }
             item.onclick = () => {
-              const cId = item.dataset.convId;
-              const conv = conversations.find(c => c.id === cId);
               if (conv) loadMessages(conv.id, conv.otherUser, true);
             };
           });

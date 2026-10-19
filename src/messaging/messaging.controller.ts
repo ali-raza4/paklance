@@ -35,6 +35,15 @@ export class MessagingController {
     return this.messagingService.getMyConversations(userId);
   }
 
+  @ApiOperation({ summary: 'Search users to message' })
+  @Get('users')
+  searchUsers(@Req() req: Request) {
+    const userId = (req as any).user.id;
+    const q = req.query?.q as string | undefined;
+    return this.messagingService.searchUsers(userId, q);
+  }
+
+
   @ApiOperation({ summary: 'Sync delivered status for incoming messages' })
   @Post('sync-delivered')
   syncDelivered(@Req() req: Request) {

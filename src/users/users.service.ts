@@ -86,6 +86,51 @@ export class UsersService {
     });
   }
 
+  async searchUsers(currentUserId: string, query?: string) {
+    const q = (query || '').trim();
+    const where: any = {
+      isDeleted: false,
+      id: { not: currentUserId },
+    };
+
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { headline: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const users = await this.prisma.user.findMany({
+      where,
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        headline: true,
+        avatarUrl: true,
+      },
+    });
+
+    return users.map((u) => {
+      const name = u.name || (u.email ? u.email.split('@')[0] : 'User');
+      return {
+        id: u.id,
+        name,
+        email: u.email,
+        role: u.role === Role.CLIENT ? 'Client' : 'Specialist / Freelancer',
+        rawRole: u.role,
+        headline: u.headline || (u.role === Role.CLIENT ? 'Client' : 'Specialist / Freelancer'),
+        avatarUrl: u.avatarUrl || null,
+        accountType: u.role === Role.CLIENT ? 'Client' : 'Specialist/Freelancer',
+      };
+    });
+  }
+
+
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },

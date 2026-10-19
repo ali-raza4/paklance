@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  Query,
   Delete,
   UseGuards,
   ForbiddenException,
@@ -15,7 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Users')
 @Controller('users')
@@ -36,12 +37,24 @@ export class UsersController {
   }
 
   @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Search eligible clients and specialists by name/email/headline' })
+  @Get('search')
+  search(
+    @CurrentUser('id') currentUserId: string,
+    @Query('q') q?: string,
+  ) {
+    return this.usersService.searchUsers(currentUserId, q);
+  }
+
+  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get()
   findAll() {
     return this.usersService.findAll();
   }
+
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

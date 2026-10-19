@@ -17,6 +17,7 @@ describe('UsersService - Account Deletion', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      findMany: jest.fn(),
     },
     contract: {
       findFirst: jest.fn(),
@@ -259,4 +260,73 @@ describe('UsersService - Account Deletion', () => {
       where: { id: 'user-clean-test' },
     });
   });
+
+  describe('searchUsers', () => {
+    it('searches users by name or email, excludes requesting user, and formats results safely', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        {
+          id: 'client-1',
+          name: 'Ahmed Khan',
+          email: 'ahmed@client.com',
+          role: 'CLIENT',
+          headline: 'Client Account',
+          avatarUrl: null,
+        },
+        {
+          id: 'spec-1',
+          name: 'Sara Specialist',
+          email: 'sara@freelancer.com',
+          role: 'SPECIALIST',
+          headline: 'Full Stack Engineer',
+          avatarUrl: 'https://example.com/sara.jpg',
+        },
+      ]);
+
+      const results = await service.searchUsers('req-user-id', 'Ahmed');
+      expect(results).toHaveLength(2);
+      expect(results[0]).toEqual({
+        id: 'client-1',
+        name: 'Ahmed Khan',
+        email: 'ahmed@client.com',
+        role: 'Client',
+        rawRole: 'CLIENT',
+        headline: 'Client Account',
+        avatarUrl: null,
+        accountType: 'Client',
+      });
+      expect(results[1]).toEqual({
+        id: 'spec-1',
+        name: 'Sara Specialist',
+        email: 'sara@freelancer.com',
+        role: 'Specialist / Freelancer',
+        rawRole: 'SPECIALIST',
+        headline: 'Full Stack Engineer',
+        avatarUrl: 'https://example.com/sara.jpg',
+        accountType: 'Specialist/Freelancer',
+      });
+
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          isDeleted: false,
+          id: { not: 'req-user-id' },
+          OR: [
+            { name: { contains: 'Ahmed', mode: 'insensitive' } },
+            { email: { contains: 'Ahmed', mode: 'insensitive' } },
+            { headline: { contains: 'Ahmed', mode: 'insensitive' } },
+          ],
+        },
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          headline: true,
+          avatarUrl: true,
+        },
+      });
+    });
+  });
 });
+

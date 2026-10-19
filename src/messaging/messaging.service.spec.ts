@@ -146,4 +146,54 @@ describe('MessagingService', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('searchUsers', () => {
+    it('searches eligible users by partial name/email and excludes self', async () => {
+      mockPrismaService.user.findMany.mockResolvedValue([
+        {
+          id: 'user-2',
+          name: 'Usman Ali',
+          email: 'usman@test.com',
+          role: 'SPECIALIST',
+          headline: 'Mobile App Developer',
+          avatarUrl: 'https://example.com/avatar.jpg',
+        },
+      ]);
+
+      const result = await service.searchUsers('user-1', 'Usman');
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        id: 'user-2',
+        name: 'Usman Ali',
+        email: 'usman@test.com',
+        role: 'Specialist / Freelancer',
+        rawRole: 'SPECIALIST',
+        headline: 'Mobile App Developer',
+        avatarUrl: 'https://example.com/avatar.jpg',
+        accountType: 'Specialist/Freelancer',
+      });
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
+        where: {
+          isDeleted: false,
+          id: { not: 'user-1' },
+          OR: [
+            { name: { contains: 'Usman', mode: 'insensitive' } },
+            { email: { contains: 'Usman', mode: 'insensitive' } },
+            { headline: { contains: 'Usman', mode: 'insensitive' } },
+          ],
+        },
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          headline: true,
+          avatarUrl: true,
+        },
+      });
+    });
+  });
 });
+

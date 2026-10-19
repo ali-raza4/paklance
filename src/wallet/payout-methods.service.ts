@@ -25,6 +25,25 @@ export class PayoutMethodsService {
         });
       }
 
+      const existing = await tx.payoutMethod.findFirst({
+        where: {
+          userId,
+          accountNumber: dto.accountNumber.trim(),
+        },
+      });
+
+      if (existing) {
+        return tx.payoutMethod.update({
+          where: { id: existing.id },
+          data: {
+            type: dto.type,
+            accountTitle: dto.accountTitle.trim(),
+            bankName: dto.bankName?.trim() || null,
+            isDefault,
+          },
+        });
+      }
+
       return tx.payoutMethod.create({
         data: {
           userId,
