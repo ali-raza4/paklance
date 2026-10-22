@@ -8,7 +8,7 @@ import {
   IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMilestoneDto {
   @ApiProperty({ example: 'Phase 1: Backend Setup' })
@@ -67,4 +67,23 @@ export class UploadContractFileDto {
   @IsString()
   @IsNotEmpty()
   fileData: string;
+}
+
+export class SubmitMilestoneDto {
+  @ApiPropertyOptional({ example: 'Completed initial delivery according to agreed scope.' })
+  @IsOptional()
+  @IsString()
+  deliverableNote?: string;
+
+  @ApiPropertyOptional({ example: ['https://example.com/demo', 'https://github.com/...'] })
+  @IsOptional()
+  @IsArray()
+  deliverableUrls?: string[];
+}
+
+export class RequestRevisionDto {
+  @ApiProperty({ example: 'Please adjust typography and add the missing export button.' })
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
 }

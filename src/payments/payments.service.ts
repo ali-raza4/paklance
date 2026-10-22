@@ -241,7 +241,7 @@ export class PaymentsService {
           },
         });
 
-        // Fund contract Escrow if linked to a contract
+        // Fund contract Escrow if linked to a contract, otherwise credit client wallet (Deposit)
         if (payment.contractId && payment.contract) {
           const escrow = payment.contract.escrow;
           if (escrow) {
@@ -265,6 +265,39 @@ export class PaymentsService {
             where: { id: payment.contractId },
             data: { status: ContractStatus.FUNDED },
           });
+        } else {
+          // Direct Wallet Deposit
+          let wallet = await tx.wallet.findFirst({
+            where: { userId: payment.userId },
+          });
+          if (!wallet) {
+            wallet = await tx.wallet.create({
+              data: { userId: payment.userId, balance: 0, lockedBalance: 0 },
+            });
+          }
+
+          await tx.wallet.update({
+            where: { id: wallet.id },
+            data: { balance: { increment: payment.amount } },
+          });
+
+          await tx.walletTransaction.create({
+            data: {
+              walletId: wallet.id,
+              amount: payment.amount,
+              type: 'DEPOSIT',
+              referenceId: payment.referenceId,
+              description: 'Confirmed JazzCash Wallet Deposit',
+            },
+          });
+
+          await tx.notification.create({
+            data: {
+              userId: payment.userId,
+              type: 'DEPOSIT_CONFIRMED',
+              message: `JazzCash deposit of PKR ${Number(payment.amount).toLocaleString()} confirmed and added to your available wallet balance.`,
+            },
+          }).catch(() => {});
         }
 
         await tx.paymentWebhookLog.update({
@@ -272,7 +305,12 @@ export class PaymentsService {
           data: { processed: true },
         });
 
-        return { status: 'SUCCESS', message: 'Payment verified and escrow funded' };
+        return {
+          status: 'SUCCESS',
+          message: payment.contractId
+            ? 'Payment verified and escrow funded'
+            : 'Payment verified and wallet credited',
+        };
       } else {
         await tx.payment.update({
           where: { id: payment.id },
@@ -362,6 +400,39 @@ export class PaymentsService {
             where: { id: payment.contractId },
             data: { status: ContractStatus.FUNDED },
           });
+        } else {
+          // Direct Wallet Deposit
+          let wallet = await tx.wallet.findFirst({
+            where: { userId: payment.userId },
+          });
+          if (!wallet) {
+            wallet = await tx.wallet.create({
+              data: { userId: payment.userId, balance: 0, lockedBalance: 0 },
+            });
+          }
+
+          await tx.wallet.update({
+            where: { id: wallet.id },
+            data: { balance: { increment: payment.amount } },
+          });
+
+          await tx.walletTransaction.create({
+            data: {
+              walletId: wallet.id,
+              amount: payment.amount,
+              type: 'DEPOSIT',
+              referenceId: payment.referenceId,
+              description: 'Confirmed Easypaisa Wallet Deposit',
+            },
+          });
+
+          await tx.notification.create({
+            data: {
+              userId: payment.userId,
+              type: 'DEPOSIT_CONFIRMED',
+              message: `Easypaisa deposit of PKR ${Number(payment.amount).toLocaleString()} confirmed and added to your available wallet balance.`,
+            },
+          }).catch(() => {});
         }
 
         await tx.paymentWebhookLog.update({
@@ -369,7 +440,12 @@ export class PaymentsService {
           data: { processed: true },
         });
 
-        return { status: 'SUCCESS', message: 'Easypaisa payment verified and escrow funded' };
+        return {
+          status: 'SUCCESS',
+          message: payment.contractId
+            ? 'Easypaisa payment verified and escrow funded'
+            : 'Easypaisa payment verified and wallet credited',
+        };
       } else {
         await tx.payment.update({
           where: { id: payment.id },
@@ -417,29 +493,56 @@ export class PaymentsService {
         },
       });
 
-      if (targetStatus === PaymentStatus.COMPLETED && payment.contractId && payment.contract) {
-        const escrow = payment.contract.escrow;
-        if (escrow) {
-          await tx.escrow.update({
-            where: { id: escrow.id },
+      if (targetStatus === PaymentStatus.COMPLETED) {
+        if (payment.contractId && payment.contract) {
+          const escrow = payment.contract.escrow;
+          if (escrow) {
+            await tx.escrow.update({
+              where: { id: escrow.id },
+              data: { balance: { increment: payment.amount } },
+            });
+
+            await tx.ledgerEntry.create({
+              data: {
+                escrowId: escrow.id,
+                sourceWalletId: payment.userId,
+                destinationWalletId: escrow.id,
+                amount: payment.amount,
+                status: 'COMPLETED',
+              },
+            });
+          }
+
+          await tx.contract.update({
+            where: { id: payment.contractId },
+            data: { status: ContractStatus.FUNDED },
+          });
+        } else {
+          // Direct Wallet Deposit simulation
+          let wallet = await tx.wallet.findFirst({
+            where: { userId: payment.userId },
+          });
+          if (!wallet) {
+            wallet = await tx.wallet.create({
+              data: { userId: payment.userId, balance: 0, lockedBalance: 0 },
+            });
+          }
+
+          await tx.wallet.update({
+            where: { id: wallet.id },
             data: { balance: { increment: payment.amount } },
           });
 
-          await tx.ledgerEntry.create({
+          await tx.walletTransaction.create({
             data: {
-              escrowId: escrow.id,
-              sourceWalletId: payment.userId,
-              destinationWalletId: escrow.id,
+              walletId: wallet.id,
               amount: payment.amount,
-              status: 'COMPLETED',
+              type: 'DEPOSIT',
+              referenceId: payment.referenceId,
+              description: 'Sandbox Wallet Deposit Simulated',
             },
           });
         }
-
-        await tx.contract.update({
-          where: { id: payment.contractId },
-          data: { status: ContractStatus.FUNDED },
-        });
       }
 
       return {

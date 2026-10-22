@@ -130,16 +130,22 @@ model ContractFile {
 }
 
 model Milestone {
-  id          String          @id @default(uuid())
-  contractId  String
-  title       String
-  description String
-  amount      Decimal
-  dueDate     DateTime?
-  status      MilestoneStatus @default(PENDING)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  contract    Contract        @relation(fields: [contractId], references: [id])
+  id              String          @id @default(uuid())
+  contractId      String
+  title           String
+  description     String
+  amount          Decimal
+  dueDate         DateTime?
+  status          MilestoneStatus @default(PENDING)
+  deliverableNote String?         @db.Text
+  deliverableUrls String[]        @default([])
+  submittedAt     DateTime?
+  revisionNote    String?         @db.Text
+  revisionCount   Int             @default(0)
+  releasedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  contract        Contract        @relation(fields: [contractId], references: [id])
 }
 
 model Escrow {
@@ -192,12 +198,15 @@ model Wallet {
 }
 
 model WalletTransaction {
-  id        String   @id @default(uuid())
-  walletId  String
-  amount    Decimal
-  type      String
-  createdAt DateTime @default(now())
-  wallet    Wallet   @relation(fields: [walletId], references: [id])
+  id          String   @id @default(uuid())
+  walletId    String
+  amount      Decimal
+  type        String
+  referenceId String?
+  description String?
+  fee         Decimal? @default(0)
+  createdAt   DateTime @default(now())
+  wallet      Wallet   @relation(fields: [walletId], references: [id])
 }
 
 model Payment {
@@ -386,6 +395,8 @@ enum ContractStatus {
 enum MilestoneStatus {
   PENDING
   FUNDED
+  SUBMITTED
+  REVISION_REQUESTED
   RELEASED
   DISPUTED
 }

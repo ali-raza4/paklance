@@ -28,6 +28,13 @@ export class WalletController {
     return this.walletService.getBalance(userId);
   }
 
+  @ApiOperation({ summary: 'Get role-specific wallet & financial dashboard summary' })
+  @Get('summary')
+  getSummary(@Req() req: Request) {
+    const user = (req as any).user;
+    return this.walletService.getSummary(user.id, user.role);
+  }
+
   @ApiOperation({ summary: 'Deposit funds into wallet' })
   @Post('deposit')
   deposit(@Req() req: Request, @Body() dto: DepositDto) {
@@ -62,5 +69,11 @@ export class WalletController {
     const userId = (req as any).user.id;
     return this.walletService.getTransactionHistory(userId);
   }
-}
 
+  @ApiOperation({ summary: 'Download or export wallet statement in CSV format' })
+  @Get('statement')
+  exportStatement(@Req() req: Request) {
+    const userId = (req as any).user.id;
+    return this.walletService.exportStatement(userId);
+  }
+}

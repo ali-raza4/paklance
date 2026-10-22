@@ -9,7 +9,12 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ContractsService } from './contracts.service';
-import { CreateContractDto, UploadContractFileDto } from './dto/contract.dto';
+import {
+  CreateContractDto,
+  UploadContractFileDto,
+  SubmitMilestoneDto,
+  RequestRevisionDto,
+} from './dto/contract.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -65,11 +70,32 @@ export class ContractsController {
     @Param('id') contractId: string,
     @Param('milestoneId') milestoneId: string,
     @CurrentUser('id') specialistId: string,
+    @Body() dto?: SubmitMilestoneDto,
   ) {
     return this.contractsService.submitMilestone(
       contractId,
       milestoneId,
       specialistId,
+      dto,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Request revisions on submitted milestone (CLIENT only)',
+  })
+  @Roles(Role.CLIENT, Role.ADMIN)
+  @Post(':id/milestones/:milestoneId/revision')
+  requestRevision(
+    @Param('id') contractId: string,
+    @Param('milestoneId') milestoneId: string,
+    @CurrentUser('id') clientId: string,
+    @Body() dto: RequestRevisionDto,
+  ) {
+    return this.contractsService.requestRevision(
+      contractId,
+      milestoneId,
+      clientId,
+      dto,
     );
   }
 

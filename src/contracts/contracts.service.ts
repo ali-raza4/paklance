@@ -72,9 +72,13 @@ export class ContractsService {
   }
 
   async fundContract(contractId: string, clientId: string, amount: number) {
+    if (!amount || amount <= 0) {
+      throw new BadRequestException('Funding amount must be greater than zero');
+    }
+
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
-      include: { escrow: true, client: true },
+      include: { escrow: true, client: true, specialist: true },
     });
 
     if (!contract) throw new NotFoundException('Contract not found');
@@ -91,7 +95,45 @@ export class ContractsService {
     if (!isClient)
       throw new ForbiddenException('Only client can fund this contract');
 
+    // 1. Verify client's confirmed available wallet balance
+    let clientWallet = await this.prisma.wallet.findFirst({
+      where: { userId: clientId },
+    });
+    if (!clientWallet) {
+      clientWallet = await this.prisma.wallet.create({
+        data: { userId: clientId, balance: 0, lockedBalance: 0 },
+      });
+    }
+
+    const availableBalance =
+      Number(clientWallet.balance) - Number(clientWallet.lockedBalance || 0);
+
+    if (availableBalance < amount) {
+      throw new BadRequestException(
+        `Insufficient available wallet funds. Required: PKR ${amount.toLocaleString()}, Available: PKR ${Math.max(0, availableBalance).toLocaleString()}. Please deposit funds into your Paklance wallet first.`,
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
+      // 2. Atomically debit amount from client available wallet
+      await tx.wallet.update({
+        where: { id: clientWallet.id },
+        data: { balance: { decrement: amount } },
+      });
+
+      // 3. Durable audit record in client's wallet transactions
+      const txRef = `ESC-${Date.now().toString().slice(-6)}`;
+      await tx.walletTransaction.create({
+        data: {
+          walletId: clientWallet.id,
+          amount: -amount,
+          type: 'ESCROW_FUNDING',
+          referenceId: txRef,
+          description: `SafePay escrow funding for contract #${contract.id.slice(0, 8)}`,
+        },
+      });
+
+      // 4. Atomically credit the contract's escrow account
       const updatedEscrow = await tx.escrow.update({
         where: { contractId },
         data: {
@@ -99,10 +141,11 @@ export class ContractsService {
         },
       });
 
+      // 5. Auditable double-entry ledger record
       await tx.ledgerEntry.create({
         data: {
           escrowId: updatedEscrow.id,
-          sourceWalletId: clientId,
+          sourceWalletId: clientWallet.id,
           destinationWalletId: updatedEscrow.id,
           amount,
           status: 'COMPLETED',
@@ -126,6 +169,17 @@ export class ContractsService {
         include: { escrow: true, milestones: true },
       });
 
+      // 6. Notify specialist that escrow is funded and work can begin safely
+      if (tx.notification?.create) {
+        await tx.notification.create({
+          data: {
+            userId: contract.specialistId,
+            type: 'ESCROW_FUNDED',
+            message: `Client funded PKR ${amount.toLocaleString()} in SafePay escrow for contract #${contract.id.slice(0, 8)}. You may safely begin work!`,
+          },
+        }).catch(() => {});
+      }
+
       return updatedContract;
     });
   }
@@ -133,7 +187,11 @@ export class ContractsService {
   async releaseMilestone(milestoneId: string, clientId: string) {
     const milestone = await this.prisma.milestone.findUnique({
       where: { id: milestoneId },
-      include: { contract: { include: { escrow: true, client: true } } },
+      include: {
+        contract: {
+          include: { escrow: true, client: true, specialist: true },
+        },
+      },
     });
 
     if (!milestone) throw new NotFoundException('Milestone not found');
@@ -151,6 +209,10 @@ export class ContractsService {
     if (!isClient)
       throw new ForbiddenException('Only client can release milestone funds');
 
+    if (milestone.status === MilestoneStatus.RELEASED) {
+      throw new BadRequestException('Milestone has already been released');
+    }
+
     const escrow = milestone.contract.escrow;
     if (!escrow || Number(escrow.balance) < Number(milestone.amount)) {
       throw new BadRequestException(
@@ -158,44 +220,53 @@ export class ContractsService {
       );
     }
 
+    // Platform policy: 10% specialist service fee deducted upon milestone release
+    const grossAmount = Number(milestone.amount);
+    const platformFee = Math.round(grossAmount * 0.10);
+    const netAmount = Math.max(0, grossAmount - platformFee);
+
     return this.prisma.$transaction(async (tx) => {
       // 1. Deduct escrow balance
       const updatedEscrow = await tx.escrow.update({
         where: { id: escrow.id },
-        data: { balance: { decrement: milestone.amount } },
+        data: { balance: { decrement: grossAmount } },
       });
 
-      // 2. Find or create Specialist Wallet and increment available balance
+      // 2. Find or create Specialist Wallet and increment available balance with NET earnings
       let specialistWallet = await tx.wallet.findFirst({
         where: { userId: milestone.contract.specialistId },
       });
       if (!specialistWallet) {
         specialistWallet = await tx.wallet.create({
-          data: { userId: milestone.contract.specialistId, balance: 0 },
+          data: { userId: milestone.contract.specialistId, balance: 0, lockedBalance: 0 },
         });
       }
 
       await tx.wallet.update({
         where: { id: specialistWallet.id },
-        data: { balance: { increment: milestone.amount } },
+        data: { balance: { increment: netAmount } },
       });
 
-      // 3. Record WalletTransaction for Specialist
+      // 3. Record WalletTransaction for Specialist with clear breakdown of fee & net
+      const txRef = `REL-${Date.now().toString().slice(-6)}`;
       await tx.walletTransaction.create({
         data: {
           walletId: specialistWallet.id,
-          amount: milestone.amount,
+          amount: netAmount,
+          fee: platformFee,
           type: 'MILESTONE_RELEASE',
+          referenceId: txRef,
+          description: `Milestone release: ${milestone.title} (Gross: PKR ${grossAmount.toLocaleString()}, 10% platform fee: PKR ${platformFee.toLocaleString()}, Net: PKR ${netAmount.toLocaleString()})`,
         },
       });
 
-      // 4. Log Ledger
+      // 4. Log immutable double-entry ledger entry
       await tx.ledgerEntry.create({
         data: {
           escrowId: escrow.id,
           sourceWalletId: escrow.id,
-          destinationWalletId: milestone.contract.specialistId,
-          amount: milestone.amount,
+          destinationWalletId: specialistWallet.id,
+          amount: netAmount,
           status: 'COMPLETED',
         },
       });
@@ -203,10 +274,13 @@ export class ContractsService {
       // 5. Mark milestone RELEASED
       const updatedMilestone = await tx.milestone.update({
         where: { id: milestoneId },
-        data: { status: MilestoneStatus.RELEASED },
+        data: {
+          status: MilestoneStatus.RELEASED,
+          releasedAt: new Date(),
+        },
       });
 
-      // 6. Check if all milestones are released -> COMPLETED
+      // 6. Check if all milestones are released -> Contract COMPLETED
       const remainingUnreleased = await tx.milestone.count({
         where: {
           contractId: milestone.contractId,
@@ -221,9 +295,30 @@ export class ContractsService {
         });
       }
 
+      // 7. Send audit notifications
+      if (tx.notification?.create) {
+        await tx.notification.create({
+          data: {
+            userId: milestone.contract.specialistId,
+            type: 'PAYMENT_RELEASED',
+            message: `Payment released! PKR ${netAmount.toLocaleString()} has been added to your available wallet balance for milestone: ${milestone.title} (Gross: PKR ${grossAmount.toLocaleString()}, Fee: PKR ${platformFee.toLocaleString()}).`,
+          },
+        }).catch(() => {});
+
+        await tx.notification.create({
+          data: {
+            userId: milestone.contract.clientId,
+            type: 'MILESTONE_APPROVED',
+            message: `Milestone "${milestone.title}" approved and PKR ${grossAmount.toLocaleString()} released from SafePay escrow.`,
+          },
+        }).catch(() => {});
+      }
+
       return {
         milestone: updatedMilestone,
         remainingEscrowBalance: updatedEscrow.balance,
+        netAmount,
+        platformFee,
       };
     });
   }
@@ -232,10 +327,15 @@ export class ContractsService {
     contractId: string,
     milestoneId: string,
     specialistId: string,
+    dto?: { deliverableNote?: string; deliverableUrls?: string[] },
   ) {
     const milestone = await this.prisma.milestone.findUnique({
       where: { id: milestoneId },
-      include: { contract: { include: { specialist: true } } },
+      include: {
+        contract: {
+          include: { specialist: true, client: true },
+        },
+      },
     });
     if (!milestone) throw new NotFoundException('Milestone not found');
     const user = await this.prisma.user.findUnique({
@@ -257,12 +357,103 @@ export class ContractsService {
       );
     }
 
+    if (
+      milestone.status !== MilestoneStatus.FUNDED &&
+      milestone.status !== MilestoneStatus.REVISION_REQUESTED
+    ) {
+      throw new BadRequestException(
+        `Cannot submit work for milestone in status ${milestone.status}. Must be FUNDED or REVISION_REQUESTED.`,
+      );
+    }
+
+    const updatedMilestone = await this.prisma.milestone.update({
+      where: { id: milestoneId },
+      data: {
+        status: MilestoneStatus.SUBMITTED,
+        deliverableNote: dto?.deliverableNote || 'Deliverables submitted for client review',
+        deliverableUrls: dto?.deliverableUrls || [],
+        submittedAt: new Date(),
+      },
+    });
+
     await this.prisma.contract.update({
       where: { id: milestone.contractId },
       data: { status: ContractStatus.IN_PROGRESS },
     });
 
-    return milestone;
+    // Notify client that work is ready for review
+    if (this.prisma.notification?.create) {
+      await this.prisma.notification.create({
+        data: {
+          userId: milestone.contract.clientId,
+          type: 'WORK_SUBMITTED',
+          message: `Specialist has submitted deliverables for milestone "${milestone.title}". Please review and approve or request revisions.`,
+        },
+      }).catch(() => {});
+    }
+
+    return updatedMilestone;
+  }
+
+  async requestRevision(
+    contractId: string,
+    milestoneId: string,
+    clientId: string,
+    dto: { reason: string },
+  ) {
+    if (!dto.reason || !dto.reason.trim()) {
+      throw new BadRequestException('Please provide a reason or instructions for the revision request');
+    }
+
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: {
+        contract: {
+          include: { client: true, specialist: true },
+        },
+      },
+    });
+    if (!milestone) throw new NotFoundException('Milestone not found');
+    const user = await this.prisma.user.findUnique({ where: { id: clientId } });
+    const isClient =
+      milestone.contract.clientId === clientId ||
+      (milestone.contract.client &&
+        user &&
+        milestone.contract.client.email &&
+        user.email &&
+        milestone.contract.client.email.toLowerCase() ===
+          user.email.toLowerCase()) ||
+      (user && user.role === 'ADMIN');
+
+    if (!isClient) {
+      throw new ForbiddenException('Only the client can request revisions');
+    }
+
+    if (milestone.status !== MilestoneStatus.SUBMITTED) {
+      throw new BadRequestException('Revisions can only be requested after work is submitted');
+    }
+
+    // Revision requests MUST NOT release funds: escrow funds remain 100% held
+    const updatedMilestone = await this.prisma.milestone.update({
+      where: { id: milestoneId },
+      data: {
+        status: MilestoneStatus.REVISION_REQUESTED,
+        revisionNote: dto.reason.trim(),
+        revisionCount: { increment: 1 },
+      },
+    });
+
+    if (this.prisma.notification?.create) {
+      await this.prisma.notification.create({
+        data: {
+          userId: milestone.contract.specialistId,
+          type: 'REVISION_REQUESTED',
+          message: `Client requested revisions on milestone "${milestone.title}": ${dto.reason.trim()}`,
+        },
+      }).catch(() => {});
+    }
+
+    return updatedMilestone;
   }
 
   async approveMilestone(
