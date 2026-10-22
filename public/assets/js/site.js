@@ -293,7 +293,7 @@
   }
 
   /* ---------- routing ---------- */
-  var VIEWS = ['home','jobs','job','talent','person','profile','how','global','match','trust','pricing','dashboard','blog','article','admin'];
+  var VIEWS = ['home','jobs','job','talent','person','profile','how','global','match','trust','pricing','dashboard','blog','article','admin','wallet'];
   function route(){
     var r = (location.hash || '#home').slice(1);
     var blogSlug = null;
@@ -425,6 +425,18 @@
         renderDashboard();
       }
     }
+    if (r === 'wallet'){
+      var curWalletUser = PaklanceAuth.getUser();
+      if (!curWalletUser){
+        if (_siteGetToken()){
+          $$('.view').forEach(function(v){ v.hidden = v.getAttribute('data-view') !== 'wallet'; });
+          return;
+        }
+        r = 'home'; setTimeout(function(){ PaklanceAuth.open('login'); }, 0);
+      } else {
+        renderWalletDashboard(curWalletUser);
+      }
+    }
     if (r === 'profile' && !PaklanceAuth.getUser()){
       if (_siteGetToken()){
         $$('.view').forEach(function(v){ v.hidden = v.getAttribute('data-view') !== 'person'; });
@@ -438,6 +450,7 @@
     $$('[data-nav]').forEach(function(a){ a.classList.toggle('active', a.getAttribute('data-nav') === navKey); });
     var bnKey = (navKey === 'jobs' || navKey === 'talent') ? 'find' : navKey;
     $$('[data-bn]').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-bn') === bnKey); });
+    if (r === 'wallet' && PaklanceAuth.getUser()) renderWalletDashboard(PaklanceAuth.getUser());
     if (r === 'job' && currentJob) renderJobDetail();
     if (r === 'jobs') renderJobs();
     if (r === 'talent') renderTalent();
@@ -2027,7 +2040,10 @@
       if (b === 'home') go('home');
       else if (b === 'find') go('jobs');
       else if (b === 'contracts') openModal('contract');
-      else if (b === 'wallet') openModal('wallet');
+      else if (b === 'wallet'){
+        if (PaklanceAuth.getUser()) go('wallet');
+        else { PaklanceAuth.open('login'); }
+      }
       else if (b === 'messages'){
         if (PaklanceAuth.getUser()) PaklanceMessages.open();
         else { PaklanceAuth.open('login'); }
@@ -2405,6 +2421,10 @@
     if (hdrAdminLink) hdrAdminLink.style.display = isAdmin ? 'inline-block' : 'none';
     var mobAdminLink = $('#mobAdminLink');
     if (mobAdminLink) mobAdminLink.style.display = isAdmin ? 'block' : 'none';
+    var hdrWalletLink = $('#hdrWalletLink');
+    if (hdrWalletLink) hdrWalletLink.style.display = u ? 'inline-block' : 'none';
+    var mobWalletLink = $('#mobWalletLink');
+    if (mobWalletLink) mobWalletLink.style.display = u ? 'block' : 'none';
     if (u){
       $('#hdrAv').innerHTML = u.photo ? '<img src="' + esc(u.photo) + '" alt="">' : esc(initials(u.fullName || u.email));
       $('#hdrName').textContent = u.fullName ? u.fullName.split(' ')[0] : 'Account';
@@ -2420,6 +2440,11 @@
       } else {
         go('home');
       }
+    }
+    var onWallet = !$('[data-view="wallet"]').hidden;
+    if (onWallet){
+      if (u) renderWalletDashboard(u);
+      else go('home');
     }
     var onAdmin = !$('[data-view="admin"]').hidden;
     if (onAdmin){
@@ -2561,27 +2586,765 @@
             : '<strong>Action needed:</strong> Deposit Milestone 1 into SafePay escrow to start the project.';
           return '<div style="padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)">' +
             '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">' +
-              '<div>' +
-                '<strong style="font-size:16px;display:block">' + esc(c.title) + '</strong>' +
-                '<span class="muted" style="font-size:13px">Specialist: <strong>' + esc(spec.name) + '</strong> · ' + c.deliveryDays + ' days delivery</span>' +
-              '</div>' +
-              '<div style="display:flex;align-items:center;gap:8px">' +
-                '<strong style="color:var(--primary);font-size:16px">' + fmt(c.totals.value) + '</strong>' +
-                statusChip +
-              '</div>' +
+            '<div>' +
+            '<strong style="font-size:16px;display:block">' + esc(c.title) + '</strong>' +
+            '<span class="muted" style="font-size:13px">Specialist: <strong>' + esc(spec.name) + '</strong> · ' + c.deliveryDays + ' days delivery</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+            '<strong style="color:var(--primary);font-size:16px">' + fmt(c.totals.value) + '</strong>' +
+            statusChip +
+            '</div>' +
             '</div>' +
             '<div style="margin-top:10px;padding:8px 12px;background:var(--bg-2);border-radius:6px;font-size:13px;color:var(--ink-2)">' +
-              nextAction +
+            nextAction +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">' +
-              (spec.id ? '<button class="btn btn-outline btn-sm" type="button" data-msg-user-id="' + esc(spec.id) + '" data-msg-user-name="' + esc(spec.name) + '" data-msg-user-role="Specialist">Message ' + esc((spec.name||'').split(' ')[0]) + '</button>' : '<span></span>') +
-              '<button class="btn btn-primary btn-sm" type="button" data-show-contract="' + esc(c.id) + '">View Contract &amp; Next Steps</button>' +
+            (spec.id ? '<button class="btn btn-outline btn-sm" type="button" data-msg-user-id="' + esc(spec.id) + '" data-msg-user-name="' + esc(spec.name) + '" data-msg-user-role="Specialist">Message ' + esc((spec.name||'').split(' ')[0]) + '</button>' : '<span></span>') +
+            '<button class="btn btn-primary btn-sm" type="button" data-show-contract="' + esc(c.id) + '">View Contract &amp; Next Steps</button>' +
             '</div>' +
-          '</div>';
+            '</div>';
         }).join('') +
-      '</div>';
+        '</div>';
     });
   }
+
+  /* ===================================================================
+   * PAKLANCE FINANCIAL WALLET & ESCROW DASHBOARD (CLIENT & FREELANCER)
+   * Real accounting, double-entry ledger, SafePay milestone escrow
+   * =================================================================== */
+  function downloadCsvStatement(){
+    api('GET', '/wallet/statement').then(function(res){
+      if (!res || !res.csv){
+        toast('No statement transactions available to download.');
+        return;
+      }
+      var blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      var dateStr = new Date().toISOString().slice(0, 10);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'paklance-statement-' + dateStr + '.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast('Statement downloaded successfully (' + (res.totalTransactions || 0) + ' transactions).');
+    }).catch(function(err){
+      toast('Failed to download statement: ' + (err.message || 'Error'));
+    });
+  }
+
+  function renderWalletDashboard(user){
+    if (!user) user = PaklanceAuth.getUser();
+    if (!user) return;
+
+    var role = String(user.role || '').toUpperCase();
+    var isClient = role === 'CLIENT';
+
+    // 1. Role Badges & View Headers
+    var roleBadge = $('#walletRoleBadge');
+    if (roleBadge) {
+      roleBadge.textContent = isClient ? 'CLIENT ACCOUNT · WALLET & ESCROW' : 'FREELANCER ACCOUNT · EARNINGS & PAYOUTS';
+      roleBadge.style.color = isClient ? '#34D399' : '#60A5FA';
+      roleBadge.style.background = isClient ? 'rgba(18,165,111,0.2)' : 'rgba(37,99,235,0.2)';
+      roleBadge.style.borderColor = isClient ? 'rgba(52,211,153,0.3)' : 'rgba(96,165,250,0.3)';
+    }
+
+    var titleEl = $('#walletViewTitle');
+    if (titleEl) titleEl.textContent = isClient ? 'Client Payments & SafePay™ Escrow' : 'Freelancer Earnings & Withdrawals';
+
+    var subEl = $('#walletViewSub');
+    if (subEl) {
+      subEl.textContent = isClient
+        ? 'Deposit funds, track active milestone escrow, review deliverables, and safely release payments.'
+        : 'Track net earnings, submit milestone deliverables, and withdraw funds to Pakistani bank / Raast.';
+    }
+
+    // 2. Header Action Buttons
+    var hdrActions = $('#walletHeaderActions');
+    if (hdrActions) {
+      if (isClient) {
+        hdrActions.innerHTML =
+          '<button class="btn btn-primary" type="button" id="walletBtnDeposit" style="background:#12A56F;border-color:#12A56F;font-weight:700;display:inline-flex;align-items:center;gap:6px">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>' +
+            '+ Add Funds / Deposit' +
+          '</button>' +
+          '<button class="btn btn-outline" type="button" id="walletBtnStatementClient" style="color:#fff;border-color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.08)">' +
+            '📥 Download Statement (CSV)' +
+          '</button>';
+      } else {
+        hdrActions.innerHTML =
+          '<button class="btn btn-primary" type="button" id="walletBtnWithdraw" style="background:#12A56F;border-color:#12A56F;font-weight:700;display:inline-flex;align-items:center;gap:6px">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>' +
+            'Request Withdrawal' +
+          '</button>' +
+          '<button class="btn btn-outline" type="button" id="walletBtnStatementSpec" style="color:#fff;border-color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.08)">' +
+            '📥 Download Statement (CSV)' +
+          '</button>';
+      }
+    }
+
+    // 3. Switch visible dashboard container
+    var clientDash = $('#walletClientDashboard');
+    var specDash = $('#walletFreelancerDashboard');
+    if (clientDash) clientDash.style.display = isClient ? 'block' : 'none';
+    if (specDash) specDash.style.display = isClient ? 'none' : 'block';
+
+    // 4. Load Live Wallet Summary & Transactions
+    api('GET', '/wallet/summary').then(function(res){
+      if (!res) return;
+
+      if (isClient) {
+        if ($('#clientKpiBalance')) $('#clientKpiBalance').textContent = fmt(res.availableBalance || 0);
+        if ($('#clientKpiDeposited')) $('#clientKpiDeposited').textContent = fmt(res.totalDeposited || 0);
+        if ($('#clientKpiSpent')) $('#clientKpiSpent').textContent = fmt(res.totalSpent || 0);
+        if ($('#clientKpiEscrow')) $('#clientKpiEscrow').textContent = fmt(res.escrowHeld || 0);
+        if ($('#clientKpiPending')) $('#clientKpiPending').textContent = fmt(res.pendingDepositsAmount || 0);
+
+        // Transactions Table
+        var txTbody = $('#clientTransactionsTbody');
+        if (txTbody) {
+          var txs = Array.isArray(res.recentTransactions) ? res.recentTransactions : [];
+          if (!txs.length) {
+            txTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted)">No transactions recorded yet. Make a deposit or fund a contract to begin.</td></tr>';
+          } else {
+            txTbody.innerHTML = txs.map(function(t){
+              var d = t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+              var amt = Number(t.amount || 0);
+              var isCredit = t.type === 'DEPOSIT' || t.type === 'REFUND' || amt > 0;
+              var amtDisplay = (isCredit ? '+ ' : '− ') + fmt(Math.abs(amt));
+              var amtColor = isCredit ? '#12A56F' : '#0B3B2D';
+              var statusBadge = '<span class="status-badge status-completed">Completed</span>';
+              return '<tr>' +
+                '<td style="white-space:nowrap;color:var(--muted)">' + d + '</td>' +
+                '<td style="font-family:monospace;font-size:12px;font-weight:600">' + esc(t.referenceId || t.id.slice(0, 10)) + '</td>' +
+                '<td><span class="role-badge role-client">' + esc(t.type) + '</span></td>' +
+                '<td>' + esc(t.description || t.type) + '</td>' +
+                '<td style="font-weight:700;color:' + amtColor + ';white-space:nowrap">' + amtDisplay + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+              '</tr>';
+            }).join('');
+          }
+        }
+      } else {
+        // FREELANCER
+        if ($('#specKpiBalance')) $('#specKpiBalance').textContent = fmt(res.availableBalance || 0);
+        if ($('#specKpiLifetime')) $('#specKpiLifetime').textContent = fmt(res.totalEarnings || 0);
+        if ($('#specKpiPeriod')) $('#specKpiPeriod').textContent = fmt(res.periodEarnings || 0);
+        if ($('#specKpiEscrow')) $('#specKpiEscrow').textContent = fmt(res.escrowHeldForMe || 0);
+        if ($('#specKpiWithdrawn')) $('#specKpiWithdrawn').textContent = fmt(res.totalWithdrawn || 0);
+        if ($('#specKpiPending')) $('#specKpiPending').textContent = fmt(res.pendingWithdrawn || 0);
+
+        // Saved Payout Methods list
+        var pmBox = $('#specPayoutMethodsList');
+        if (pmBox) {
+          var pms = Array.isArray(res.payoutMethods) ? res.payoutMethods : [];
+          if (!pms.length) {
+            pmBox.innerHTML =
+              '<div style="background:#f7faf8;border:1px dashed var(--line);border-radius:10px;padding:14px;text-align:center">' +
+                '<p style="margin:0 0 10px;font-size:13px;color:var(--muted)">No payout account linked yet. Add your bank account to receive withdrawals.</p>' +
+                '<button class="btn btn-outline btn-xs" type="button" data-open="payout">+ Add Payout Account</button>' +
+              '</div>';
+          } else {
+            pmBox.innerHTML = pms.map(function(pm){
+              var isBank = pm.type === 'BANK' || pm.channel === 'bank';
+              var num = pm.accountNumber ? maskAccount(pm.accountNumber) : '—';
+              return '<div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">' +
+                '<div>' +
+                  '<div style="display:flex;align-items:center;gap:6px">' +
+                    '<strong style="font-size:13.5px;color:#0B3B2D">' + esc(pm.accountTitle) + '</strong>' +
+                    (pm.isDefault ? '<span class="chip chip-paid" style="font-size:10px">Default</span>' : '') +
+                  '</div>' +
+                  '<div style="font-size:12px;color:var(--muted);margin-top:2px">' +
+                    (isBank ? '1Link Bank Transfer' : 'Raast ID') + (pm.bankName ? ' (' + esc(pm.bankName) + ')' : '') + ' · <span style="font-family:monospace">' + esc(num) + '</span>' +
+                  '</div>' +
+                '</div>' +
+                '<span class="status-badge status-verified">Verified</span>' +
+              '</div>';
+            }).join('');
+          }
+        }
+
+        // Freelancer Transactions Table
+        var specTbody = $('#specTransactionsTbody');
+        if (specTbody) {
+          var specTxs = Array.isArray(res.recentTransactions) ? res.recentTransactions : [];
+          if (!specTxs.length) {
+            specTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--muted)">No earnings or withdrawal transactions recorded yet.</td></tr>';
+          } else {
+            specTbody.innerHTML = specTxs.map(function(t){
+              var d = t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+              var amt = Number(t.amount || 0);
+              var fee = Number(t.fee || 0);
+              var isCredit = t.type === 'MILESTONE_RELEASE' || t.type === 'DEPOSIT';
+              var amtDisplay = (isCredit ? '+ ' : '− ') + fmt(Math.abs(amt));
+              var amtColor = isCredit ? '#12A56F' : '#0B3B2D';
+              return '<tr>' +
+                '<td style="white-space:nowrap;color:var(--muted)">' + d + '</td>' +
+                '<td style="font-family:monospace;font-size:12px;font-weight:600">' + esc(t.referenceId || t.id.slice(0, 10)) + '</td>' +
+                '<td><span class="role-badge role-specialist">' + esc(t.type) + '</span></td>' +
+                '<td>' + esc(t.description || t.type) + '</td>' +
+                '<td style="font-weight:700;color:' + amtColor + ';white-space:nowrap">' + amtDisplay + '</td>' +
+                '<td style="color:var(--muted)">' + (fee > 0 ? ('PKR ' + fee.toLocaleString()) : '—') + '</td>' +
+                '<td><span class="status-badge status-completed">Completed</span></td>' +
+              '</tr>';
+            }).join('');
+          }
+        }
+      }
+    }).catch(function(err){
+      console.warn('Wallet summary load error:', err);
+    });
+
+    // 5. Load Specialist Withdrawals & Tracking
+    if (!isClient) {
+      api('GET', '/wallet/withdrawals').then(function(wds){
+        var container = $('#specWithdrawalsContainer');
+        if (!container) return;
+        var list = Array.isArray(wds) ? wds : [];
+        if (!list.length) {
+          container.innerHTML = '<p style="font-size:13px;color:var(--muted);text-align:center;padding:18px">No withdrawal requests found. When you request a payout, tracking will appear here.</p>';
+          return;
+        }
+        container.innerHTML = list.map(function(w){
+          var d = w.createdAt ? new Date(w.createdAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric' }) : '—';
+          var st = String(w.status || 'PENDING').toUpperCase();
+          var badgeCls = st === 'COMPLETED' ? 'status-completed' : (st === 'CANCELLED' || st === 'FAILED' ? 'status-open' : 'status-pending');
+          var cancelBtn = (st === 'REQUESTED' || st === 'PENDING')
+            ? '<button class="btn btn-outline btn-xs" type="button" data-cancel-withdrawal="' + esc(w.id) + '" style="font-size:11px;color:#DC2626;border-color:rgba(220,38,38,0.3)">Cancel</button>'
+            : '';
+          return '<div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+            '<div>' +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+                '<strong style="font-size:14px;color:#0B3B2D">' + fmt(w.amount) + '</strong>' +
+                '<span class="status-badge ' + badgeCls + '">' + st + '</span>' +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px">' +
+                esc(w.channel || 'BANK') + ' · Ref: <span style="font-family:monospace">' + esc(w.referenceId || w.id.slice(0, 10)) + '</span> · ' + d +
+              '</div>' +
+            '</div>' +
+            cancelBtn +
+          '</div>';
+        }).join('');
+      }).catch(noop);
+    }
+
+    // 6. Load Live Contracts for Escrow & Milestone Management
+    api('GET', '/contracts/my').then(function(rawContracts){
+      var contracts = Array.isArray(rawContracts) ? rawContracts : ((rawContracts && rawContracts.contracts) || []);
+
+      if (isClient) {
+        var clientBox = $('#clientContractsContainer');
+        if (!clientBox) return;
+
+        if (!contracts.length) {
+          clientBox.innerHTML =
+            '<div style="text-align:center;padding:40px 20px;border:1px dashed var(--line);border-radius:12px">' +
+              '<svg class="ic ic-lg" style="margin:0 auto 10px;opacity:0.35;display:block" aria-hidden="true"><use href="#i-contract"/></svg>' +
+              '<h4 style="margin:0 0 4px;font-size:16px">No Contracts Active</h4>' +
+              '<p style="margin:0 0 14px;font-size:13.5px;color:var(--muted)">When you accept a specialist proposal, your contract milestone escrow will appear here.</p>' +
+              '<a class="btn btn-primary btn-sm" href="#talent">Find &amp; Hire Talent</a>' +
+            '</div>';
+          return;
+        }
+
+        clientBox.innerHTML = contracts.map(function(c){
+          var spec = c.specialist || {};
+          var specName = spec.name || spec.fullName || 'Specialist';
+          var escrowBal = (c.escrow && Number(c.escrow.balance || 0)) || 0;
+          var milestones = Array.isArray(c.milestones) ? c.milestones : [];
+
+          return '<div style="background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.03)">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--line-2);padding-bottom:12px;margin-bottom:14px">' +
+              '<div>' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+                  '<strong style="font-size:17px;color:#0B3B2D">' + esc(c.title || 'Project Contract') + '</strong>' +
+                  '<span class="role-badge role-client">#' + esc(c.id.slice(0, 8).toUpperCase()) + '</span>' +
+                '</div>' +
+                '<span style="font-size:13px;color:var(--muted)">Specialist: <strong>' + esc(specName) + '</strong></span>' +
+              '</div>' +
+              '<div style="text-align:right">' +
+                '<div style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600">Escrow Held</div>' +
+                '<strong style="font-size:17px;color:#D97706">' + fmt(escrowBal) + '</strong>' +
+              '</div>' +
+            '</div>' +
+
+            // Milestones list
+            '<div style="display:flex;flex-direction:column;gap:12px">' +
+              milestones.map(function(m, idx){
+                var st = String(m.status || 'PENDING').toUpperCase();
+                var isFunded = st === 'FUNDED';
+                var isSubmitted = st === 'SUBMITTED';
+                var isRevision = st === 'REVISION_REQUESTED';
+                var isReleased = st === 'RELEASED';
+                var isPending = st === 'PENDING';
+
+                var badge = isReleased
+                  ? '<span class="status-badge status-completed">✓ Released</span>'
+                  : (isSubmitted
+                    ? '<span class="status-badge status-pending" style="background:#FEF3C7;color:#B45309">● Deliverables Submitted · Review Needed</span>'
+                    : (isRevision
+                      ? '<span class="status-badge status-open" style="background:#FFEDD5;color:#C2410C">↺ Revision In Progress</span>'
+                      : (isFunded
+                        ? '<span class="status-badge status-verified">✓ SafePay Escrow Funded</span>'
+                        : '<span class="status-badge status-pending">Unfunded</span>')));
+
+                // Actions for client
+                var actionBtns = '';
+                if (isPending) {
+                  actionBtns = '<button class="btn btn-primary btn-xs" type="button" data-fund-contract="' + esc(c.id) + '" data-fund-milestone="' + esc(m.id) + '" data-fund-amount="' + Number(m.amount) + '">Fund Milestone (' + fmt(m.amount) + ')</button>';
+                } else if (isSubmitted) {
+                  actionBtns =
+                    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+                      '<button class="btn btn-primary btn-xs" type="button" data-open-release="' + esc(m.id) + '" data-release-amount="' + Number(m.amount) + '" data-release-title="' + esc(m.title) + '" style="background:#12A56F;border-color:#12A56F">Approve &amp; Release Payment</button>' +
+                      '<button class="btn btn-outline btn-xs" type="button" data-open-revision="' + esc(c.id) + ':' + esc(m.id) + '" data-revision-title="' + esc(m.title) + '" data-revision-amount="' + Number(m.amount) + '" style="color:#D97706;border-color:rgba(217,119,6,0.4)">Request Revision</button>' +
+                    '</div>';
+                }
+
+                // Deliverable preview box if submitted
+                var deliverableBox = '';
+                if (isSubmitted && m.deliverableNote) {
+                  var urlsHtml = '';
+                  if (Array.isArray(m.deliverableUrls) && m.deliverableUrls.length) {
+                    urlsHtml = '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">' +
+                      m.deliverableUrls.map(function(u){
+                        return '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-xs" style="font-size:11.5px;padding:3px 8px">🔗 Open Deliverable Link</a>';
+                      }).join('') +
+                    '</div>';
+                  }
+                  deliverableBox = '<div style="margin-top:10px;padding:12px 14px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px">' +
+                    '<strong style="font-size:12px;color:#166534;display:block;margin-bottom:4px">Specialist Deliverable Notes:</strong>' +
+                    '<div style="font-size:13px;color:#0B3B2D;line-height:1.55;white-space:pre-wrap">' + esc(m.deliverableNote) + '</div>' +
+                    urlsHtml +
+                  '</div>';
+                }
+
+                return '<div style="background:#F9FAFB;border:1px solid var(--line-2);border-radius:10px;padding:12px 14px">' +
+                  '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+                    '<div>' +
+                      '<strong style="font-size:14.5px;color:#0B3B2D">' + (idx + 1) + '. ' + esc(m.title || 'Milestone') + '</strong>' +
+                      '<span style="font-size:13px;color:var(--muted);margin-left:8px">' + fmt(m.amount) + '</span>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px">' +
+                      badge +
+                      actionBtns +
+                    '</div>' +
+                  '</div>' +
+                  deliverableBox +
+                '</div>';
+              }).join('') +
+            '</div>' +
+
+            // Contract footer with dispute action
+            '<div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--line-2)">' +
+              '<button class="btn btn-text btn-xs" type="button" data-open="dispute" style="color:var(--muted);font-size:12px">Need arbitration? Open Resolution Case →</button>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      } else {
+        // FREELANCER CONTRACTS
+        var specBox = $('#specContractsContainer');
+        if (!specBox) return;
+
+        if (!contracts.length) {
+          specBox.innerHTML =
+            '<div style="text-align:center;padding:40px 20px;border:1px dashed var(--line);border-radius:12px">' +
+              '<svg class="ic ic-lg" style="margin:0 auto 10px;opacity:0.35;display:block" aria-hidden="true"><use href="#i-contract"/></svg>' +
+              '<h4 style="margin:0 0 4px;font-size:16px">No Active Contracts</h4>' +
+              '<p style="margin:0 0 14px;font-size:13.5px;color:var(--muted)">Apply to client job listings to start contracts and earn protected milestone payouts.</p>' +
+              '<a class="btn btn-primary btn-sm" href="#jobs">Browse Jobs Across Pakistan</a>' +
+            '</div>';
+          return;
+        }
+
+        specBox.innerHTML = contracts.map(function(c){
+          var clientObj = c.client || {};
+          var clientName = clientObj.name || clientObj.fullName || 'Client';
+          var escrowBal = (c.escrow && Number(c.escrow.balance || 0)) || 0;
+          var milestones = Array.isArray(c.milestones) ? c.milestones : [];
+
+          return '<div style="background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.03)">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--line-2);padding-bottom:12px;margin-bottom:14px">' +
+              '<div>' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+                  '<strong style="font-size:17px;color:#0B3B2D">' + esc(c.title || 'Project Contract') + '</strong>' +
+                  '<span class="role-badge role-specialist">#' + esc(c.id.slice(0, 8).toUpperCase()) + '</span>' +
+                '</div>' +
+                '<span style="font-size:13px;color:var(--muted)">Client: <strong>' + esc(clientName) + '</strong></span>' +
+              '</div>' +
+              '<div style="text-align:right">' +
+                '<div style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600">Escrow Protected</div>' +
+                '<strong style="font-size:17px;color:#12A56F">' + fmt(escrowBal) + '</strong>' +
+              '</div>' +
+            '</div>' +
+
+            // Milestones list for specialist
+            '<div style="display:flex;flex-direction:column;gap:12px">' +
+              milestones.map(function(m, idx){
+                var st = String(m.status || 'PENDING').toUpperCase();
+                var isFunded = st === 'FUNDED';
+                var isSubmitted = st === 'SUBMITTED';
+                var isRevision = st === 'REVISION_REQUESTED';
+                var isReleased = st === 'RELEASED';
+                var isPending = st === 'PENDING';
+
+                var gross = Number(m.amount || 0);
+                var fee = Math.round(gross * 0.10);
+                var net = gross - fee;
+
+                var badge = isReleased
+                  ? '<span class="status-badge status-completed">✓ Released to Wallet</span>'
+                  : (isSubmitted
+                    ? '<span class="status-badge status-pending" style="background:#FEF3C7;color:#B45309">● Submitted · Awaiting Client Approval</span>'
+                    : (isRevision
+                      ? '<span class="status-badge status-open" style="background:#FFEDD5;color:#C2410C">↺ Revision Requested</span>'
+                      : (isFunded
+                        ? '<span class="status-badge status-verified">✓ Escrow Funded · Ready for Work</span>'
+                        : '<span class="status-badge status-pending">Awaiting Client Escrow Deposit</span>')));
+
+                // Work Submission button
+                var submitBtn = (isFunded || isRevision)
+                  ? '<button class="btn btn-primary btn-xs" type="button" data-open-submit="' + esc(c.id) + ':' + esc(m.id) + '" data-submit-title="' + esc(m.title) + '" data-submit-amount="' + gross + '">Submit Work Deliverables</button>'
+                  : '';
+
+                // Revision note preview
+                var revNote = '';
+                if (isRevision && m.revisionNote) {
+                  revNote = '<div style="margin-top:10px;padding:12px 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px">' +
+                    '<strong style="font-size:12px;color:#92400E;display:block;margin-bottom:4px">Client Revision Request Instructions:</strong>' +
+                    '<div style="font-size:13px;color:#78350F;line-height:1.55;white-space:pre-wrap">' + esc(m.revisionNote) + '</div>' +
+                  '</div>';
+                }
+
+                return '<div style="background:#F9FAFB;border:1px solid var(--line-2);border-radius:10px;padding:12px 14px">' +
+                  '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+                    '<div>' +
+                      '<strong style="font-size:14.5px;color:#0B3B2D">' + (idx + 1) + '. ' + esc(m.title || 'Milestone') + '</strong>' +
+                      '<div style="font-size:12.5px;color:var(--muted);margin-top:2px">' +
+                        'Gross: ' + fmt(gross) + ' · 10% Fee: −' + fmt(fee) + ' · <strong>Net Payout: ' + fmt(net) + '</strong>' +
+                      '</div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px">' +
+                      badge +
+                      submitBtn +
+                    '</div>' +
+                  '</div>' +
+                  revNote +
+                '</div>';
+              }).join('') +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
+    }).catch(noop);
+  }
+
+  // Bind Financial Events (delegated to document for resilient binding)
+  (function initWalletEvents(){
+    document.addEventListener('click', function(e){
+      // 1. Download Statement
+      if (e.target.closest('#walletBtnStatementClient, #walletBtnStatementSpec, #clientDownloadCsvBtn, #specDownloadCsvBtn')) {
+        downloadCsvStatement();
+        return;
+      }
+
+      // 2. Open Deposit Modal
+      if (e.target.closest('#walletBtnDeposit, #clientQuickDepositBtn')) {
+        var errEl = $('#depositErr');
+        if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+        openModal('deposit');
+        return;
+      }
+
+      // 3. Preset Deposit Amounts
+      var presetBtn = e.target.closest('.deposit-preset');
+      if (presetBtn) {
+        var amt = presetBtn.getAttribute('data-deposit-amt');
+        var input = $('#depositAmount');
+        if (input) input.value = amt;
+        return;
+      }
+
+      // 4. Open Withdrawal Modal
+      if (e.target.closest('#walletBtnWithdraw, #specQuickWithdrawBtn')) {
+        openModal('withdraw');
+        return;
+      }
+
+      // 5. Cancel Pending Withdrawal
+      var cancelWdBtn = e.target.closest('[data-cancel-withdrawal]');
+      if (cancelWdBtn) {
+        var reqId = cancelWdBtn.getAttribute('data-cancel-withdrawal');
+        if (!window.confirm('Cancel this pending withdrawal request? Funds will be restored immediately to your available balance.')) return;
+        cancelWdBtn.disabled = true;
+        cancelWdBtn.textContent = 'Cancelling…';
+        api('POST', '/wallet/withdrawals/' + encodeURIComponent(reqId) + '/cancel')
+          .then(function(res){
+            toast(res && res.message ? res.message : 'Withdrawal cancelled. Funds restored.');
+            renderWalletDashboard();
+          })
+          .catch(function(err){
+            cancelWdBtn.disabled = false;
+            cancelWdBtn.textContent = 'Cancel';
+            toast('Failed: ' + (err.message || 'Error'));
+          });
+        return;
+      }
+
+      // 6. Client Fund Milestone button
+      var fundMsBtn = e.target.closest('[data-fund-milestone]');
+      if (fundMsBtn) {
+        var cId = fundMsBtn.getAttribute('data-fund-contract');
+        var mId = fundMsBtn.getAttribute('data-fund-milestone');
+        var amt = Number(fundMsBtn.getAttribute('data-fund-amount') || 0);
+
+        if (!cId || !amt) return;
+
+        // Check confirmed balance from live summary
+        api('GET', '/wallet/summary').then(function(sum){
+          var avail = Number(sum.availableBalance || 0);
+          if (avail < amt) {
+            var deficit = amt - avail;
+            if (window.confirm('Your available balance (PKR ' + avail.toLocaleString() + ') is less than the milestone amount (PKR ' + amt.toLocaleString() + '). Would you like to add PKR ' + deficit.toLocaleString() + ' to your wallet now?')) {
+              var input = $('#depositAmount');
+              if (input) input.value = deficit;
+              openModal('deposit');
+            }
+            return;
+          }
+
+          if (!window.confirm('Fund milestone escrow with ' + fmt(amt) + ' from your available balance? Funds will be locked in SafePay™ until you approve work.')) return;
+
+          fundMsBtn.disabled = true;
+          fundMsBtn.textContent = 'Funding…';
+
+          api('POST', '/contracts/' + encodeURIComponent(cId) + '/fund', { amount: amt, milestoneId: mId })
+            .then(function(){
+              toast('Milestone funded with ' + fmt(amt) + '! Funds secured in SafePay™ escrow.');
+              renderWalletDashboard();
+            })
+            .catch(function(err){
+              fundMsBtn.disabled = false;
+              fundMsBtn.textContent = 'Fund Milestone (' + fmt(amt) + ')';
+              toast('Funding error: ' + (err.message || 'Failed to fund milestone.'));
+            });
+        }).catch(function(err){
+          toast('Error verifying wallet balance: ' + (err.message || 'Error'));
+        });
+        return;
+      }
+
+      // 7. Open Freelancer Submit Deliverables Modal
+      var submitMsBtn = e.target.closest('[data-open-submit]');
+      if (submitMsBtn) {
+        var parts = (submitMsBtn.getAttribute('data-open-submit') || '').split(':');
+        var cId = parts[0];
+        var mId = parts[1];
+        var title = submitMsBtn.getAttribute('data-submit-title') || 'Milestone';
+        var amt = Number(submitMsBtn.getAttribute('data-submit-amount') || 0);
+
+        if ($('#submitContractId')) $('#submitContractId').value = cId;
+        if ($('#submitMilestoneId')) $('#submitMilestoneId').value = mId;
+        if ($('#submitModalMilestoneTitle')) $('#submitModalMilestoneTitle').textContent = title;
+        if ($('#submitModalMilestoneAmount')) $('#submitModalMilestoneAmount').textContent = 'Amount: ' + fmt(amt) + ' (Protected in SafePay Escrow)';
+        if ($('#submitWorkNotes')) $('#submitWorkNotes').value = '';
+        if ($('#submitWorkUrls')) $('#submitWorkUrls').value = '';
+        var errEl = $('#submitDeliverableErr');
+        if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+        openModal('milestone-submit');
+        return;
+      }
+
+      // 8. Open Client Request Revision Modal
+      var revBtn = e.target.closest('[data-open-revision]');
+      if (revBtn) {
+        var parts = (revBtn.getAttribute('data-open-revision') || '').split(':');
+        var cId = parts[0];
+        var mId = parts[1];
+        var title = revBtn.getAttribute('data-revision-title') || 'Milestone';
+        var amt = Number(revBtn.getAttribute('data-revision-amount') || 0);
+
+        if ($('#revisionContractId')) $('#revisionContractId').value = cId;
+        if ($('#revisionMilestoneId')) $('#revisionMilestoneId').value = mId;
+        if ($('#revisionModalMilestoneTitle')) $('#revisionModalMilestoneTitle').textContent = title;
+        if ($('#revisionModalMilestoneAmount')) $('#revisionModalMilestoneAmount').textContent = 'Escrow Balance: ' + fmt(amt) + ' (100% Held & Protected)';
+        if ($('#revisionReason')) $('#revisionReason').value = '';
+        var errEl = $('#revisionErr');
+        if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+        openModal('milestone-revision');
+        return;
+      }
+
+      // 9. Open Client Approve & Release Modal
+      var relBtn = e.target.closest('[data-open-release]');
+      if (relBtn) {
+        var mId = relBtn.getAttribute('data-open-release');
+        var amt = Number(relBtn.getAttribute('data-release-amount') || 0);
+        var title = relBtn.getAttribute('data-release-title') || 'Milestone';
+
+        var fee = Math.round(amt * 0.10);
+        var net = amt - fee;
+
+        if ($('#releaseMilestoneId')) $('#releaseMilestoneId').value = mId;
+        if ($('#releaseModalMilestoneTitle')) $('#releaseModalMilestoneTitle').textContent = title;
+        if ($('#releaseGrossAmount')) $('#releaseGrossAmount').textContent = fmt(amt);
+        if ($('#releasePlatformFee')) $('#releasePlatformFee').textContent = '− ' + fmt(fee);
+        if ($('#releaseNetAmount')) $('#releaseNetAmount').textContent = fmt(net);
+        var errEl = $('#releaseErr');
+        if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+        openModal('milestone-release');
+        return;
+      }
+    });
+
+    // Form Submissions:
+    // A. Client Wallet Deposit Form
+    var depositForm = $('#walletDepositForm');
+    if (depositForm) {
+      depositForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var amt = Number($('#depositAmount').value || 0);
+        var provider = $('#depositProvider') ? $('#depositProvider').value : 'BANK_TRANSFER';
+        var btn = $('#btnConfirmDeposit');
+        var errEl = $('#depositErr');
+
+        if (amt < 100) {
+          if (errEl) { errEl.textContent = 'Minimum deposit is PKR 100.'; errEl.style.display = 'block'; }
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Processing Deposit…';
+        if (errEl) errEl.style.display = 'none';
+
+        api('POST', '/wallet/deposit', { amount: amt, provider: provider })
+          .then(function(res){
+            btn.disabled = false;
+            btn.textContent = 'Confirm & Credit Deposit';
+            closeModals();
+            toast(res && res.message ? res.message : 'Deposit of ' + fmt(amt) + ' confirmed!');
+            renderWalletDashboard();
+          })
+          .catch(function(err){
+            btn.disabled = false;
+            btn.textContent = 'Confirm & Credit Deposit';
+            if (errEl) { errEl.textContent = err.message || 'Deposit failed. Please try again.'; errEl.style.display = 'block'; }
+            else toast('Deposit error: ' + (err.message || 'Failed'));
+          });
+      });
+    }
+
+    // B. Freelancer Submit Deliverable Form
+    var submitDelivForm = $('#submitDeliverableForm');
+    if (submitDelivForm) {
+      submitDelivForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var cId = $('#submitContractId').value;
+        var mId = $('#submitMilestoneId').value;
+        var note = $('#submitWorkNotes').value;
+        var urlsRaw = $('#submitWorkUrls').value || '';
+        var urls = urlsRaw.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+        var btn = $('#btnConfirmSubmitDeliverable');
+        var errEl = $('#submitDeliverableErr');
+
+        if (!note || note.trim().length < 10) {
+          if (errEl) { errEl.textContent = 'Please provide detailed delivery notes (min 10 characters).'; errEl.style.display = 'block'; }
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Submitting Work…';
+        if (errEl) errEl.style.display = 'none';
+
+        api('POST', '/contracts/' + encodeURIComponent(cId) + '/milestones/' + encodeURIComponent(mId) + '/submit', {
+          deliverableNote: note.trim(),
+          deliverableUrls: urls
+        }).then(function(){
+          btn.disabled = false;
+          btn.textContent = 'Submit Work for Client Review';
+          closeModals();
+          toast('Milestone deliverables submitted successfully! Client notified for review.');
+          renderWalletDashboard();
+        }).catch(function(err){
+          btn.disabled = false;
+          btn.textContent = 'Submit Work for Client Review';
+          if (errEl) { errEl.textContent = err.message || 'Submission failed. Please check inputs.'; errEl.style.display = 'block'; }
+          else toast('Error: ' + (err.message || 'Failed to submit'));
+        });
+      });
+    }
+
+    // C. Client Request Revision Form
+    var revisionForm = $('#milestoneRevisionForm');
+    if (revisionForm) {
+      revisionForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var cId = $('#revisionContractId').value;
+        var mId = $('#revisionMilestoneId').value;
+        var reason = $('#revisionReason').value;
+        var btn = $('#btnConfirmRevision');
+        var errEl = $('#revisionErr');
+
+        if (!reason || reason.trim().length < 10) {
+          if (errEl) { errEl.textContent = 'Please provide specific revision instructions (min 10 characters).'; errEl.style.display = 'block'; }
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Submitting Revision…';
+        if (errEl) errEl.style.display = 'none';
+
+        api('POST', '/contracts/' + encodeURIComponent(cId) + '/milestones/' + encodeURIComponent(mId) + '/revision', {
+          reason: reason.trim()
+        }).then(function(){
+          btn.disabled = false;
+          btn.textContent = 'Send Revision Request';
+          closeModals();
+          toast('Revision requested. Specialist notified. Escrow funds remain 100% locked.');
+          renderWalletDashboard();
+        }).catch(function(err){
+          btn.disabled = false;
+          btn.textContent = 'Send Revision Request';
+          if (errEl) { errEl.textContent = err.message || 'Revision request failed.'; errEl.style.display = 'block'; }
+          else toast('Error: ' + (err.message || 'Failed'));
+        });
+      });
+    }
+
+    // D. Client Approve & Release Milestone Confirmation
+    var confirmReleaseBtn = $('#btnConfirmRelease');
+    if (confirmReleaseBtn) {
+      confirmReleaseBtn.addEventListener('click', function(){
+        var mId = $('#releaseMilestoneId').value;
+        var errEl = $('#releaseErr');
+        if (!mId) return;
+
+        confirmReleaseBtn.disabled = true;
+        confirmReleaseBtn.textContent = 'Releasing Funds…';
+        if (errEl) errEl.style.display = 'none';
+
+        api('POST', '/contracts/milestones/' + encodeURIComponent(mId) + '/release')
+          .then(function(res){
+            confirmReleaseBtn.disabled = false;
+            confirmReleaseBtn.textContent = 'Approve & Release Funds';
+            closeModals();
+            var net = res && res.netAmount ? ('PKR ' + Number(res.netAmount).toLocaleString()) : 'funds';
+            toast('Milestone approved! ' + net + ' credited to specialist wallet (10% platform fee applied).');
+            renderWalletDashboard();
+          })
+          .catch(function(err){
+            confirmReleaseBtn.disabled = false;
+            confirmReleaseBtn.textContent = 'Approve & Release Funds';
+            if (errEl) { errEl.textContent = err.message || 'Release failed.'; errEl.style.display = 'block'; }
+            else toast('Release error: ' + (err.message || 'Failed'));
+          });
+      });
+    }
+  })();
+
 
   function loadSpecialistDashboardContracts(){
     var container = $('#dashSpecialistContracts');

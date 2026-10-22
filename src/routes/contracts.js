@@ -182,6 +182,11 @@ router.post('/contracts/:id/milestones/:mid/request-changes', h(async (req, res)
   });
   res.json({ contract: await full(c, req.user.id) });
 }));
+router.post('/contracts/:id/milestones/:mid/revision', (req, res, next) => {
+  // Alias for request-changes
+  req.url = `/contracts/${req.params.id}/milestones/${req.params.mid}/request-changes`;
+  router.handle(req, res, next);
+});
 
 router.post('/contracts/:id/review', h(async (req, res) => {
   const c = await loadContract(req);
@@ -217,6 +222,18 @@ router.post('/contracts/:id/milestones/:mid/approve', h(async (req, res) => {
     await money.releaseMilestone(trx, c, fresh);
   });
   res.json({ contract: await full(await db('contracts').where({ id: c.id }).first(), req.user.id) });
+}));
+router.post('/contracts/milestones/:mid/release', h(async (req, res) => {
+  const mid = idParam(req.params.mid);
+  const m = mid && (await db('milestones').where({ id: mid }).first());
+  if (!m) throw E.notFound('Milestone not found.');
+  const c = await db('contracts').where({ id: m.contract_id }).first();
+  if (!c || (c.client_id !== req.user.id && !req.user.isAdmin)) throw E.forbidden('Only the client can release milestone funds.');
+  await db.transaction(async (trx) => {
+    const fresh = await db.lockRow(trx, 'milestones', m.id);
+    await money.releaseMilestone(trx, c, fresh);
+  });
+  res.json({ success: true, contract: await full(await db('contracts').where({ id: c.id }).first(), req.user.id) });
 }));
 
 module.exports = router;

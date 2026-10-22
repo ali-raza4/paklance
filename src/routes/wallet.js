@@ -179,4 +179,122 @@ router.post('/wallet/withdrawals', h(async (req, res) => {
   res.status(201).json({ withdrawal: withdrawalOut(w) });
 }));
 
+router.get('/wallet/summary', h(async (req, res) => {
+  const b = await money.balances(req.user.id);
+  const isClient = String(req.user.role || '').toLowerCase() === 'client';
+  const entries = await db('ledger_entries').where({ user_id: req.user.id }).orderBy('id', 'desc').limit(50);
+  const withdrawals = await db('withdrawals').where({ user_id: req.user.id }).orderBy('id', 'desc');
+  const pms = await db('payout_methods').where({ user_id: req.user.id }).orderBy([{ column: 'is_default', order: 'desc' }, { column: 'id', order: 'asc' }]);
+
+  if (isClient) {
+    res.json({
+      role: 'CLIENT',
+      currency: 'PKR',
+      balance: b.available + b.locked,
+      lockedBalance: b.locked,
+      availableBalance: b.available,
+      totalDeposited: b.totalEarned || 0,
+      totalSpent: Math.abs(entries.filter((e) => e.type === 'escrow_fund').reduce((s, e) => s + e.amount, 0)),
+      escrowHeld: b.locked || 0,
+      pendingDepositsCount: 0,
+      pendingDepositsAmount: 0,
+      recentTransactions: entries.map((e) => ({
+        id: String(e.id),
+        type: e.type.toUpperCase(),
+        amount: e.amount,
+        description: e.description || e.type,
+        referenceId: `TX-${e.id}`,
+        createdAt: e.created_at
+      }))
+    });
+  } else {
+    const completedWd = withdrawals.filter((w) => w.status === 'completed').reduce((s, w) => s + w.amount, 0);
+    const pendingWd = withdrawals.filter((w) => w.status === 'requested' || w.status === 'processing').reduce((s, w) => s + w.amount, 0);
+
+    res.json({
+      role: 'SPECIALIST',
+      currency: 'PKR',
+      balance: b.available + b.locked,
+      lockedBalance: b.locked,
+      availableBalance: b.available,
+      totalEarnings: b.totalEarned || 0,
+      periodEarnings: b.totalEarned || 0,
+      pendingEarnings: b.locked || 0,
+      escrowHeldForMe: b.locked || 0,
+      releasedEarnings: b.totalEarned || 0,
+      totalWithdrawn: completedWd,
+      pendingWithdrawn: pendingWd,
+      payoutMethods: pms.map(methodOut),
+      recentTransactions: entries.map((e) => ({
+        id: String(e.id),
+        type: e.type.toUpperCase(),
+        amount: e.amount,
+        fee: Math.round(Math.abs(e.amount) * 0.1),
+        description: e.description || e.type,
+        referenceId: `TX-${e.id}`,
+        createdAt: e.created_at
+      }))
+    });
+  }
+}));
+
+router.get('/wallet/statement', h(async (req, res) => {
+  const b = await money.balances(req.user.id);
+  const entries = await db('ledger_entries').where({ user_id: req.user.id }).orderBy('id', 'desc');
+  const rows = [
+    ['Date', 'Reference', 'Type', 'Amount (PKR)', 'Fee (PKR)', 'Description'].join(','),
+    ...entries.map((e) => [
+      new Date(e.created_at).toISOString().slice(0, 10),
+      `"TX-${e.id}"`,
+      `"${e.type.toUpperCase()}"`,
+      Number(e.amount).toFixed(2),
+      '0.00',
+      `"${(e.description || '').replace(/"/g, '""')}"`
+    ].join(','))
+  ];
+  res.json({
+    csv: rows.join('\n'),
+    totalTransactions: entries.length,
+    currentBalance: b.available
+  });
+}));
+
+router.post('/wallet/deposit', h(async (req, res) => {
+  const { amount, provider } = req.body || {};
+  if (!amount || amount < 100) throw E.badRequest('INVALID_AMOUNT', 'Minimum deposit is PKR 100.');
+  const now = db.now();
+  await db('ledger_entries').insert({
+    user_id: req.user.id,
+    type: 'deposit',
+    amount: Number(amount),
+    description: `Wallet Deposit (${provider || 'BANK_TRANSFER'})`,
+    created_at: now
+  });
+  res.status(201).json({
+    message: `Deposit of PKR ${Number(amount).toLocaleString()} confirmed and credited.`,
+    amount: Number(amount),
+    status: 'COMPLETED'
+  });
+}));
+
+router.post('/wallet/withdrawals/:id/cancel', h(async (req, res) => {
+  const id = idParam(req.params.id);
+  const w = await db('withdrawals').where({ id, user_id: req.user.id }).first();
+  if (!w) throw E.notFound('Withdrawal request not found.');
+  if (w.status !== 'requested') throw E.badRequest('CANNOT_CANCEL', 'Only pending requests can be cancelled.');
+
+  await db.transaction(async (trx) => {
+    await trx('withdrawals').where({ id }).update({ status: 'cancelled', updated_at: db.now() });
+    await trx('ledger_entries').insert({
+      user_id: req.user.id,
+      type: 'withdrawal_cancelled',
+      amount: w.amount,
+      description: `Cancelled withdrawal #${w.id}. Funds restored.`,
+      created_at: db.now()
+    });
+  });
+
+  res.json({ message: 'Withdrawal cancelled and funds restored.' });
+}));
+
 module.exports = router;
