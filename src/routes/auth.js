@@ -82,10 +82,20 @@ async function checkSendLimits(email) {
   }
 }
 
-async function newSignupRequest(email, passwordHash, browser) {
+function validateRole(role) {
+  if (!role) return 'member';
+  const r = String(role).trim().toLowerCase();
+  if (r === 'client') return 'client';
+  if (r === 'specialist' || r === 'freelancer') return 'specialist';
+  if (r === 'member') return 'member';
+  if (r === 'admin') throw E.bad('INVALID_ROLE', 'Direct registration as administrator is strictly forbidden.');
+  throw E.bad('INVALID_ROLE', 'Role must be either Client or Freelancer.');
+}
+
+async function newSignupRequest(email, passwordHash, browser, role = 'member') {
   const code = sec.sixDigitCode();
   const now = db.now();
-  await db('signup_requests').insert({
+  const insertData = {
     email,
     password_hash: passwordHash,
     code_hash: sec.codeHash(email, code),
@@ -94,7 +104,12 @@ async function newSignupRequest(email, passwordHash, browser) {
     created_at: now,
     last_sent_at: now,
     expires_at: db.inMinutes(config.auth.codeTtlMinutes)
-  });
+  };
+  const hasRoleCol = await db.schema.hasColumn('signup_requests', 'role').catch(() => false);
+  if (hasRoleCol) {
+    insertData.role = role || 'member';
+  }
+  await db('signup_requests').insert(insertData);
   await sendCode(email, code);
 }
 
@@ -124,13 +139,14 @@ router.get('/me', h(async (req, res) => {
 router.post('/auth/signup', h(async (req, res) => {
   const email = v.emailOrThrow(req.body.email);
   const password = v.passwordOrThrow(req.body.password);
+  const role = req.body.role ? validateRole(req.body.role) : 'member';
 
   const existing = await db('users').where({ email }).first();
   if (existing) throw E.conflict('EMAIL_TAKEN', 'An account with this email already exists.');
 
   await checkSendLimits(email);
   const hash = await bcrypt.hash(password, config.auth.bcryptRounds);
-  await newSignupRequest(email, hash, browserToken(req, res));
+  await newSignupRequest(email, hash, browserToken(req, res), role);
   res.status(201).json({ pendingVerification: true });
 }));
 
@@ -156,6 +172,15 @@ router.post('/auth/verify-email', h(async (req, res) => {
     throw E.bad('INVALID_CODE', 'That code isn’t right. Check your email and try again.');
   }
 
+  let userRole = null;
+  if (req.body.role) {
+    userRole = validateRole(req.body.role);
+  } else if (pending.role) {
+    userRole = validateRole(pending.role);
+  }
+  if (!userRole) userRole = 'member';
+  if (config.adminEmails.includes(email)) userRole = 'admin';
+
   const now = db.now();
   const userId = crypto.randomUUID();
   await db.transaction(async (trx) => {
@@ -169,7 +194,7 @@ router.post('/auth/verify-email', h(async (req, res) => {
       skills: '[]',
       email_verified: true,
       provider: 'email',
-      role: config.adminEmails.includes(email) ? 'admin' : 'member',
+      role: userRole,
       created_at: now,
       updated_at: now
     });
@@ -329,6 +354,8 @@ router.post('/auth/google', h(async (req, res) => {
       await db('users').where({ id: u.id }).update({ google_sub: payload.sub, email_verified: true, updated_at: now });
     } else {
       const id = crypto.randomUUID();
+      let googleRole = body.role ? validateRole(body.role) : 'specialist';
+      if (config.adminEmails.includes(email)) googleRole = 'admin';
       await db('users').insert({
         id,
         email,
@@ -339,7 +366,7 @@ router.post('/auth/google', h(async (req, res) => {
         email_verified: true,
         provider: 'google',
         google_sub: payload.sub,
-        role: config.adminEmails.includes(email) ? 'admin' : 'member',
+        role: googleRole,
         created_at: now,
         updated_at: now
       });

@@ -1549,6 +1549,43 @@
       <button class="pa-x" type="button" data-pa-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
 
+    <!-- 0 · Role selection: How would you like to use Paklance? -->
+    <section class="pa-screen" data-screen="role" hidden>
+      <h2 class="pa-h pa-tc" id="pa-h-role" tabindex="-1">How would you like to use Paklance?</h2>
+      <p class="pa-sub pa-tc">Select your account type to proceed.</p>
+      <div class="pa-alert" role="alert" hidden></div>
+      <div class="pa-role-cards" role="radiogroup" aria-label="Account type">
+        <div class="pa-role-card" data-role-card="client" tabindex="0" role="radio" aria-checked="false">
+          <div class="pa-role-head">
+            <span class="pa-role-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+            <div class="pa-role-indicator"></div>
+          </div>
+          <h3 class="pa-role-title">Hire Talent (Client)</h3>
+          <p class="pa-role-lead">I want to hire freelancers for my projects.</p>
+          <ul class="pa-role-points">
+            <li>I want to post projects, hire specialists, fund milestones, manage escrow payments, and review submitted work.</li>
+            <li>No freelancer skills or portfolio required during registration.</li>
+            <li>Direct access to the Client dashboard upon registration.</li>
+          </ul>
+        </div>
+        <div class="pa-role-card" data-role-card="freelancer" tabindex="0" role="radio" aria-checked="false">
+          <div class="pa-role-head">
+            <span class="pa-role-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+            <div class="pa-role-indicator"></div>
+          </div>
+          <h3 class="pa-role-title">Find Work (Freelancer)</h3>
+          <p class="pa-role-lead">I want to offer my skills and services.</p>
+          <ul class="pa-role-points">
+            <li>Ask for skills, experience, portfolio, and other relevant freelancer profile details.</li>
+            <li>Browse jobs, submit proposals, and get hired by great clients.</li>
+            <li>Deliver work, earn safely through escrow, and access Freelancer dashboard.</li>
+          </ul>
+        </div>
+      </div>
+      <button class="pa-btn pa-btn-primary" type="button" id="paRoleContinueBtn" disabled style="margin-top:20px">Create Account</button>
+      <p class="pa-foot">Already have an account? <button class="pa-link" type="button" data-pa-go="login">Log in</button></p>
+    </section>
+
     <!-- 1 · Choose sign up method (Google or Email on the same page) -->
     <section class="pa-screen" data-screen="choose">
       <h2 class="pa-h" id="pa-h-choose" tabindex="-1">Welcome to Paklance</h2>
@@ -1691,7 +1728,7 @@
         <div class="pa-row-end"><button class="pa-link" type="button" data-pa-go="forgot">Forgot password?</button></div>
         <button class="pa-btn pa-btn-primary" type="submit">Log in</button>
       </form>
-      <p class="pa-foot">New to Paklance? <button class="pa-link" type="button" data-pa-go="choose">Create an account</button></p>
+      <p class="pa-foot">New to Paklance? <button class="pa-link" type="button" data-pa-go="role">Create an account</button></p>
       </section>
 
     <!-- Forgot password -->

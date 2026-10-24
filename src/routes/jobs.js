@@ -174,6 +174,9 @@ router.post('/jobs/:id/proposals', requireReady, h(async (req, res) => {
   const j = id && (await db('jobs').where({ id }).first());
   if (!j || j.status !== 'open') throw E.notFound('This job isn’t accepting applications.');
   if (db.bool(j.is_sample)) throw E.sample('This is a sample listing, so applications aren’t open.');
+  if (String(req.user.role || '').toLowerCase() === 'client') {
+    throw E.forbidden('Clients cannot submit proposals. Switch to a freelancer account.', 'CLIENT_CANNOT_APPLY');
+  }
   if (j.client_id === req.user.id) throw E.forbidden('You can’t apply to your own job.', 'OWN_JOB');
 
   const c = new Check(req.body);

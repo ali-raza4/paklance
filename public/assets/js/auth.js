@@ -205,9 +205,13 @@ window.PaklanceAuth = (function () {
       }).catch(function () { return { user: null }; });
     },
 
-    // Google sign-in: POST /api/auth/google { code | credential }
-    googleSignIn: function () {
-      return getGoogleAuth().then(function (body) { return request('POST', '/auth/google', body); })
+    // Google sign-in: POST /api/auth/google { code | credential, role? }
+    googleSignIn: function (arg, role) {
+      var r = role || (typeof arg === 'string' ? arg : (arg && arg.role)) || state.selectedRole;
+      return getGoogleAuth().then(function (body) {
+        if (r) body.role = r;
+        return request('POST', '/auth/google', body);
+      })
         .then(function (r) {
           // Express returns { user } with cookie session — no accessToken
           if (r.accessToken) setToken(r.accessToken);
@@ -226,8 +230,10 @@ window.PaklanceAuth = (function () {
     },
 
     // POST /api/auth/signup  — Express endpoint name
-    emailSignUp: function (email, password) {
-      return request('POST', '/auth/signup', { email: email, password: password })
+    emailSignUp: function (email, password, role) {
+      var payload = { email: email, password: password };
+      if (role) payload.role = role;
+      return request('POST', '/auth/signup', payload)
         .then(function (r) {
           // Express returns { pendingVerification: true }
           return { pendingVerification: true, email: r.email || email };
@@ -235,8 +241,10 @@ window.PaklanceAuth = (function () {
     },
 
     // POST /api/auth/verify-email  — Express endpoint, uses 'code' field
-    verifyEmail: function (email, code) {
-      return request('POST', '/auth/verify-email', { email: email, code: code })
+    verifyEmail: function (email, code, role) {
+      var payload = { email: email, code: code };
+      if (role) payload.role = role;
+      return request('POST', '/auth/verify-email', payload)
         .then(function (r) {
           // Express returns { user } with cookie session set — no accessToken
           if (r.accessToken) setToken(r.accessToken);
@@ -493,25 +501,33 @@ window.PaklanceAuth = (function () {
   function me() { var u = db.users[db.current]; if (!u) throw apiError('UNAUTHENTICATED', 'Your session has ended. Please log in again.'); return u; }
   var MockAPI = {
     me: function () { return wait(80).then(function () { return { user: pub(db.users[db.current]) }; }); },
-    googleSignIn: function (account) {
+    googleSignIn: function (account, role) {
       return wait(1400).then(function () {
-        var u = db.users[account.email];
-        if (!u) { u = { id: 'u_' + Date.now(), email: account.email, fullName: null, skills: [], emailVerified: true, provider: 'google', memberSince: today() }; db.users[account.email] = u; }
+        var acc = (account && account.email) ? account : { email: 'ayesha.khan@gmail.com' };
+        var r = role || (account && account.role) || (state && state.selectedRole) || 'specialist';
+        var u = db.users[acc.email];
+        if (!u) {
+          u = { id: 'u_' + Date.now(), email: acc.email, fullName: null, skills: [], emailVerified: true, provider: 'google', memberSince: today(), role: (r === 'client' ? 'client' : 'specialist') };
+          db.users[acc.email] = u;
+        }
         db.current = u.email; return { user: pub(u) };
       });
     },
-    emailSignUp: function (email, password) {
+    emailSignUp: function (email, password, role) {
       return wait(800).then(function () {
         if (db.users[email]) throw apiError('EMAIL_TAKEN', 'An account with this email already exists.');
-        db.pending[email] = { password: password, code: '123456' }; return { pendingVerification: true };
+        var r = role || (state && state.selectedRole) || 'specialist';
+        db.pending[email] = { password: password, code: '123456', role: (r === 'client' ? 'client' : 'specialist') };
+        return { pendingVerification: true };
       });
     },
-    verifyEmail: function (email, code) {
+    verifyEmail: function (email, code, role) {
       return wait(700).then(function () {
         var p = db.pending[email];
         if (!p) throw apiError('NOT_FOUND', 'We couldn’t find a sign up for this email. Please sign up again.');
         if (code !== p.code) throw apiError('INVALID_CODE', 'That code isn’t right. Check your email and try again.');
-        var u = { id: 'u_' + Date.now(), email: email, password: p.password, fullName: null, skills: [], emailVerified: true, provider: 'email', memberSince: today() };
+        var r = (p && p.role) || role || (state && state.selectedRole) || 'specialist';
+        var u = { id: 'u_' + Date.now(), email: email, password: p.password, fullName: null, skills: [], emailVerified: true, provider: 'email', memberSince: today(), role: (r === 'client' ? 'client' : 'specialist') };
         db.users[email] = u; delete db.pending[email]; db.current = email; return { user: pub(u) };
       });
     },
@@ -577,8 +593,8 @@ window.PaklanceAuth = (function () {
      UI
      ===================================================================== */
   var root, opts = {}, user = getCachedUser(), listeners = [];
-  var state = { screen: null, stack: [], email: '', onboarding: false, mode: 'onboard', skills: [], items: [], active: -1, verifying: false, googleRun: 0, cooldown: 0, timer: null, lastFocus: null };
-  var BACKABLE = { email: 1, google: 1, forgot: 1, 'forgot-sent': 1, skills: 1 };
+  var state = { screen: null, stack: [], email: '', onboarding: false, mode: 'onboard', skills: [], items: [], active: -1, verifying: false, googleRun: 0, cooldown: 0, timer: null, lastFocus: null, selectedRole: null };
+  var BACKABLE = { choose: 1, email: 1, google: 1, forgot: 1, 'forgot-sent': 1, skills: 1 };
   var MILESTONE = { signing: 1, verify: 1, name: 1, done: 1 };  // screens that reset back-history
   var LOCKED = { name: 1, skills: 1, signing: 1 };                // cannot be closed: name & skills are mandatory
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -609,6 +625,20 @@ window.PaklanceAuth = (function () {
   }
   function focusEl(el) { if (!el) return; try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
 
+  function selectRole(role) {
+    state.selectedRole = role || null;
+    $$('[data-role-card]').forEach(function (card) {
+      var r = card.getAttribute('data-role-card');
+      var isSel = !!role && (r === role || (role === 'specialist' && r === 'freelancer') || (role === 'freelancer' && r === 'specialist'));
+      card.classList.toggle('is-selected', isSel);
+      card.setAttribute('aria-checked', isSel ? 'true' : 'false');
+    });
+    var contBtn = $('#paRoleContinueBtn');
+    if (contBtn) {
+      contBtn.disabled = !state.selectedRole;
+    }
+  }
+
   function show(screen, isBack) {
     if (!isBack && state.screen && state.screen !== screen) state.stack.push(state.screen);
     if (MILESTONE[screen]) state.stack = [];
@@ -627,14 +657,20 @@ window.PaklanceAuth = (function () {
 
   function lock(on) { root.hidden = !on; document.body.style.overflow = on ? 'hidden' : ''; }
 
-  function open(mode) {
+  function open(mode, defaultRole) {
     resetForms();
     state.stack = []; state.screen = null; state.mode = 'onboard'; state.onboarding = false;
+    state.selectedRole = defaultRole || null;
     state.lastFocus = document.activeElement;
     lock(true);
     var step = nextStep(user);
     if (user && step) { state.onboarding = true; state.skills = (user.skills || []).slice(); show(step); return; } // resume unfinished profile
-    show(mode === 'login' ? 'login' : 'choose');
+    if (mode === 'login') {
+      show('login');
+    } else {
+      selectRole(state.selectedRole);
+      show('role');
+    }
   }
   function editSkills() {
     if (!user) { open('login'); return; }
@@ -663,7 +699,22 @@ window.PaklanceAuth = (function () {
     setUser(u);
     var step = nextStep(u);
     if (step) { state.onboarding = true; if (step === 'skills') state.skills = (u.skills || []).slice(); show(step); return; }
-    if (state.onboarding) { show('done'); return; }
+    if (state.onboarding) {
+      var doneHead = $('#pa-h-done');
+      var doneSub = $('#paAuth [data-screen="done"] .pa-sub');
+      var doneBtn = $('#paAuth [data-pa-finish]');
+      if (isClientUser(u)) {
+        if (doneHead) doneHead.textContent = 'Welcome, Client!';
+        if (doneSub) doneSub.textContent = 'Your client account is ready. Post projects, hire talent, and fund escrow milestones.';
+        if (doneBtn) doneBtn.textContent = 'Go to Client Dashboard';
+      } else {
+        if (doneHead) doneHead.textContent = 'Welcome to Paklance!';
+        if (doneSub) doneSub.textContent = 'Your freelancer profile has been set up successfully.';
+        if (doneBtn) doneBtn.textContent = 'Go to Freelancer Dashboard';
+      }
+      show('done');
+      return;
+    }
     close(true);
     notify('Welcome back' + (u.fullName ? ', ' + u.fullName.split(' ')[0] : '') + '!');
     if (opts.onFinish) opts.onFinish(u, { isNew: false });
@@ -694,6 +745,7 @@ window.PaklanceAuth = (function () {
     $('#paSkillErr').hidden = true; $('#paSkillQ').value = '';
     clearCode(); $('#paCodeErr').hidden = true; $('#paCode').classList.remove('is-error'); $('#paCodeStatus').textContent = '';
     paintRules();
+    if (!state.selectedRole) selectRole(null);
   }
 
   /* ---------- Google ---------- */
@@ -705,7 +757,8 @@ window.PaklanceAuth = (function () {
   function runGoogle(account) {
     var run = ++state.googleRun;
     show('signing');
-    API.googleSignIn(account).then(function (res) {
+    var role = state.selectedRole;
+    API.googleSignIn(account, role).then(function (res) {
       if (run !== state.googleRun) return;
       afterAuth(res.user);
     }).catch(function (err) {
@@ -737,7 +790,8 @@ window.PaklanceAuth = (function () {
     fieldError(p2, (pw2 && pw2 === pw) ? '' : (pw2 ? 'Passwords don’t match.' : 'Confirm your password.'));
     if (f.querySelector('[aria-invalid="true"]')) { firstInvalid(f); return; }
     var btn = f.querySelector('[type="submit"]'); busy(btn, true, 'Creating account…');
-    API.emailSignUp(email, pw).then(function () {
+    var role = state.selectedRole || 'specialist';
+    API.emailSignUp(email, pw, role).then(function () {
       state.email = email; state.onboarding = true;
       $('#paVerifyEmail').textContent = email;
       clearCode(); $('#paCodeErr').hidden = true; $('#paCodeStatus').textContent = '';
@@ -767,7 +821,8 @@ window.PaklanceAuth = (function () {
     state.verifying = true; setCodeDisabled(true);
     $('#paCodeStatus').textContent = 'Verifying…';
     var failed = false;
-    API.verifyEmail(state.email, code).then(function (res) {
+    var role = state.selectedRole || 'specialist';
+    API.verifyEmail(state.email, code, role).then(function (res) {
       $('#paCodeStatus').textContent = '';
       clearInterval(state.timer);
       afterAuth(res.user);
@@ -929,15 +984,32 @@ window.PaklanceAuth = (function () {
   function onClick(e) {
     if (e.target === root) { close(); return; }
     var opt = e.target.closest('[data-pa-opt]'); if (opt) { pick(+opt.getAttribute('data-pa-opt')); return; }
+    var roleCard = e.target.closest('[data-role-card]');
+    if (roleCard) {
+      var r = roleCard.getAttribute('data-role-card');
+      selectRole(r === 'freelancer' ? 'specialist' : r);
+      return;
+    }
     var t = e.target.closest('button'); if (!t || !root.contains(t) || t.type === 'submit') return;
     if (t.hasAttribute('data-pa-close')) { close(); return; }
     if (t.hasAttribute('data-pa-back')) { back(); return; }
+    if (t.id === 'paRoleContinueBtn') {
+      if (!state.selectedRole) return;
+      show('choose');
+      return;
+    }
     var go = t.getAttribute('data-pa-go');
     if (go) {
       if (go === 'google') { startGoogle(); return; }
       if (t.hasAttribute('data-pa-prefill')) $('#paLoginEmail').value = t.getAttribute('data-pa-prefill');
       if (go === 'forgot') $('#paForgotEmail').value = $('#paLoginEmail').value;
-      if (go === 'login' || go === 'choose') { state.stack = []; alertOn(go, ''); show(go, true); return; }
+      if (go === 'login' || go === 'choose' || go === 'role') {
+        state.stack = [];
+        alertOn(go, '');
+        if (go === 'role') selectRole(state.selectedRole);
+        show(go, true);
+        return;
+      }
       show(go); return;
     }
     if (t.hasAttribute('data-pa-account')) { runGoogle({ email: t.getAttribute('data-pa-account') }); return; }
@@ -961,8 +1033,15 @@ window.PaklanceAuth = (function () {
   function onKey(e) {
     if (!root || root.hidden) return;
     if (e.key === 'Escape') { e.stopImmediatePropagation(); close(); return; }
+    var activeRoleCard = document.activeElement && document.activeElement.closest('[data-role-card]');
+    if (activeRoleCard && (e.key === ' ' || e.key === 'Enter')) {
+      e.preventDefault();
+      var r = activeRoleCard.getAttribute('data-role-card');
+      selectRole(r === 'freelancer' ? 'specialist' : r);
+      return;
+    }
     if (e.key === 'Tab') {
-      var f = Array.prototype.slice.call(root.querySelectorAll('button, input, [href]')).filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+      var f = Array.prototype.slice.call(root.querySelectorAll('button, input, [href], [data-role-card]')).filter(function (el) { return !el.disabled && el.offsetParent !== null; });
       if (!f.length) return;
       var first = f[0], last = f[f.length - 1];
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); focusEl(last); }
