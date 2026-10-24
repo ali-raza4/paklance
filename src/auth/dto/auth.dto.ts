@@ -74,6 +74,11 @@ export class GoogleAuthDto {
   @IsOptional()
   @IsString()
   credential?: string;
+
+  @ApiPropertyOptional({ enum: RegisterRole, description: 'Role selected during registration' })
+  @IsOptional()
+  @IsEnum(RegisterRole, { message: 'role must be one of: CLIENT, SPECIALIST' })
+  role?: RegisterRole;
 }
 
 export class ForgotPasswordDto {

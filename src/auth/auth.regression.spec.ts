@@ -4,7 +4,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersService } from '../users/users.service';
@@ -113,6 +114,44 @@ describe('AuthService', () => {
     });
     expect(r).toHaveProperty('requiresVerification', true);
     expect(r).toHaveProperty('email', 'test@paklance.com');
+  });
+
+  it('register strictly rejects ADMIN role registration', async () => {
+    await expect(
+      authService.register({
+        email: 'hacker@paklance.com',
+        password: 'pass',
+        role: Role.ADMIN,
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('register accurately persists CLIENT role', async () => {
+    const u = { ...mockUser, role: Role.CLIENT, isEmailVerified: false };
+    delete (u as any).passwordHash;
+    mockUsersService.create.mockResolvedValueOnce(u);
+    await authService.register({
+      email: 'client@paklance.com',
+      password: 'pass',
+      role: Role.CLIENT,
+    });
+    expect(mockUsersService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ role: Role.CLIENT }),
+    );
+  });
+
+  it('register accurately persists SPECIALIST role', async () => {
+    const u = { ...mockUser, role: Role.SPECIALIST, isEmailVerified: false };
+    delete (u as any).passwordHash;
+    mockUsersService.create.mockResolvedValueOnce(u);
+    await authService.register({
+      email: 'specialist@paklance.com',
+      password: 'pass',
+      role: Role.SPECIALIST,
+    });
+    expect(mockUsersService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ role: Role.SPECIALIST }),
+    );
   });
 
   it('verifyEmail returns user + accessToken containing correct sub/email/role', async () => {

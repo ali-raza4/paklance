@@ -6842,12 +6842,42 @@
             </button>
           </div>
         </label>
-        <label id="authRoleWrap" style="display:none;text-align:left;" for="authRole">I am a...
-          <select id="authRole" name="role">
-            <option value="CLIENT">Client (hiring)</option>
-            <option value="SPECIALIST">Freelancer (working)</option>
-          </select>
-        </label>
+        <div id="authRoleWrap" style="display:none;flex-direction:column;gap:10px;text-align:left;margin-top:6px;">
+          <label style="font-weight:600;font-size:13px;color:var(--text, #111827);">How would you like to use Paklance?</label>
+          <input type="hidden" id="authRole" name="role" value="CLIENT" />
+          <div class="pa-role-choice-cards" role="radiogroup" aria-label="Account type" style="display:grid;grid-template-columns:1fr;gap:10px;">
+            <div class="pa-role-option-card is-selected" data-set-role="CLIENT" tabindex="0" role="radio" aria-checked="true" style="border:2px solid var(--primary, #01411C);border-radius:12px;padding:14px;cursor:pointer;background:rgba(1,65,28,0.04);transition:all 0.15s ease;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <strong style="font-size:15px;color:var(--text, #111827);display:flex;align-items:center;gap:8px;">
+                  <span class="pa-opt-radio" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#01411C;border:2px solid #01411C;"></span>
+                  Hire Talent (Client)
+                </strong>
+                <span style="font-size:11px;font-weight:600;background:rgba(1,65,28,0.12);color:#01411C;padding:2px 8px;border-radius:10px;">Client</span>
+              </div>
+              <p style="font-size:13px;color:var(--muted, #6B7280);margin:0 0 6px 0;line-height:1.4;">I want to hire freelancers for my projects.</p>
+              <ul style="font-size:12px;color:var(--muted, #6B7280);margin:0;padding-left:18px;line-height:1.45;">
+                <li>Post projects, hire specialists, fund milestones, and manage escrow payments.</li>
+                <li>No freelancer skills or portfolio required during registration.</li>
+                <li>Instant access to Client dashboard upon verification.</li>
+              </ul>
+            </div>
+            <div class="pa-role-option-card" data-set-role="SPECIALIST" tabindex="0" role="radio" aria-checked="false" style="border:1.5px solid var(--border, #E5E7EB);border-radius:12px;padding:14px;cursor:pointer;background:#ffffff;transition:all 0.15s ease;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <strong style="font-size:15px;color:var(--text, #111827);display:flex;align-items:center;gap:8px;">
+                  <span class="pa-opt-radio" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#CBD5E1;border:2px solid #CBD5E1;"></span>
+                  Find Work (Freelancer)
+                </strong>
+                <span style="font-size:11px;font-weight:600;background:#F1F5F9;color:#475569;padding:2px 8px;border-radius:10px;">Freelancer</span>
+              </div>
+              <p style="font-size:13px;color:var(--muted, #6B7280);margin:0 0 6px 0;line-height:1.4;">I want to offer my skills and services.</p>
+              <ul style="font-size:12px;color:var(--muted, #6B7280);margin:0;padding-left:18px;line-height:1.45;">
+                <li>Set up your skills, experience, portfolio, and profile details.</li>
+                <li>Browse jobs, submit proposals, and get paid safely via SafePay.</li>
+                <li>Instant access to Freelancer dashboard upon verification.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <button type="submit" class="btn btn-primary btn-full" id="authSubmitBtn">Log in</button>
       </form>
       <small class="legal-copy">By continuing, you agree to Paklance's Terms and Privacy Policy.</small>
@@ -11562,6 +11592,37 @@
           $('#authPassword')?.setAttribute('autocomplete', 'new-password');
           $('#authTabSignup')?.setAttribute('aria-selected', 'true');
           $('#authTabLogin')?.setAttribute('aria-selected', 'false');
+        });
+
+        function selectAuthRole(role) {
+          const input = $('#authRole');
+          if (input) input.value = role;
+          document.querySelectorAll('.pa-role-option-card').forEach(card => {
+            const isMatch = card.getAttribute('data-set-role') === role;
+            card.classList.toggle('is-selected', isMatch);
+            card.setAttribute('aria-checked', isMatch ? 'true' : 'false');
+            card.style.border = isMatch ? '2px solid var(--primary, #01411C)' : '1.5px solid var(--border, #E5E7EB)';
+            card.style.background = isMatch ? 'rgba(1,65,28,0.04)' : '#ffffff';
+            const radio = card.querySelector('.pa-opt-radio');
+            if (radio) {
+              radio.style.background = isMatch ? '#01411C' : '#CBD5E1';
+              radio.style.borderColor = isMatch ? '#01411C' : '#CBD5E1';
+            }
+          });
+        }
+
+        document.querySelectorAll('.pa-role-option-card').forEach(card => {
+          card.addEventListener('click', () => {
+            const role = card.getAttribute('data-set-role');
+            if (role) selectAuthRole(role);
+          });
+          card.addEventListener('keydown', (e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              const role = card.getAttribute('data-set-role');
+              if (role) selectAuthRole(role);
+            }
+          });
         });
 
         // Password eye visibility toggle

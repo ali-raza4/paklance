@@ -250,7 +250,7 @@ export class AuthService {
    * Google OAuth handler: exchanges authorization code or verifies ID token,
    * finds or provisions specialist user, and returns user data + JWT accessToken.
    */
-  async googleAuth(data: { code?: string; credential?: string }) {
+  async googleAuth(data: { code?: string; credential?: string; role?: Role | string }) {
     const clientId =
       process.env.GOOGLE_CLIENT_ID || process.env.Google_Client_Id;
     const clientSecret =
@@ -344,6 +344,18 @@ export class AuthService {
         });
       }
     } else {
+      let initialRole: Role = Role.SPECIALIST;
+      if (data.role) {
+        const r = String(data.role).toUpperCase();
+        if (r === 'ADMIN') {
+          throw new BadRequestException('Direct registration as administrator is strictly forbidden.');
+        }
+        if (r === 'CLIENT') {
+          initialRole = Role.CLIENT;
+        } else if (r === 'SPECIALIST') {
+          initialRole = Role.SPECIALIST;
+        }
+      }
       const randomPassword = crypto.randomBytes(32).toString('hex');
       const passwordHash = await bcrypt.hash(randomPassword, 10);
       user = await this.prisma.user.create({
@@ -351,7 +363,7 @@ export class AuthService {
           email,
           name: payload.name || null,
           passwordHash,
-          role: Role.SPECIALIST,
+          role: initialRole,
           isEmailVerified: true,
           avatarUrl: payload.picture || null,
         },
